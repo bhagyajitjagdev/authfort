@@ -22,7 +22,7 @@ import {
   type ComputedRef,
   type InjectionKey,
 } from 'vue';
-import type { AuthClient, AuthState, AuthUser } from '../types';
+import type { AuthClient, AuthState, AuthUser } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Injection key

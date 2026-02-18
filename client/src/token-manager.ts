@@ -7,7 +7,7 @@
  * - Single refresh promise deduplication
  */
 
-import type { ServerAuthResponse } from './types';
+import type { ServerAuthResponse } from './types.js';
 
 export class TokenManager {
   private _accessToken: string | null = null;

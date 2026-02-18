@@ -13,7 +13,7 @@
  */
 
 import { writable, derived, type Readable } from 'svelte/store';
-import type { AuthClient, AuthState, AuthUser } from '../types';
+import type { AuthClient, AuthState, AuthUser } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Store factory

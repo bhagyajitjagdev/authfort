@@ -18,7 +18,7 @@ import {
   useEffect,
   type ReactNode,
 } from 'react';
-import type { AuthClient, AuthState, AuthUser } from '../types';
+import type { AuthClient, AuthState, AuthUser } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Context

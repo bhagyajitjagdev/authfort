@@ -2,8 +2,8 @@
  * AuthFort client — main implementation.
  */
 
-import { AuthClientError, parseErrorResponse } from './errors';
-import { TokenManager } from './token-manager';
+import { AuthClientError, parseErrorResponse } from './errors.js';
+import { TokenManager } from './token-manager.js';
 import type {
   AuthClient,
   AuthClientConfig,
@@ -11,7 +11,7 @@ import type {
   AuthUser,
   ServerAuthResponse,
   ServerUserResponse,
-} from './types';
+} from './types.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
