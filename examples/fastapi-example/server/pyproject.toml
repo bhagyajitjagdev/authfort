@@ -1,0 +1,12 @@
+[project]
+name = "authfort-example-server"
+version = "0.1.0"
+description = "Example auth server using AuthFort"
+requires-python = ">=3.11"
+dependencies = [
+    "authfort[fastapi]",
+    "uvicorn>=0.30",
+]
+
+[tool.uv.sources]
+authfort = { path = "../../../server", editable = true }

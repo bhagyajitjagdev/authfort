@@ -1,0 +1,62 @@
+{
+  "name": "authfort-client",
+  "version": "0.0.2",
+  "description": "TypeScript client SDK for AuthFort authentication",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react/index.js",
+      "types": "./dist/react/index.d.ts"
+    },
+    "./vue": {
+      "import": "./dist/vue/index.js",
+      "types": "./dist/vue/index.d.ts"
+    },
+    "./svelte": {
+      "import": "./dist/svelte/index.js",
+      "types": "./dist/svelte/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "vue": ">=3",
+    "svelte": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "vue": { "optional": true },
+    "svelte": { "optional": true }
+  },
+  "keywords": ["auth", "authentication", "jwt", "oauth", "typescript"],
+  "author": "Bhagyajit Jagdev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bhagyajitjagdev/authfort"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^28.1.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "svelte": "^5.51.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "vue": "^3.5.28"
+  }
+}

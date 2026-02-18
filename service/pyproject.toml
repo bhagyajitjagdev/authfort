@@ -1,0 +1,34 @@
+[project]
+name = "authfort-service"
+version = "0.0.2"
+description = "Lightweight JWT verification for AuthFort-powered microservices"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [{name = "Bhagyajit Jagdev"}]
+
+[project.urls]
+Homepage = "https://github.com/bhagyajitjagdev/authfort"
+Repository = "https://github.com/bhagyajitjagdev/authfort"
+dependencies = [
+    "cryptography>=46.0.5",
+    "httpx>=0.28.1",
+    "pyjwt[crypto]>=2.11.0",
+]
+
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.104"]
+
+[dependency-groups]
+dev = [
+    "fastapi>=0.129.0",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/authfort_service"]

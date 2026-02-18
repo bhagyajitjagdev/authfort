@@ -1,0 +1,12 @@
+[project]
+name = "authfort-example-service"
+version = "0.1.0"
+description = "Example microservice using authfort-service for JWT verification"
+requires-python = ">=3.11"
+dependencies = [
+    "authfort-service[fastapi]",
+    "uvicorn>=0.30",
+]
+
+[tool.uv.sources]
+authfort-service = { path = "../../../service", editable = true }

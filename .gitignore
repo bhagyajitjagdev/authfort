@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# uv
+uv.lock
+
+# Node
+node_modules/
+client/dist/
+
+# Alembic — migration files ARE committed (they're version-controlled schema changes)
+
+docs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.db

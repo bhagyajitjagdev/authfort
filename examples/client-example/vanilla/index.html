@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuthFort — Vanilla JS Example</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+    h1 { margin-bottom: 8px; }
+    .subtitle { color: #666; margin-bottom: 24px; }
+    section { margin-bottom: 24px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+    h2 { margin-bottom: 12px; font-size: 1.1em; }
+    label { display: block; margin-bottom: 4px; font-size: 0.9em; color: #444; }
+    input { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-secondary { background: #6b7280; color: white; }
+    button:hover { opacity: 0.9; }
+    #status { padding: 12px; border-radius: 4px; margin-bottom: 16px; font-weight: 500; }
+    #status.authenticated { background: #dcfce7; color: #166534; }
+    #status.unauthenticated { background: #fee2e2; color: #991b1b; }
+    #status.loading { background: #fef9c3; color: #854d0e; }
+    #user-info { font-size: 0.9em; white-space: pre-wrap; background: #f9fafb; padding: 12px; border-radius: 4px; }
+    #log { font-family: monospace; font-size: 0.8em; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px; max-height: 200px; overflow-y: auto; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>AuthFort Client</h1>
+  <p class="subtitle">Vanilla JS example — no framework, just the core SDK</p>
+
+  <div id="status" class="unauthenticated">Checking session...</div>
+
+  <!-- Auth forms (shown when logged out) -->
+  <section id="auth-forms">
+    <h2>Sign Up</h2>
+    <form id="signup-form">
+      <label>Email</label>
+      <input type="email" name="email" placeholder="user@example.com" required>
+      <label>Password</label>
+      <input type="password" name="password" placeholder="password" required>
+      <label>Name (optional)</label>
+      <input type="text" name="name" placeholder="John Doe">
+      <button type="submit" class="btn-primary">Sign Up</button>
+    </form>
+
+    <h2 style="margin-top: 16px;">Sign In</h2>
+    <form id="signin-form">
+      <label>Email</label>
+      <input type="email" name="email" placeholder="user@example.com" required>
+      <label>Password</label>
+      <input type="password" name="password" placeholder="password" required>
+      <button type="submit" class="btn-primary">Sign In</button>
+    </form>
+
+    <!-- OAuth (uncomment if your server has providers configured) -->
+    <!--
+    <h2 style="margin-top: 16px;">Or sign in with</h2>
+    <button class="btn-secondary" onclick="auth.signInWithProvider('google')">Google</button>
+    <button class="btn-secondary" onclick="auth.signInWithProvider('github')">GitHub</button>
+    -->
+  </section>
+
+  <!-- User info (shown when logged in) -->
+  <section id="user-section" class="hidden">
+    <h2>User</h2>
+    <div id="user-info"></div>
+    <div style="margin-top: 12px;">
+      <button class="btn-secondary" onclick="fetchProfile()">Fetch Profile (auth.fetch)</button>
+      <button class="btn-danger" onclick="handleSignOut()">Sign Out</button>
+    </div>
+  </section>
+
+  <!-- Log -->
+  <section>
+    <h2>Log</h2>
+    <div id="log"></div>
+  </section>
+
+  <script type="module">
+    import { createAuthClient } from '../../client/dist/index.js';
+
+    // -----------------------------------------------------------------------
+    // Create the client
+    // -----------------------------------------------------------------------
+    const auth = createAuthClient({
+      baseUrl: 'http://localhost:8000/auth',
+      tokenMode: 'cookie',   // 'cookie' (default) or 'bearer'
+      refreshBuffer: 30,      // refresh 30s before expiry
+    });
+
+    // Make auth available globally for onclick handlers
+    window.auth = auth;
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
+    const $ = (sel) => document.querySelector(sel);
+    const log = (msg) => {
+      const el = $('#log');
+      el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
+    };
+
+    function showUser(user) {
+      $('#user-info').textContent = JSON.stringify(user, null, 2);
+    }
+
+    // -----------------------------------------------------------------------
+    // Auth state listener — updates UI on every state change
+    // -----------------------------------------------------------------------
+    auth.onAuthStateChange((state, user) => {
+      const statusEl = $('#status');
+      statusEl.className = state;
+
+      if (state === 'authenticated') {
+        statusEl.textContent = `Signed in as ${user.email}`;
+        $('#auth-forms').classList.add('hidden');
+        $('#user-section').classList.remove('hidden');
+        showUser(user);
+        log(`State: authenticated — ${user.email}`);
+      } else if (state === 'loading') {
+        statusEl.textContent = 'Checking session...';
+        log('State: loading');
+      } else {
+        statusEl.textContent = 'Not signed in';
+        $('#auth-forms').classList.remove('hidden');
+        $('#user-section').classList.add('hidden');
+        log('State: unauthenticated');
+      }
+    });
+
+    // -----------------------------------------------------------------------
+    // Sign Up
+    // -----------------------------------------------------------------------
+    $('#signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      try {
+        const user = await auth.signUp({
+          email: form.get('email'),
+          password: form.get('password'),
+          name: form.get('name') || undefined,
+        });
+        log(`Signed up: ${user.email}`);
+      } catch (err) {
+        log(`Signup error: ${err.code ?? err.message}`);
+      }
+    });
+
+    // -----------------------------------------------------------------------
+    // Sign In
+    // -----------------------------------------------------------------------
+    $('#signin-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      try {
+        const user = await auth.signIn({
+          email: form.get('email'),
+          password: form.get('password'),
+        });
+        log(`Signed in: ${user.email}`);
+      } catch (err) {
+        log(`Signin error: ${err.code ?? err.message}`);
+      }
+    });
+
+    // -----------------------------------------------------------------------
+    // Sign Out
+    // -----------------------------------------------------------------------
+    window.handleSignOut = async () => {
+      await auth.signOut();
+      log('Signed out');
+    };
+
+    // -----------------------------------------------------------------------
+    // Fetch with auth — uses auth.fetch() which auto-attaches credentials
+    // and retries once on 401
+    // -----------------------------------------------------------------------
+    window.fetchProfile = async () => {
+      try {
+        const res = await auth.fetch('http://localhost:8000/profile');
+        if (!res.ok) {
+          log(`Profile fetch failed: ${res.status}`);
+          return;
+        }
+        const data = await res.json();
+        log(`Profile: ${JSON.stringify(data)}`);
+      } catch (err) {
+        log(`Fetch error: ${err.message}`);
+      }
+    };
+
+    // -----------------------------------------------------------------------
+    // On page load — check for existing session (e.g., after OAuth redirect)
+    // -----------------------------------------------------------------------
+    log('Initializing...');
+    auth.initialize().then(() => {
+      log('Init complete');
+    });
+  </script>
+</body>
+</html>

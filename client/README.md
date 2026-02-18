@@ -1,0 +1,141 @@
+# authfort-client
+
+TypeScript client SDK for AuthFort authentication.
+
+## Install
+
+```bash
+npm install authfort-client
+```
+
+## Quick Start
+
+```typescript
+import { createAuthClient } from 'authfort-client';
+
+const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie', // or 'bearer'
+});
+
+await auth.initialize();
+
+// Sign up / sign in
+await auth.signUp({ email: 'user@example.com', password: 'secret' });
+await auth.signIn({ email: 'user@example.com', password: 'secret' });
+
+// Authenticated fetch (auto-attaches credentials, retries on 401)
+const res = await auth.fetch('/api/profile');
+
+// OAuth
+auth.signInWithProvider('google');
+
+// Listen for auth state changes
+auth.onAuthStateChange((state, user) => {
+  console.log(state, user);
+});
+
+// Sign out
+await auth.signOut();
+```
+
+## React
+
+```tsx
+import { AuthProvider, useAuth } from 'authfort-client/react';
+
+// Wrap your app
+<AuthProvider client={auth}><App /></AuthProvider>
+
+// In components
+function Profile() {
+  const { user, isAuthenticated, client } = useAuth();
+  if (!isAuthenticated) return <p>Not signed in</p>;
+  return <p>Hello {user.email}</p>;
+}
+```
+
+## Vue
+
+```vue
+<script setup>
+import { provideAuth, useAuth } from 'authfort-client/vue';
+
+provideAuth(auth); // in root component
+
+const { user, isAuthenticated } = useAuth(); // in any child
+</script>
+```
+
+## Svelte
+
+```svelte
+<script>
+import { createAuthStore } from 'authfort-client/svelte';
+
+const { user, isAuthenticated, client } = createAuthStore(auth);
+</script>
+
+{#if $isAuthenticated}
+  Hello {$user.email}
+{/if}
+```
+
+## Authenticated Requests
+
+`auth.fetch()` is native `fetch` with auth added — same `RequestInit`, same `Response`. Headers, streaming, AbortController all work as normal.
+
+```typescript
+// JSON POST
+const res = await auth.fetch('/api/data', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'test' }),
+});
+
+// Streaming
+const stream = await auth.fetch('/api/stream');
+const reader = stream.body.getReader();
+
+// AbortController
+const controller = new AbortController();
+await auth.fetch('/api/slow', { signal: controller.signal });
+```
+
+If a request gets a 401, it automatically refreshes the token and retries once. Multiple concurrent 401s share a single refresh call.
+
+### Using with Axios / TanStack Query (bearer mode)
+
+In cookie mode, any HTTP client works out of the box — the browser sends cookies automatically. In bearer mode, if you prefer your own HTTP client over `auth.fetch()`, use `getToken()` to get a valid token:
+
+```typescript
+// Axios interceptor
+axios.interceptors.request.use(async (config) => {
+  const token = await auth.getToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// TanStack Query
+const { data } = useQuery({
+  queryKey: ['profile'],
+  queryFn: async () => {
+    const token = await auth.getToken();
+    const res = await fetch('/api/profile', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+});
+```
+
+`getToken()` automatically refreshes if the token is expired, and deduplicates concurrent refresh calls.
+
+## Token Modes
+
+- **cookie** (default) — httponly cookies, JS never touches tokens
+- **bearer** — access token in memory, `Authorization: Bearer` header
+
+## License
+
+[MIT](../LICENSE)
