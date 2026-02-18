@@ -6,15 +6,15 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [{name = "Bhagyajit Jagdev"}]
-
-[project.urls]
-Homepage = "https://github.com/bhagyajitjagdev/authfort"
-Repository = "https://github.com/bhagyajitjagdev/authfort"
 dependencies = [
     "cryptography>=46.0.5",
     "httpx>=0.28.1",
     "pyjwt[crypto]>=2.11.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/bhagyajitjagdev/authfort"
+Repository = "https://github.com/bhagyajitjagdev/authfort"
 
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.104"]

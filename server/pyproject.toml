@@ -6,10 +6,6 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
 authors = [{name = "Bhagyajit Jagdev"}]
-
-[project.urls]
-Homepage = "https://github.com/bhagyajitjagdev/authfort"
-Repository = "https://github.com/bhagyajitjagdev/authfort"
 dependencies = [
     "alembic>=1.18.4",
     "argon2-cffi>=25.1.0",
@@ -19,6 +15,10 @@ dependencies = [
     "pyjwt[crypto]>=2.11.0",
     "sqlmodel>=0.0.34",
 ]
+
+[project.urls]
+Homepage = "https://github.com/bhagyajitjagdev/authfort"
+Repository = "https://github.com/bhagyajitjagdev/authfort"
 
 [project.optional-dependencies]
 sqlite = ["aiosqlite>=0.19"]
