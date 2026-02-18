@@ -43,11 +43,13 @@ class JWKSFetcher:
         cache_ttl: float = 3600.0,
         min_refetch_interval: float = 30.0,
         http_timeout: float = 10.0,
+        _transport: httpx.BaseTransport | None = None,
     ) -> None:
         self._jwks_url = jwks_url
         self._cache_ttl = cache_ttl
         self._min_refetch_interval = min_refetch_interval
         self._http_timeout = http_timeout
+        self._transport = _transport
         self._cache = CachedJWKS()
         self._lock = asyncio.Lock()
         self._last_fetch_attempt: float = 0.0
@@ -93,7 +95,10 @@ class JWKSFetcher:
 
     async def _fetch(self) -> None:
         """Fetch JWKS from the server and update cache."""
-        async with httpx.AsyncClient(timeout=self._http_timeout) as client:
+        kwargs: dict = {"timeout": self._http_timeout}
+        if self._transport is not None:
+            kwargs["transport"] = self._transport
+        async with httpx.AsyncClient(**kwargs) as client:
             response = await client.get(self._jwks_url)
             response.raise_for_status()
             jwks_data = response.json()
