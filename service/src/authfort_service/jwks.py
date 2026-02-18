@@ -52,7 +52,7 @@ class JWKSFetcher:
         self._transport = _transport
         self._cache = CachedJWKS()
         self._lock = asyncio.Lock()
-        self._last_fetch_attempt: float = 0.0
+        self._last_fetch_attempt: float = float("-inf")
 
     async def get_key(self, kid: str) -> PyJWK | None:
         """Get a public key by kid. Refreshes cache if stale."""
