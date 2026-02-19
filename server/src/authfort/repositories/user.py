@@ -2,6 +2,7 @@
 
 import uuid
 
+from sqlalchemy import update as sa_update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -60,12 +61,12 @@ async def ban_user(session: AsyncSession, user_id: uuid.UUID) -> None:
     """Ban a user — sets banned=True, bumps token_version, revokes all refresh tokens."""
     from authfort.repositories import refresh_token as refresh_token_repo
 
-    user = await session.get(User, user_id)
-    if user is None:
+    stmt = sa_update(User).where(User.id == user_id).values(
+        banned=True, token_version=User.token_version + 1,
+    )
+    result = await session.execute(stmt)
+    if result.rowcount == 0:
         raise ValueError(f"User {user_id} not found")
-    user.banned = True
-    user.token_version += 1
-    session.add(user)
     await refresh_token_repo.revoke_all_user_refresh_tokens(session, user_id)
     await session.flush()
 
@@ -81,12 +82,17 @@ async def unban_user(session: AsyncSession, user_id: uuid.UUID) -> None:
 
 
 async def bump_token_version(session: AsyncSession, user_id: uuid.UUID) -> int:
-    """Bump the user's token_version for immediate invalidation. Returns the new version."""
-    user = await session.get(User, user_id)
-    if user is None:
+    """Bump the user's token_version for immediate invalidation. Returns the new version.
+
+    Uses atomic SQL increment to avoid race conditions under concurrent requests.
+    """
+    stmt = sa_update(User).where(User.id == user_id).values(
+        token_version=User.token_version + 1,
+    )
+    result = await session.execute(stmt)
+    if result.rowcount == 0:
         raise ValueError(f"User {user_id} not found")
-    user.token_version += 1
-    session.add(user)
     await session.flush()
+    user = await session.get(User, user_id)
     await session.refresh(user)
     return user.token_version

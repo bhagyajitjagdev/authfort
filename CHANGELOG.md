@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2026-02-19
+
+### Fixed
+- **server**: OAuth ban check — banned users can no longer login via OAuth providers
+- **server**: OAuth email normalization — provider emails are now lowercased before lookup, preventing duplicate accounts
+- **server**: OAuth concurrent signup — `IntegrityError` on duplicate email is caught gracefully instead of crashing
+- **server**: Atomic `bump_token_version()` — uses SQL-level increment to prevent race conditions under concurrent load
+- **server**: Atomic `ban_user()` — uses SQL-level update for banned flag and token_version
+- **server**: Atomic `revoke_all_user_refresh_tokens()` — single UPDATE statement prevents tokens created mid-revocation from surviving
+- **server**: Atomic signing key deactivation — prevents race condition during concurrent key rotation
+- **server**: Introspection now checks session validity via `sid` claim — revoked sessions return `active: false`
+- **server**: Password change and reset now revoke all refresh tokens (prevents auto-recovery via refresh)
+- **service**: Introspection cache uses hashed token keys instead of raw tokens for privacy
+
+### Added
+- **server**: OAuth `login_failed` events fired on all error paths (provider error, missing params, state invalid, auth failure)
+- **server**: `auth.cleanup_expired_tokens()` — deletes expired verification tokens to prevent database bloat
+- **server**: Migration `002_composite_index` — composite index on `refresh_tokens(user_id, revoked)` for query performance
+- **server**: `get_refresh_token_by_id()` repository function for session validity lookups
+
+### Changed
+- **server**: Default test database changed from PostgreSQL to SQLite (no external DB needed to run tests)
+
 ## [0.0.6] - 2026-02-19
 
 ### Breaking

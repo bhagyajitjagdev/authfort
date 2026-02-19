@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import jwt
+from sqlalchemy.exc import IntegrityError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from authfort.config import AuthFortConfig
@@ -202,11 +203,17 @@ async def oauth_authenticate(
         session, provider.name, user_info.provider_account_id,
     )
 
+    # Normalize email for consistent lookups
+    normalized_email = user_info.email.strip().lower()
+
     if account is not None:
         # Returning user — load and update provider tokens
         user = await user_repo.get_user_by_id(session, account.user_id)
         if user is None:
             raise AuthError("User not found", code="user_not_found", status_code=401)
+
+        if user.banned:
+            raise AuthError("This account has been banned", code="user_banned", status_code=403)
 
         account.access_token = user_info.access_token
         account.refresh_token = user_info.refresh_token
@@ -214,19 +221,31 @@ async def oauth_authenticate(
         await session.flush()
     else:
         # New OAuth link — auto-link by email or create new user
-        user = await user_repo.get_user_by_email(session, user_info.email)
+        user = await user_repo.get_user_by_email(session, normalized_email)
         is_new_user = user is None
 
         if is_new_user:
-            user = await user_repo.create_user(
-                session,
-                email=user_info.email,
-                password_hash=None,
-                name=user_info.name,
-                email_verified=user_info.email_verified,
-            )
-        elif user_info.email_verified and not user.email_verified:
-            await user_repo.update_user(session, user, email_verified=True)
+            try:
+                user = await user_repo.create_user(
+                    session,
+                    email=normalized_email,
+                    password_hash=None,
+                    name=user_info.name,
+                    email_verified=user_info.email_verified,
+                )
+            except IntegrityError:
+                # Concurrent OAuth signup with same email — re-fetch the winner
+                await session.rollback()
+                user = await user_repo.get_user_by_email(session, normalized_email)
+                if user is None:
+                    raise AuthError(
+                        "User creation failed", code="user_creation_failed", status_code=500,
+                    )
+        else:
+            if user.banned:
+                raise AuthError("This account has been banned", code="user_banned", status_code=403)
+            if user_info.email_verified and not user.email_verified:
+                await user_repo.update_user(session, user, email_verified=True)
 
         await account_repo.create_account(
             session,

@@ -71,13 +71,29 @@ def create_oauth_router(
         error_description: str | None = None,
     ):
         """OAuth callback — exchanges code for tokens and logs user in."""
+
+        def _fire_login_failed(reason: str) -> None:
+            """Fire a login_failed event on the request-scoped collector (if available)."""
+            collector = get_collector()
+            if collector is not None:
+                from authfort.events import LoginFailed
+
+                collector.collect("login_failed", LoginFailed(
+                    email=None,
+                    reason=reason,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("User-Agent"),
+                ))
+
         if error:
+            _fire_login_failed("oauth_provider_error")
             raise HTTPException(
                 status_code=400,
                 detail={"error": "oauth_provider_error", "message": error_description or error},
             )
 
         if not code or not state:
+            _fire_login_failed("oauth_missing_params")
             raise HTTPException(
                 status_code=400,
                 detail={"error": "oauth_missing_params", "message": "Missing code or state parameter"},
@@ -95,6 +111,7 @@ def create_oauth_router(
                 session, config=config, state=state, expected_provider=provider_name,
             )
         except AuthError as e:
+            _fire_login_failed("oauth_state_invalid")
             raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
 
         redirect_uri = provider.redirect_uri
@@ -114,6 +131,7 @@ def create_oauth_router(
                 events=get_collector(),
             )
         except AuthError as e:
+            _fire_login_failed(e.code)
             raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
 
         set_auth_cookies(config, response, result)

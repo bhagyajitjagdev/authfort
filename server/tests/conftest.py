@@ -16,10 +16,7 @@ pytestmark = pytest.mark.asyncio
 
 # If DATABASE_URL=sqlite, auto-create a temp file for the test session.
 # For PostgreSQL, use the URL as-is.
-_raw_url = os.environ.get(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/authfort",
-)
+_raw_url = os.environ.get("DATABASE_URL", "sqlite")
 
 _sqlite_tmp = None
 if _raw_url.startswith("sqlite"):

@@ -2,6 +2,7 @@
 
 import uuid
 
+from sqlalchemy import update as sa_update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -41,6 +42,16 @@ async def get_refresh_token_by_hash(
     return result.first()
 
 
+async def get_refresh_token_by_id(
+    session: AsyncSession,
+    token_id: uuid.UUID,
+) -> RefreshToken | None:
+    """Look up a refresh token by its primary key ID."""
+    statement = select(RefreshToken).where(RefreshToken.id == token_id)
+    result = await session.exec(statement)
+    return result.first()
+
+
 async def revoke_refresh_token(
     session: AsyncSession,
     token: RefreshToken,
@@ -62,20 +73,19 @@ async def revoke_all_user_refresh_tokens(
 ) -> None:
     """Revoke ALL refresh tokens for a user (nuclear option — used for theft detection).
 
+    Uses atomic SQL UPDATE to avoid race conditions with concurrent token creation.
+
     Args:
         exclude: If provided, skip this token ID (keep one session alive).
     """
-    statement = select(RefreshToken).where(
+    stmt = sa_update(RefreshToken).where(
         RefreshToken.user_id == user_id,
         RefreshToken.revoked == False,
     )
     if exclude is not None:
-        statement = statement.where(RefreshToken.id != exclude)
-    result = await session.exec(statement)
-    tokens = result.all()
-    for token in tokens:
-        token.revoked = True
-        session.add(token)
+        stmt = stmt.where(RefreshToken.id != exclude)
+    stmt = stmt.values(revoked=True)
+    await session.execute(stmt)
     await session.flush()
 
 
