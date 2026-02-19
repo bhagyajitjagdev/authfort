@@ -6,4 +6,4 @@
 
 export { createAuthClient } from './client.js';
 export { AuthClientError } from './errors.js';
-export type { AuthClientConfig, AuthClient, AuthState, AuthUser } from './types.js';
+export type { AuthClientConfig, AuthClient, AuthState, AuthUser, TokenStorage } from './types.js';

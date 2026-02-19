@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2026-02-19
+
+### Fixed
+- **server**: `RefreshRequest.refresh_token` now optional — fixes 422 when client sends empty body with cookie
+
+### Changed
+- **client**: **Breaking (bearer mode only):** `tokenMode: 'bearer'` now requires `tokenStorage` option
+- **client**: Bearer mode sends refresh token in request body (no longer relies on cookies)
+- **client**: Bearer mode `fetch()` no longer sends `credentials: 'include'`
+
+### Added
+- **client**: `TokenStorage` interface — pluggable storage adapter for refresh tokens in bearer mode
+- **client**: Works with any storage: `localStorage`, `expo-secure-store`, `react-native-keychain`, etc.
+
 ## [0.0.4] - 2026-02-19
 
 ### Added
@@ -64,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.5]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.1...v0.0.2

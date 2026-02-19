@@ -1,6 +1,6 @@
 """AuthFort — Authentication and authorization library for Python."""
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 from authfort.authfort import AuthFort
 from authfort.config import CookieConfig

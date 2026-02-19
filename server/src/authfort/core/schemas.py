@@ -56,7 +56,7 @@ class LoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     """Refresh token input."""
-    refresh_token: str
+    refresh_token: str | None = None
 
 
 # Rebuild forward refs
