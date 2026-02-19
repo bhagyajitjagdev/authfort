@@ -120,6 +120,25 @@ class KeyRotated(Event):
     new_kid: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class PasswordResetRequested(Event):
+    """Fired when a password reset token is created."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class PasswordReset(Event):
+    """Fired when a password is successfully reset via token."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+
+
+@dataclass(frozen=True, slots=True)
+class PasswordChanged(Event):
+    """Fired when a user changes their password (old password verified)."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+
+
 # ---------------------------------------------------------------------------
 # Event name mapping
 # ---------------------------------------------------------------------------
@@ -137,6 +156,9 @@ EVENT_MAP: dict[str, type[Event]] = {
     "token_refreshed": TokenRefreshed,
     "logout": Logout,
     "key_rotated": KeyRotated,
+    "password_reset_requested": PasswordResetRequested,
+    "password_reset": PasswordReset,
+    "password_changed": PasswordChanged,
 }
 
 
