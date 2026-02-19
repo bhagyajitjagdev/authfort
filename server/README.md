@@ -61,7 +61,7 @@ async def profile(user=Depends(auth.current_user)):
 - Event hooks (15 event types)
 - JWKS + key rotation
 - Cookie and bearer token modes
-- Multi-database: PostgreSQL (default), SQLite, MySQL
+- Multi-database: PostgreSQL (default), SQLite, MySQL via SQLAlchemy
 
 ## OAuth
 
