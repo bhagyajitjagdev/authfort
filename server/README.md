@@ -54,9 +54,11 @@ async def profile(user=Depends(auth.current_user)):
 - Refresh token rotation with theft detection
 - OAuth 2.1 with PKCE (Google, GitHub)
 - Role-based access control
-- Session management (list, revoke)
+- Password reset (programmatic — you control delivery)
+- Change password (with old password verification)
+- Session management (list, revoke, revoke all except current)
 - Ban/unban users
-- Event hooks
+- Event hooks (15 event types)
 - JWKS + key rotation
 - Cookie and bearer token modes
 - Multi-database: PostgreSQL (default), SQLite, MySQL
@@ -85,9 +87,19 @@ result = await auth.create_user("admin@example.com", "password", name="Admin")
 await auth.add_role(user_id, "admin")
 await auth.remove_role(user_id, "editor")
 
+# Password reset (you handle delivery — email, SMS, etc.)
+token = await auth.create_password_reset_token("user@example.com")
+if token:
+    send_email(email, f"https://myapp.com/reset?token={token}")
+await auth.reset_password(token, "new_password")
+
+# Change password (authenticated)
+await auth.change_password(user_id, "old_password", "new_password")
+
 # Sessions
 sessions = await auth.get_sessions(user_id, active_only=True)
 await auth.revoke_session(session_id)
+await auth.revoke_all_sessions(user_id, exclude=user.session_id)  # keep current
 
 # Ban/unban
 await auth.ban_user(user_id)

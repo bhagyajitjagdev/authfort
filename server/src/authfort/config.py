@@ -29,3 +29,4 @@ class AuthFortConfig:
     key_rotation_ttl_seconds: int = 60 * 60 * 48  # 48 hours
     introspect_secret: str | None = None
     allow_signup: bool = True
+    password_reset_ttl_seconds: int = 3600  # 1 hour

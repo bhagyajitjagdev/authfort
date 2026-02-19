@@ -17,6 +17,7 @@ def create_access_token(
     private_key: str,
     config: AuthFortConfig,
     name: str | None = None,
+    session_id: uuid.UUID | None = None,
 ) -> str:
     """Create a signed JWT access token.
 
@@ -29,6 +30,7 @@ def create_access_token(
         private_key: PEM-encoded private key for signing.
         config: AuthFort configuration.
         name: Optional display name.
+        session_id: Optional session (refresh token) ID to embed as `sid`.
 
     Returns:
         Encoded JWT string.
@@ -40,6 +42,7 @@ def create_access_token(
         "name": name,
         "roles": roles,
         "ver": token_version,
+        "sid": str(session_id) if session_id else None,
         "iat": now,
         "exp": now + timedelta(seconds=config.access_token_expire_seconds),
         "iss": config.jwt_issuer,

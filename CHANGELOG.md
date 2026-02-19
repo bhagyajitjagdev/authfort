@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **server**: `create_password_reset_token(email)` — generates opaque reset token (returns `None` for unknown/OAuth-only users to prevent enumeration)
+- **server**: `reset_password(token, new_password)` — one-time use, bumps `token_version` to invalidate all existing JWTs
+- **server**: `change_password(user_id, old_password, new_password)` — verifies old password, bumps `token_version`
+- **server**: `revoke_all_sessions(user_id, *, exclude=session_id)` — new `exclude` param to keep current session alive
+- **server**: `session_id` field on `UserResponse` — embedded in JWT as `sid` claim, available via `current_user` dependency
+- **server**: `password_reset_ttl` config param (default 1 hour)
+- **server**: 3 new events: `password_reset_requested`, `password_reset`, `password_changed`
+- **server**: 28 new tests (198 total)
+
 ## [0.0.3] - 2026-02-18
 
 ### Fixed

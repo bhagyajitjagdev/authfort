@@ -28,6 +28,7 @@ class UserResponse(BaseModel):
     avatar_url: str | None
     roles: list[str]
     created_at: datetime
+    session_id: uuid.UUID | None = None
 
 
 class SessionResponse(BaseModel):

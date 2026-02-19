@@ -50,3 +50,19 @@ async def delete_verification_token(
     if token is not None:
         await session.delete(token)
         await session.flush()
+
+
+async def delete_verification_tokens_by_user_and_type(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    type: str,
+) -> None:
+    """Delete all verification tokens for a user with a given type."""
+    statement = select(VerificationToken).where(
+        VerificationToken.user_id == user_id,
+        VerificationToken.type == type,
+    )
+    result = await session.exec(statement)
+    for token in result.all():
+        await session.delete(token)
+    await session.flush()

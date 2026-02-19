@@ -6,6 +6,7 @@ Framework-agnostic business logic. All functions take an AsyncSession and config
 from __future__ import annotations
 
 import re
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,7 @@ from authfort.repositories import refresh_token as refresh_token_repo
 from authfort.repositories import role as role_repo
 from authfort.repositories import signing_key as signing_key_repo
 from authfort.repositories import user as user_repo
+from authfort.repositories import verification_token as verification_token_repo
 from authfort.utils.passwords import hash_password, verify_password
 
 if TYPE_CHECKING:
@@ -232,6 +234,148 @@ async def logout(
             events.collect("logout", LogoutEvent(user_id=stored_token.user_id))
 
 
+async def create_password_reset_token(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    email: str,
+    events: EventCollector | None = None,
+) -> str | None:
+    """Create a password reset token for a user.
+
+    Returns the raw token string if the user exists and has a password,
+    or None if the user is not found or is OAuth-only (prevents user enumeration).
+
+    The caller is responsible for delivering the token (email, SMS, etc.).
+    """
+    email = email.strip().lower()
+    user = await user_repo.get_user_by_email(session, email)
+    if user is None or user.password_hash is None:
+        return None
+
+    # Delete any existing password_reset tokens for this user
+    await verification_token_repo.delete_verification_tokens_by_user_and_type(
+        session, user.id, "password_reset",
+    )
+
+    raw_token, token_hash = generate_refresh_token()
+    expires_at = datetime.now(UTC) + timedelta(seconds=config.password_reset_ttl_seconds)
+    await verification_token_repo.create_verification_token(
+        session,
+        user_id=user.id,
+        token_hash=token_hash,
+        type="password_reset",
+        expires_at=expires_at,
+    )
+
+    if events is not None:
+        from authfort.events import PasswordResetRequested
+
+        events.collect("password_reset_requested", PasswordResetRequested(
+            user_id=user.id, email=user.email,
+        ))
+
+    return raw_token
+
+
+async def reset_password(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    token: str,
+    new_password: str,
+    events: EventCollector | None = None,
+) -> bool:
+    """Reset a user's password using a reset token.
+
+    Validates the token, updates the password, bumps token_version
+    (invalidating all existing JWTs), and deletes the token.
+
+    Raises:
+        AuthError: If the token is invalid or expired (code: invalid_reset_token).
+    """
+    token_hash = hash_refresh_token(token)
+    stored = await verification_token_repo.get_verification_token_by_hash(session, token_hash)
+
+    if stored is None or stored.type != "password_reset":
+        raise AuthError(
+            "Invalid or expired reset token",
+            code="invalid_reset_token",
+            status_code=400,
+        )
+
+    if stored.expires_at < datetime.now(UTC):
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "Invalid or expired reset token",
+            code="invalid_reset_token",
+            status_code=400,
+        )
+
+    user = await user_repo.get_user_by_id(session, stored.user_id)
+    if user is None:
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "Invalid or expired reset token",
+            code="invalid_reset_token",
+            status_code=400,
+        )
+
+    hashed = hash_password(new_password)
+    await user_repo.update_user(session, user, password_hash=hashed)
+    await user_repo.bump_token_version(session, user.id)
+    await verification_token_repo.delete_verification_token(session, stored.id)
+
+    if events is not None:
+        from authfort.events import PasswordReset as PasswordResetEvent
+
+        events.collect("password_reset", PasswordResetEvent(user_id=user.id))
+
+    return True
+
+
+async def change_password(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    old_password: str,
+    new_password: str,
+    events: EventCollector | None = None,
+) -> None:
+    """Change a user's password (requires the old password).
+
+    Verifies the old password, hashes the new one, bumps token_version
+    to invalidate all existing JWTs (forces re-login everywhere).
+
+    Raises:
+        AuthError: If user not found (code: user_not_found, status: 404).
+        AuthError: If user is OAuth-only (code: oauth_account, status: 400).
+        AuthError: If old password is wrong (code: invalid_password, status: 401).
+    """
+    user = await user_repo.get_user_by_id(session, user_id)
+    if user is None:
+        raise AuthError("User not found", code="user_not_found", status_code=404)
+
+    if user.password_hash is None:
+        raise AuthError(
+            "This account uses social login",
+            code="oauth_account",
+            status_code=400,
+        )
+
+    if not verify_password(old_password, user.password_hash):
+        raise AuthError("Invalid password", code="invalid_password", status_code=401)
+
+    hashed = hash_password(new_password)
+    await user_repo.update_user(session, user, password_hash=hashed)
+    await user_repo.bump_token_version(session, user.id)
+
+    if events is not None:
+        from authfort.events import PasswordChanged
+
+        events.collect("password_changed", PasswordChanged(user_id=user.id))
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -266,6 +410,18 @@ async def _issue_tokens(
 
     roles = await role_repo.get_roles(session, user.id)
 
+    # Create refresh token first so we can embed session_id in the JWT
+    raw_refresh, refresh_hash = generate_refresh_token()
+    expires_at = datetime.now(UTC) + timedelta(seconds=config.refresh_token_expire_seconds)
+    stored_token = await refresh_token_repo.create_refresh_token(
+        session,
+        user_id=user.id,
+        token_hash=refresh_hash,
+        expires_at=expires_at,
+        user_agent=user_agent,
+        ip_address=ip_address,
+    )
+
     access_token = create_access_token(
         user_id=user.id,
         email=user.email,
@@ -275,17 +431,7 @@ async def _issue_tokens(
         private_key=signing_key.private_key,
         config=config,
         name=user.name,
-    )
-
-    raw_refresh, refresh_hash = generate_refresh_token()
-    expires_at = datetime.now(UTC) + timedelta(seconds=config.refresh_token_expire_seconds)
-    await refresh_token_repo.create_refresh_token(
-        session,
-        user_id=user.id,
-        token_hash=refresh_hash,
-        expires_at=expires_at,
-        user_agent=user_agent,
-        ip_address=ip_address,
+        session_id=stored_token.id,
     )
 
     user_response = UserResponse(
@@ -296,6 +442,7 @@ async def _issue_tokens(
         avatar_url=user.avatar_url,
         roles=roles,
         created_at=user.created_at,
+        session_id=stored_token.id,
     )
 
     tokens = AuthTokens(
