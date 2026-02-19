@@ -2,8 +2,8 @@
 
 import uuid
 
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.models.user_role import UserRole
 
@@ -43,7 +43,7 @@ async def get_roles(
 ) -> list[str]:
     """Get all roles for a user."""
     statement = select(UserRole).where(UserRole.user_id == user_id)
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return [ur.role for ur in result.all()]
 
 
@@ -66,5 +66,5 @@ async def _get_user_role(
         UserRole.user_id == user_id,
         UserRole.role == role,
     )
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return result.first()

@@ -2,8 +2,8 @@
 
 import uuid
 
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.models.account import Account
 
@@ -41,7 +41,7 @@ async def get_account_by_provider(
         Account.provider == provider,
         Account.provider_account_id == provider_account_id,
     )
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return result.first()
 
 
@@ -51,5 +51,5 @@ async def get_accounts_by_user(
 ) -> list[Account]:
     """Get all accounts linked to a user."""
     statement = select(Account).where(Account.user_id == user_id)
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return list(result.all())

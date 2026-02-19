@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 from sqlalchemy.exc import IntegrityError
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.config import AuthFortConfig
 from authfort.core.auth import AuthError, _get_or_create_signing_key, _issue_tokens

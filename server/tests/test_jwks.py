@@ -258,8 +258,8 @@ class TestIntrospection:
             cookie=CookieConfig(secure=False),
         )
         async with short_auth._engine.begin() as conn:
-            from sqlmodel import SQLModel
-            await conn.run_sync(SQLModel.metadata.create_all)
+            from authfort.models import Base
+            await conn.run_sync(Base.metadata.create_all)
         try:
             from fastapi import FastAPI
             from httpx import ASGITransport

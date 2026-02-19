@@ -1,27 +1,23 @@
 import uuid
 from datetime import datetime
 
-from sqlmodel import Column, Field, SQLModel
+from sqlalchemy import Boolean, Integer, String, Text, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
 
+from authfort.models.base import Base
 from authfort.utils import TZDateTime, utc_now
 
 
-class User(SQLModel, table=True):
+class User(Base):
     __tablename__ = "authfort_users"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    email: str = Field(max_length=255, unique=True, index=True)
-    email_verified: bool = Field(default=False)
-    name: str | None = Field(default=None, max_length=255)
-    avatar_url: str | None = Field(default=None)
-    password_hash: str | None = Field(default=None, max_length=255)
-    token_version: int = Field(default=0)
-    banned: bool = Field(default=False)
-    created_at: datetime = Field(
-        default_factory=utc_now,
-        sa_column=Column(TZDateTime(), nullable=False),
-    )
-    updated_at: datetime = Field(
-        default_factory=utc_now,
-        sa_column=Column(TZDateTime(), nullable=False),
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    token_version: Mapped[int] = mapped_column(Integer, default=0)
+    banned: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)

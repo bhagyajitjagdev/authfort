@@ -2,9 +2,8 @@
 
 import uuid
 
-from sqlalchemy import update as sa_update
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import select, update as sa_update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.models.refresh_token import RefreshToken
 
@@ -38,7 +37,7 @@ async def get_refresh_token_by_hash(
 ) -> RefreshToken | None:
     """Look up a refresh token by its SHA-256 hash."""
     statement = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return result.first()
 
 
@@ -48,7 +47,7 @@ async def get_refresh_token_by_id(
 ) -> RefreshToken | None:
     """Look up a refresh token by its primary key ID."""
     statement = select(RefreshToken).where(RefreshToken.id == token_id)
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return result.first()
 
 
@@ -110,7 +109,7 @@ async def get_sessions_by_user(
             RefreshToken.expires_at > datetime.now(UTC),
         )
     statement = statement.order_by(RefreshToken.created_at.desc())
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return list(result.all())
 
 
@@ -123,7 +122,7 @@ async def revoke_session_by_id(
     Returns True if the session was found and revoked, False if not found or already revoked.
     """
     statement = select(RefreshToken).where(RefreshToken.id == session_id)
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     token = result.first()
     if token is None or token.revoked:
         return False

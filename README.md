@@ -249,7 +249,7 @@ const { state, user, isAuthenticated } = createAuthStore(auth);
 - **Python**: 3.11+
 - **Node.js**: 18+ (for client SDK)
 - **Database**: PostgreSQL, SQLite, or MySQL
-- **ORM**: SQLModel (included)
+- **ORM**: SQLAlchemy (included)
 
 ## Contributing
 
@@ -271,13 +271,12 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.4
+### Latest — v0.0.8
 
-- Password reset (`create_password_reset_token` + `reset_password`)
-- Change password with old password verification
-- `revoke_all_sessions` with `exclude` param (sign out other devices)
-- `session_id` on `UserResponse` (embedded in JWT as `sid` claim)
-- 3 new events: `password_reset_requested`, `password_reset`, `password_changed`
+- Replaced `sqlmodel` with plain `sqlalchemy[asyncio]>=2.0`
+- All models use SQLAlchemy `DeclarativeBase` + `mapped_column()`
+- Eliminated 85 false deprecation warnings in tests
+- Bundled migrations consolidated into single `001_initial_schema.py`
 
 ## License
 

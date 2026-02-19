@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.config import AuthFortConfig
 from authfort.core.auth import AuthError, login, logout, refresh, signup
