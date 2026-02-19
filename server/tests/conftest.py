@@ -8,7 +8,6 @@ import pytest
 import pytest_asyncio
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlmodel import SQLModel
 
 from authfort import AuthFort, CookieConfig
 from authfort.core.schemas import UserResponse
@@ -46,9 +45,7 @@ async def auth():
         database_url=TEST_DATABASE_URL,
         cookie=CookieConfig(secure=False),
     )
-    # Create tables (required for SQLite, no-op if tables already exist)
-    async with instance._engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    await instance.migrate()
     yield instance
     await instance.dispose()
 
@@ -85,8 +82,7 @@ async def auth_with_secret():
         cookie=CookieConfig(secure=False),
         introspect_secret="test-secret-123",
     )
-    async with instance._engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    await instance.migrate()
     yield instance
     await instance.dispose()
 
@@ -118,8 +114,7 @@ async def auth_with_oauth():
             GitHubProvider(client_id="test-github-id", client_secret="test-github-secret"),
         ],
     )
-    async with instance._engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    await instance.migrate()
     yield instance
     await instance.dispose()
 
@@ -145,8 +140,7 @@ async def auth_no_signup():
         cookie=CookieConfig(secure=False),
         allow_signup=False,
     )
-    async with instance._engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    await instance.migrate()
     yield instance
     await instance.dispose()
 

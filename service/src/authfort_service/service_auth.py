@@ -23,6 +23,9 @@ class ServiceAuth:
         introspect_url: URL of the introspection endpoint (optional).
         introspect_secret: Shared secret for introspection auth (optional).
         introspect_cache_ttl: Cache TTL for introspection results (default 0 = no cache).
+        cookie_name: Cookie name to read access token from (optional). When set,
+            the service checks the Bearer header first, then falls back to this cookie.
+            The service never *sets* cookies — only reads them.
     """
 
     def __init__(
@@ -35,6 +38,7 @@ class ServiceAuth:
         introspect_url: str | None = None,
         introspect_secret: str | None = None,
         introspect_cache_ttl: float = 0.0,
+        cookie_name: str | None = None,
     ) -> None:
         self._jwks_fetcher = JWKSFetcher(jwks_url, cache_ttl=jwks_cache_ttl)
         self._verifier = JWTVerifier(
@@ -48,6 +52,7 @@ class ServiceAuth:
                 cache_ttl=introspect_cache_ttl,
                 fail_open=True,
             )
+        self._cookie_name = cookie_name
         self._current_user_dep = None
 
     async def verify_token(self, token: str) -> TokenPayload:
@@ -86,7 +91,9 @@ class ServiceAuth:
         if self._current_user_dep is None:
             from authfort_service.integrations.fastapi import create_current_user_dep
 
-            self._current_user_dep = create_current_user_dep(self._verifier)
+            self._current_user_dep = create_current_user_dep(
+                self._verifier, cookie_name=self._cookie_name,
+            )
         return self._current_user_dep
 
     def require_role(self, role: str | list[str]):
@@ -99,4 +106,6 @@ class ServiceAuth:
         """
         from authfort_service.integrations.fastapi import create_require_role_dep
 
-        return create_require_role_dep(self._verifier, role)
+        return create_require_role_dep(
+            self._verifier, role, cookie_name=self._cookie_name,
+        )

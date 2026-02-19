@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-02-19
+
+### Breaking
+- All database tables renamed with `authfort_` prefix (requires fresh DB or manual rename)
+- `SQLModel.metadata.create_all()` replaced by `await auth.migrate()` at app startup
+
+### Added
+- **server**: `auth.migrate()` — bundled Alembic migrations, safe to rerun, tracks state in `authfort_alembic_version`
+- **server**: `alembic_exclude()` — helper for devs sharing a DB, filters `authfort_*` tables from Alembic autogenerate
+- **server**: `CookieConfig(domain=".example.com")` — subdomain cookie sharing for multi-service architectures
+- **service**: `ServiceAuth(cookie_name="access_token")` — cookie fallback when no Bearer header present
+
+### Changed
+- Table names: `users` → `authfort_users`, `accounts` → `authfort_accounts`, `refresh_tokens` → `authfort_refresh_tokens`, `user_roles` → `authfort_user_roles`, `signing_keys` → `authfort_signing_keys`, `verification_tokens` → `authfort_verification_tokens`
+
 ## [0.0.5] - 2026-02-19
 
 ### Fixed
@@ -78,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.6]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.2...v0.0.3

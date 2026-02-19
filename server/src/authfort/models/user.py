@@ -7,7 +7,7 @@ from authfort.utils import TZDateTime, utc_now
 
 
 class User(SQLModel, table=True):
-    __tablename__ = "users"
+    __tablename__ = "authfort_users"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     email: str = Field(max_length=255, unique=True, index=True)

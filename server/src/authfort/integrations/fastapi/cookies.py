@@ -21,6 +21,7 @@ def set_auth_cookies(config: AuthFortConfig, response: Response, auth_response: 
         httponly=c.httponly,
         samesite=c.samesite,
         path=c.path,
+        domain=c.domain,
     )
     response.set_cookie(
         key=c.refresh_cookie_name,
@@ -30,6 +31,7 @@ def set_auth_cookies(config: AuthFortConfig, response: Response, auth_response: 
         httponly=c.httponly,
         samesite=c.samesite,
         path=c.path,
+        domain=c.domain,
     )
 
 
@@ -38,5 +40,5 @@ def clear_auth_cookies(config: AuthFortConfig, response: Response) -> None:
     if config.cookie is None:
         return
     c = config.cookie
-    response.delete_cookie(key=c.access_cookie_name, path=c.path)
-    response.delete_cookie(key=c.refresh_cookie_name, path=c.path)
+    response.delete_cookie(key=c.access_cookie_name, path=c.path, domain=c.domain)
+    response.delete_cookie(key=c.refresh_cookie_name, path=c.path, domain=c.domain)

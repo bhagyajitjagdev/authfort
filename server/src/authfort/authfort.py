@@ -533,6 +533,36 @@ class AuthFort:
 
         return create_require_role_dep(self._config, self._get_db, role)
 
+    # ------ Migrations ------
+
+    async def migrate(self) -> None:
+        """Run pending database migrations. Safe to call on every startup.
+
+        Uses bundled Alembic migrations to create or update the schema.
+        Tracks state in the ``authfort_alembic_version`` table (separate
+        from any developer Alembic setup).
+        """
+        from pathlib import Path
+
+        from alembic import command
+        from alembic.config import Config
+
+        config = Config()
+        config.set_main_option(
+            "script_location",
+            str(Path(__file__).parent / "migrations"),
+        )
+
+        async with self._engine.begin() as conn:
+            await conn.run_sync(self._run_upgrade, config)
+
+    @staticmethod
+    def _run_upgrade(connection, config) -> None:
+        from alembic import command
+
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
+
     # ------ Lifecycle ------
 
     async def dispose(self) -> None:
