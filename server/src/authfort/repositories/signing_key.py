@@ -3,6 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import update as sa_update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -41,10 +42,9 @@ async def create_signing_key(
 ) -> SigningKey:
     """Create a new signing key. If is_current=True, deactivates any existing current key."""
     if is_current:
-        current = await get_current_signing_key(session)
-        if current is not None:
-            current.is_current = False
-            session.add(current)
+        # Atomic: deactivate all current keys in one statement to avoid race conditions
+        stmt = sa_update(SigningKey).where(SigningKey.is_current == True).values(is_current=False)
+        await session.execute(stmt)
 
     key = SigningKey(
         kid=kid,

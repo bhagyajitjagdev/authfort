@@ -1,7 +1,9 @@
 """Verification token repository — database operations for email verify and password reset tokens."""
 
 import uuid
+from datetime import UTC, datetime
 
+from sqlalchemy import delete as sa_delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -66,3 +68,13 @@ async def delete_verification_tokens_by_user_and_type(
     for token in result.all():
         await session.delete(token)
     await session.flush()
+
+
+async def delete_expired_verification_tokens(session: AsyncSession) -> int:
+    """Delete all verification tokens whose expires_at has passed. Returns count deleted."""
+    stmt = sa_delete(VerificationToken).where(
+        VerificationToken.expires_at < datetime.now(UTC),
+    )
+    result = await session.execute(stmt)
+    await session.flush()
+    return result.rowcount

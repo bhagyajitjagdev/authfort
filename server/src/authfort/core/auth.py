@@ -324,6 +324,7 @@ async def reset_password(
     hashed = hash_password(new_password)
     await user_repo.update_user(session, user, password_hash=hashed)
     await user_repo.bump_token_version(session, user.id)
+    await refresh_token_repo.revoke_all_user_refresh_tokens(session, user.id)
     await verification_token_repo.delete_verification_token(session, stored.id)
 
     if events is not None:
@@ -369,6 +370,7 @@ async def change_password(
     hashed = hash_password(new_password)
     await user_repo.update_user(session, user, password_hash=hashed)
     await user_repo.bump_token_version(session, user.id)
+    await refresh_token_repo.revoke_all_user_refresh_tokens(session, user.id)
 
     if events is not None:
         from authfort.events import PasswordChanged

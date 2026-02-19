@@ -1,6 +1,6 @@
 """AuthFort — Authentication and authorization library for Python."""
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 
 from authfort.alembic_helper import alembic_exclude
 from authfort.authfort import AuthFort

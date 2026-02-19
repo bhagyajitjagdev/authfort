@@ -464,6 +464,19 @@ class AuthFort:
         async with get_session(self._session_factory) as session:
             return await signing_key_repo.delete_expired_keys(session)
 
+    async def cleanup_expired_tokens(self) -> int:
+        """Delete expired verification tokens (password reset, email verify).
+
+        Call periodically or at startup to prevent database bloat.
+
+        Returns:
+            Number of tokens deleted.
+        """
+        from authfort.repositories import verification_token as verification_token_repo
+
+        async with get_session(self._session_factory) as session:
+            return await verification_token_repo.delete_expired_verification_tokens(session)
+
     # ------ FastAPI integration ------
 
     def fastapi_router(self) -> APIRouter:

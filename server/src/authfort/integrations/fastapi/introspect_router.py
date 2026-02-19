@@ -11,6 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from authfort.config import AuthFortConfig
 from authfort.core.tokens import get_unverified_header, verify_access_token
+from authfort.repositories import refresh_token as refresh_token_repo
 from authfort.repositories import role as role_repo
 from authfort.repositories import signing_key as signing_key_repo
 from authfort.repositories import user as user_repo
@@ -103,6 +104,15 @@ def create_introspect_router(config: AuthFortConfig, get_db: Callable) -> APIRou
         # Check token version matches (detects stale tokens after role change/ban)
         if payload.get("ver") != user.token_version:
             return _inactive
+
+        # Check session validity — if sid is present, verify the session isn't revoked
+        sid = payload.get("sid")
+        if sid:
+            token_record = await refresh_token_repo.get_refresh_token_by_id(
+                session, uuid.UUID(sid),
+            )
+            if token_record is None or token_record.revoked:
+                return _inactive
 
         # Get fresh roles from DB
         roles = await role_repo.get_roles(session, user.id)

@@ -4,6 +4,7 @@ Use this when you need to check banned status, token version, or fresh roles
 that can't be determined from the JWT alone.
 """
 
+import hashlib
 import logging
 import time
 from dataclasses import dataclass
@@ -64,8 +65,11 @@ class IntrospectionClient:
         Raises:
             httpx.HTTPError: If auth server unreachable and fail_open is False.
         """
+        # Hash token for cache key to avoid storing raw tokens in memory
+        token_key = hashlib.sha256(token.encode()).hexdigest() if self._cache_ttl > 0 else ""
+
         if self._cache_ttl > 0:
-            cached = self._cache.get(token)
+            cached = self._cache.get(token_key)
             if cached is not None:
                 result, cached_at = cached
                 if (time.monotonic() - cached_at) < self._cache_ttl:
@@ -106,7 +110,7 @@ class IntrospectionClient:
         )
 
         if self._cache_ttl > 0:
-            self._cache[token] = (result, time.monotonic())
+            self._cache[token_key] = (result, time.monotonic())
             if len(self._cache) > 1000:
                 self._evict_stale()
 
