@@ -440,6 +440,47 @@ class TestRoles:
         assert "editor" in res.json()["roles"]
 
 
+class TestSessionId:
+    async def test_session_id_in_auth_response(self, auth: AuthFort):
+        """Auth response should include session_id in user object."""
+        email = unique_email()
+        result = await auth.create_user(email, "password123")
+
+        assert result.user.session_id is not None
+
+    async def test_session_id_matches_a_session(self, auth: AuthFort):
+        """session_id should correspond to an actual session."""
+        email = unique_email()
+        result = await auth.create_user(email, "password123")
+
+        sessions = await auth.get_sessions(result.user.id)
+        session_ids = [s.id for s in sessions]
+        assert result.user.session_id in session_ids
+
+    async def test_session_id_in_me_endpoint(self, client: AsyncClient):
+        """GET /auth/me should include session_id."""
+        email = unique_email()
+        signup_res = await client.post("/auth/signup", json={
+            "email": email,
+            "password": "password123",
+        })
+        token = signup_res.json()["tokens"]["access_token"]
+
+        me_res = await client.get("/auth/me", headers={
+            "Authorization": f"Bearer {token}",
+        })
+        assert me_res.status_code == 200
+        assert me_res.json()["session_id"] is not None
+
+    async def test_different_logins_have_different_session_ids(self, auth: AuthFort):
+        """Each login should create a new session with a unique ID."""
+        email = unique_email()
+        result1 = await auth.create_user(email, "password123")
+        result2 = await auth.login(email, "password123")
+
+        assert result1.user.session_id != result2.user.session_id
+
+
 class TestProgrammaticAPI:
     async def test_create_user(self, auth: AuthFort):
         """create_user() returns AuthResponse with valid user and tokens."""

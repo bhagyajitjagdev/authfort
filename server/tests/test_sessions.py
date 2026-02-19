@@ -176,6 +176,53 @@ class TestRevokeAllSessions:
         assert len(await auth.get_sessions(user2_id, active_only=True)) == 1
 
 
+class TestRevokeAllWithExclude:
+    async def test_exclude_keeps_one_session(self, auth: AuthFort, client):
+        email, data = await _signup(client)
+        user_id = uuid.UUID(data["user"]["id"])
+
+        await _login(client, email)
+        await _login(client, email)
+
+        sessions = await auth.get_sessions(user_id, active_only=True)
+        assert len(sessions) == 3
+
+        # Keep the newest session, revoke the rest
+        keep_id = sessions[0].id
+        await auth.revoke_all_sessions(user_id, exclude=keep_id)
+
+        active = await auth.get_sessions(user_id, active_only=True)
+        assert len(active) == 1
+        assert active[0].id == keep_id
+
+    async def test_exclude_with_unknown_id_revokes_all(self, auth: AuthFort, client):
+        email, data = await _signup(client)
+        user_id = uuid.UUID(data["user"]["id"])
+
+        await _login(client, email)
+
+        # Exclude a non-existent session ID — all should be revoked
+        await auth.revoke_all_sessions(user_id, exclude=uuid.uuid4())
+
+        active = await auth.get_sessions(user_id, active_only=True)
+        assert len(active) == 0
+
+    async def test_exclude_does_not_affect_other_users(self, auth: AuthFort, client):
+        email1, data1 = await _signup(client)
+        user1_id = uuid.UUID(data1["user"]["id"])
+
+        email2, data2 = await _signup(client)
+        user2_id = uuid.UUID(data2["user"]["id"])
+
+        sessions1 = await auth.get_sessions(user1_id, active_only=True)
+        await auth.revoke_all_sessions(user1_id, exclude=sessions1[0].id)
+
+        # User 1 still has their excluded session
+        assert len(await auth.get_sessions(user1_id, active_only=True)) == 1
+        # User 2 unaffected
+        assert len(await auth.get_sessions(user2_id, active_only=True)) == 1
+
+
 class TestSessionResponseSerialization:
     async def test_session_response_is_serializable(self, auth: AuthFort, client):
         """SessionResponse should be JSON-serializable (Pydantic model)."""

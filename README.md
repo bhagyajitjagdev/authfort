@@ -34,9 +34,11 @@ This is a monorepo with three packages that work together:
 - **Refresh Token Rotation** — Secure rotation with theft detection
 - **OAuth 2.1 + PKCE** — Google and GitHub providers, auto account linking
 - **Role-Based Access Control** — Add/remove roles, `require_role` dependency
-- **Session Management** — List, revoke individual, revoke all sessions
+- **Password Reset** — Programmatic token generation (you control delivery — email, SMS, etc.)
+- **Change Password** — Old password verification, automatic token invalidation
+- **Session Management** — List, revoke individual, revoke all (with `exclude` for "sign out other devices")
 - **Ban/Unban** — Instant invalidation (bumps token version, revokes all tokens)
-- **Event Hooks** — 12 event types (user_created, login, logout, role_added, etc.)
+- **Event Hooks** — 15 event types (user_created, login, password_reset, role_added, etc.)
 - **JWKS Endpoint** — `/.well-known/jwks.json` with automatic key rotation
 - **Token Introspection** — RFC 7662 for microservice architectures
 - **Multi-Database** — PostgreSQL (primary), SQLite, MySQL via SQLAlchemy
@@ -94,19 +96,28 @@ user = await auth.create_user("admin@example.com", "password", name="Admin")
 await auth.add_role(user.id, "admin")
 await auth.ban_user(user.id)
 
+# Password reset (you handle delivery)
+token = await auth.create_password_reset_token("user@example.com")
+if token:
+    await send_reset_email(email, token)
+await auth.reset_password(token, "new_password")
+
+# Change password (authenticated)
+await auth.change_password(user.id, "old_password", "new_password")
+
 # Session management
 sessions = await auth.get_sessions(user.id, active_only=True)
 await auth.revoke_session(session_id)
-await auth.revoke_all_sessions(user.id)
+await auth.revoke_all_sessions(user.id, exclude=user.session_id)  # keep current
 
 # Event hooks
 @auth.on("user_created")
 async def on_signup(event):
     await send_welcome_email(event.email)
 
-@auth.on("login")
-async def on_login(event):
-    log.info(f"Login from {event.ip_address}")
+@auth.on("password_reset")
+async def on_reset(event):
+    log.info(f"Password reset for user {event.user_id}")
 ```
 
 ### Microservice Verifier
@@ -260,12 +271,13 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.3
+### Latest — v0.0.4
 
-- Fixed ESM imports in client SDK (added `.js` extensions)
-- Fixed JWKS rate limiting on fresh CI environments
-- Added `UserResponse` and `AuthResponse` to top-level exports
-- CI/CD pipeline with GitHub Actions
+- Password reset (`create_password_reset_token` + `reset_password`)
+- Change password with old password verification
+- `revoke_all_sessions` with `exclude` param (sign out other devices)
+- `session_id` on `UserResponse` (embedded in JWT as `sid` claim)
+- 3 new events: `password_reset_requested`, `password_reset`, `password_changed`
 
 ## License
 

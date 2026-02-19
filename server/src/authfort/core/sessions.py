@@ -59,6 +59,14 @@ async def revoke_session(
 async def revoke_all_sessions(
     session: AsyncSession,
     user_id: uuid.UUID,
+    *,
+    exclude: uuid.UUID | None = None,
 ) -> None:
-    """Revoke ALL sessions for a user."""
-    await refresh_token_repo.revoke_all_user_refresh_tokens(session, user_id)
+    """Revoke ALL sessions for a user.
+
+    Args:
+        exclude: If provided, keep this session alive (e.g. the current session).
+    """
+    await refresh_token_repo.revoke_all_user_refresh_tokens(
+        session, user_id, exclude=exclude,
+    )

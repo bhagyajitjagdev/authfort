@@ -57,12 +57,20 @@ async def revoke_refresh_token(
 async def revoke_all_user_refresh_tokens(
     session: AsyncSession,
     user_id: uuid.UUID,
+    *,
+    exclude: uuid.UUID | None = None,
 ) -> None:
-    """Revoke ALL refresh tokens for a user (nuclear option — used for theft detection)."""
+    """Revoke ALL refresh tokens for a user (nuclear option — used for theft detection).
+
+    Args:
+        exclude: If provided, skip this token ID (keep one session alive).
+    """
     statement = select(RefreshToken).where(
         RefreshToken.user_id == user_id,
         RefreshToken.revoked == False,
     )
+    if exclude is not None:
+        statement = statement.where(RefreshToken.id != exclude)
     result = await session.exec(statement)
     tokens = result.all()
     for token in tokens:

@@ -15,6 +15,9 @@ from authfort.events import (
     EventCollector,
     HookRegistry,
     KeyRotated,
+    PasswordChanged,
+    PasswordReset,
+    PasswordResetRequested,
     RoleAdded,
     RoleRemoved,
     SessionRevoked,
@@ -42,6 +45,7 @@ class AuthFort:
         introspect_secret: Shared secret for introspection endpoint auth (None = open).
         allow_signup: If False, the /auth/signup endpoint returns 403. Programmatic
             create_user() always works regardless of this flag.
+        password_reset_ttl: Password reset token lifetime in seconds (default 3600 = 1 hour).
     """
 
     def __init__(
@@ -57,6 +61,7 @@ class AuthFort:
         key_rotation_ttl: int = 60 * 60 * 48,
         introspect_secret: str | None = None,
         allow_signup: bool = True,
+        password_reset_ttl: int = 3600,
     ) -> None:
         self._config = AuthFortConfig(
             database_url=database_url,
@@ -68,6 +73,7 @@ class AuthFort:
             key_rotation_ttl_seconds=key_rotation_ttl,
             introspect_secret=introspect_secret,
             allow_signup=allow_signup,
+            password_reset_ttl_seconds=password_reset_ttl,
         )
         self._engine = create_engine(database_url)
         self._session_factory = create_session_factory(self._engine)
@@ -265,6 +271,69 @@ class AuthFort:
         async with get_session(self._session_factory) as session:
             return await role_repo.get_roles(session, user_id)
 
+    # ------ Password management ------
+
+    async def create_password_reset_token(self, email: str) -> str | None:
+        """Create a password reset token for a user.
+
+        Returns the raw token string if the user exists and has a password,
+        or None if not found / OAuth-only (prevents user enumeration).
+        The caller handles delivery (email, SMS, etc.).
+        """
+        from authfort.core.auth import create_password_reset_token
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await create_password_reset_token(
+                session, config=self._config, email=email, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    async def reset_password(self, token: str, new_password: str) -> bool:
+        """Reset a user's password using a reset token.
+
+        Validates the token, updates the password, and bumps token_version
+        (invalidating all existing JWTs).
+
+        Returns:
+            True on success.
+
+        Raises:
+            AuthError: If the token is invalid or expired.
+        """
+        from authfort.core.auth import reset_password
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await reset_password(
+                session, config=self._config, token=token,
+                new_password=new_password, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    async def change_password(
+        self, user_id: uuid.UUID, old_password: str, new_password: str,
+    ) -> None:
+        """Change a user's password (requires the old password).
+
+        Verifies the old password, hashes the new one, and bumps token_version
+        to force re-login everywhere.
+
+        Raises:
+            AuthError: If user not found, OAuth-only, or wrong old password.
+        """
+        from authfort.core.auth import change_password
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            await change_password(
+                session, user_id=user_id, old_password=old_password,
+                new_password=new_password, events=collector,
+            )
+        await collector.flush()
+
     # ------ User management ------
 
     async def ban_user(self, user_id: uuid.UUID) -> None:
@@ -325,13 +394,20 @@ class AuthFort:
         await collector.flush()
         return result
 
-    async def revoke_all_sessions(self, user_id: uuid.UUID) -> None:
-        """Revoke ALL sessions for a user (logs them out everywhere)."""
+    async def revoke_all_sessions(
+        self, user_id: uuid.UUID, *, exclude: uuid.UUID | None = None,
+    ) -> None:
+        """Revoke ALL sessions for a user (logs them out everywhere).
+
+        Args:
+            user_id: The user's UUID.
+            exclude: If provided, keep this session alive (e.g. the current session).
+        """
         from authfort.core.sessions import revoke_all_sessions
 
         collector = EventCollector(self._hooks)
         async with get_session(self._session_factory) as session:
-            await revoke_all_sessions(session, user_id)
+            await revoke_all_sessions(session, user_id, exclude=exclude)
             collector.collect("session_revoked", SessionRevoked(user_id=user_id, revoke_all=True))
         await collector.flush()
 

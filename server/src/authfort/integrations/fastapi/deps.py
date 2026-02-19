@@ -71,6 +71,10 @@ def create_current_user_dep(config: AuthFortConfig, get_db: Callable):
 
         roles = await role_repo.get_roles(session, user.id)
 
+        session_id = None
+        if payload.get("sid"):
+            session_id = uuid.UUID(payload["sid"])
+
         return UserResponse(
             id=user.id,
             email=user.email,
@@ -79,6 +83,7 @@ def create_current_user_dep(config: AuthFortConfig, get_db: Callable):
             avatar_url=user.avatar_url,
             roles=roles,
             created_at=user.created_at,
+            session_id=session_id,
         )
 
     return current_user
