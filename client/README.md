@@ -1,5 +1,9 @@
 # authfort-client
 
+[![npm](https://img.shields.io/npm/v/authfort-client)](https://www.npmjs.com/package/authfort-client)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 TypeScript client SDK for AuthFort authentication.
 
 ## Install

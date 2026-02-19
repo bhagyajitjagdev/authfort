@@ -1,5 +1,9 @@
 # authfort-service
 
+[![PyPI](https://img.shields.io/pypi/v/authfort-service)](https://pypi.org/project/authfort-service/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Lightweight JWT verification for microservices powered by AuthFort.
 
 ## Install
