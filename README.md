@@ -271,12 +271,13 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.3
+### Latest — v0.0.4
 
-- Fixed ESM imports in client SDK (added `.js` extensions)
-- Fixed JWKS rate limiting on fresh CI environments
-- Added `UserResponse` and `AuthResponse` to top-level exports
-- CI/CD pipeline with GitHub Actions
+- Password reset (`create_password_reset_token` + `reset_password`)
+- Change password with old password verification
+- `revoke_all_sessions` with `exclude` param (sign out other devices)
+- `session_id` on `UserResponse` (embedded in JWT as `sid` claim)
+- 3 new events: `password_reset_requested`, `password_reset`, `password_changed`
 
 ## License
 
