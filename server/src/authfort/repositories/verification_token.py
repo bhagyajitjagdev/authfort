@@ -3,9 +3,8 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import delete as sa_delete
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import delete as sa_delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.models.verification_token import VerificationToken
 
@@ -39,7 +38,7 @@ async def get_verification_token_by_hash(
     statement = select(VerificationToken).where(
         VerificationToken.token_hash == token_hash,
     )
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return result.first()
 
 
@@ -64,7 +63,7 @@ async def delete_verification_tokens_by_user_and_type(
         VerificationToken.user_id == user_id,
         VerificationToken.type == type,
     )
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     for token in result.all():
         await session.delete(token)
     await session.flush()

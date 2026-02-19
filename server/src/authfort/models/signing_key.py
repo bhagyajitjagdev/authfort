@@ -1,25 +1,21 @@
 import uuid
 from datetime import datetime
 
-from sqlmodel import Column, Field, SQLModel
+from sqlalchemy import Boolean, String, Text, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
 
+from authfort.models.base import Base
 from authfort.utils import TZDateTime, utc_now
 
 
-class SigningKey(SQLModel, table=True):
+class SigningKey(Base):
     __tablename__ = "authfort_signing_keys"
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    kid: str = Field(max_length=255, unique=True)
-    private_key: str
-    public_key: str
-    algorithm: str = Field(max_length=10)
-    is_current: bool = Field(default=False)
-    created_at: datetime = Field(
-        default_factory=utc_now,
-        sa_column=Column(TZDateTime(), nullable=False),
-    )
-    expires_at: datetime | None = Field(
-        default=None,
-        sa_column=Column(TZDateTime(), nullable=True),
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    kid: Mapped[str] = mapped_column(String(255), unique=True)
+    private_key: Mapped[str] = mapped_column(Text)
+    public_key: Mapped[str] = mapped_column(Text)
+    algorithm: Mapped[str] = mapped_column(String(10))
+    is_current: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)
+    expires_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True, default=None)

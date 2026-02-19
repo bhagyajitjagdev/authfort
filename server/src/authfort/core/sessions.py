@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.core.schemas import SessionResponse
 from authfort.repositories import refresh_token as refresh_token_repo

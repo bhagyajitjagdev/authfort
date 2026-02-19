@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8] - 2026-02-19
+
+### Breaking
+- **server**: Replaced `sqlmodel` dependency with `sqlalchemy[asyncio]>=2.0` — developers using `sqlmodel` imports from AuthFort internals must update
+- **server**: Bundled migrations reset to single `001_initial_schema.py` — existing dev databases need a fresh `auth.migrate()` (drop old DB first)
+
+### Changed
+- **server**: All models now use SQLAlchemy `DeclarativeBase` + `Mapped[type]` + `mapped_column()` instead of SQLModel
+- **server**: All repositories use `session.execute().scalars()` instead of `session.exec()`
+- **server**: `AsyncSession` imported from `sqlalchemy.ext.asyncio` instead of `sqlmodel.ext.asyncio.session`
+- **server**: Developer Alembic `env.py` uses `Base.metadata` instead of `SQLModel.metadata`
+- **server**: Developer migration uses `sa.String()` / `sa.Text()` instead of `sqlmodel.sql.sqltypes.AutoString`
+- **server**: `models/__init__.py` now exports `Base` for Alembic and test usage
+
+### Removed
+- **server**: `sqlmodel` dependency — replaced by direct `sqlalchemy[asyncio]>=2.0`
+- **server**: Bundled migration `002_composite_index.py` — merged into `001_initial_schema.py`
+
+### Fixed
+- **server**: Eliminated 85 false SQLModel deprecation warnings in pytest
+
 ## [0.0.7] - 2026-02-19
 
 ### Fixed
@@ -116,6 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.8]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.7...v0.0.8
+[0.0.7]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.3...v0.0.4

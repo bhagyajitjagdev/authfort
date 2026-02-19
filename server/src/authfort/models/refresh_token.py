@@ -1,25 +1,25 @@
 import uuid
 from datetime import datetime
 
-from sqlmodel import Column, Field, SQLModel
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
 
+from authfort.models.base import Base
 from authfort.utils import TZDateTime, utc_now
 
 
-class RefreshToken(SQLModel, table=True):
+class RefreshToken(Base):
     __tablename__ = "authfort_refresh_tokens"
+    __table_args__ = (
+        Index("ix_authfort_refresh_tokens_user_id_revoked", "user_id", "revoked"),
+    )
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="authfort_users.id", index=True)
-    token_hash: str = Field(max_length=255, unique=True)
-    expires_at: datetime = Field(
-        sa_column=Column(TZDateTime(), nullable=False),
-    )
-    created_at: datetime = Field(
-        default_factory=utc_now,
-        sa_column=Column(TZDateTime(), nullable=False),
-    )
-    revoked: bool = Field(default=False)
-    replaced_by: uuid.UUID | None = Field(default=None, foreign_key="authfort_refresh_tokens.id")
-    user_agent: str | None = Field(default=None)
-    ip_address: str | None = Field(default=None, max_length=45)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("authfort_users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(255), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    replaced_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("authfort_refresh_tokens.id"), nullable=True, default=None)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True, default=None)

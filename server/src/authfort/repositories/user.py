@@ -2,9 +2,8 @@
 
 import uuid
 
-from sqlalchemy import update as sa_update
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy import select, update as sa_update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.models.user import User
 
@@ -17,7 +16,7 @@ async def get_user_by_id(session: AsyncSession, user_id: uuid.UUID) -> User | No
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     """Get a user by their email address."""
     statement = select(User).where(User.email == email)
-    result = await session.exec(statement)
+    result = (await session.execute(statement)).scalars()
     return result.first()
 
 

@@ -74,6 +74,7 @@ def upgrade() -> None:
     )
     op.create_index("ix_authfort_refresh_tokens_user_id", "authfort_refresh_tokens", ["user_id"])
     op.create_index("ix_authfort_refresh_tokens_token_hash", "authfort_refresh_tokens", ["token_hash"], unique=True)
+    op.create_index("ix_authfort_refresh_tokens_user_id_revoked", "authfort_refresh_tokens", ["user_id", "revoked"])
 
     # --- authfort_user_roles (FK → authfort_users) ---
     op.create_table(

@@ -1,26 +1,22 @@
 import uuid
 from datetime import datetime
 
-from sqlmodel import Column, Field, SQLModel, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint, Uuid
+from sqlalchemy.orm import Mapped, mapped_column
 
+from authfort.models.base import Base
 from authfort.utils import TZDateTime, utc_now
 
 
-class Account(SQLModel, table=True):
+class Account(Base):
     __tablename__ = "authfort_accounts"
     __table_args__ = (UniqueConstraint("provider", "provider_account_id"),)
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    user_id: uuid.UUID = Field(foreign_key="authfort_users.id", index=True)
-    provider: str = Field(max_length=50)
-    provider_account_id: str | None = Field(default=None, max_length=255)
-    access_token: str | None = Field(default=None)
-    refresh_token: str | None = Field(default=None)
-    expires_at: datetime | None = Field(
-        default=None,
-        sa_column=Column(TZDateTime(), nullable=True),
-    )
-    created_at: datetime = Field(
-        default_factory=utc_now,
-        sa_column=Column(TZDateTime(), nullable=False),
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("authfort_users.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(50))
+    provider_account_id: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    access_token: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    expires_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)

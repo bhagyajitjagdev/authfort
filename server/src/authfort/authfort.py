@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.config import AuthFortConfig, CookieConfig
 from authfort.db import create_engine, create_session_factory, get_session

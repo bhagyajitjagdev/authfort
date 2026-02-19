@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 import jwt
 from fastapi import Depends, HTTPException, Request
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.config import AuthFortConfig
 from authfort.core.schemas import UserResponse
