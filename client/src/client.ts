@@ -49,9 +49,17 @@ class AuthClientImpl implements AuthClient {
     this._tokenMode = config.tokenMode ?? 'cookie';
 
     if (this._tokenMode === 'bearer') {
+      if (!config.tokenStorage) {
+        throw new AuthClientError(
+          'tokenStorage is required when tokenMode is "bearer". Provide a { get, set, clear } adapter.',
+          'missing_token_storage',
+          0,
+        );
+      }
       this._tokenManager = new TokenManager(
         this._baseUrl,
         config.refreshBuffer ?? 30,
+        config.tokenStorage,
         (response) => this._setAuthenticated(mapUser(response.user)),
         () => this._setState('unauthenticated', null),
       );
@@ -128,7 +136,6 @@ class AuthClientImpl implements AuthClient {
             Authorization: `Bearer ${token}`,
           };
         }
-        fetchOptions.credentials = 'include';
       }
 
       return globalThis.fetch(url, fetchOptions);
@@ -141,7 +148,7 @@ class AuthClientImpl implements AuthClient {
       let refreshed = false;
 
       if (this._tokenMode === 'bearer') {
-        this._tokenManager!.clear();
+        this._tokenManager!.clearAccessToken();
         const result = await this._tokenManager!.refresh();
         refreshed = result !== null;
       } else {
@@ -163,7 +170,7 @@ class AuthClientImpl implements AuthClient {
 
       // Still 401 after retry — session is dead
       if (response.status === 401) {
-        if (this._tokenManager) this._tokenManager.clear();
+        if (this._tokenManager) await this._tokenManager.clear();
         this._setState('unauthenticated', null);
       }
     }
@@ -191,8 +198,9 @@ class AuthClientImpl implements AuthClient {
     const user = mapUser(result.user);
 
     if (this._tokenManager) {
-      this._tokenManager.setTokens(
+      await this._tokenManager.setTokens(
         result.tokens.access_token,
+        result.tokens.refresh_token,
         result.tokens.expires_in,
       );
     }
@@ -216,8 +224,9 @@ class AuthClientImpl implements AuthClient {
     const user = mapUser(result.user);
 
     if (this._tokenManager) {
-      this._tokenManager.setTokens(
+      await this._tokenManager.setTokens(
         result.tokens.access_token,
+        result.tokens.refresh_token,
         result.tokens.expires_in,
       );
     }
@@ -231,14 +240,24 @@ class AuthClientImpl implements AuthClient {
 
   async signOut(): Promise<void> {
     try {
+      let body: string;
+      if (this._tokenManager) {
+        const refreshToken = await this._tokenManager.getRefreshToken();
+        body = refreshToken
+          ? JSON.stringify({ refresh_token: refreshToken })
+          : JSON.stringify({});
+      } else {
+        body = JSON.stringify({});
+      }
+
       await globalThis.fetch(`${this._baseUrl}/logout`, {
         method: 'POST',
-        credentials: 'include',
+        credentials: this._tokenMode === 'cookie' ? 'include' : undefined,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body,
       });
     } finally {
-      if (this._tokenManager) this._tokenManager.clear();
+      if (this._tokenManager) await this._tokenManager.clear();
       this._setState('unauthenticated', null);
     }
   }

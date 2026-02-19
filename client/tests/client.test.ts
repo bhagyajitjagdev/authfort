@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createAuthClient } from '../src/client';
 import { AuthClientError } from '../src/errors';
-import type { AuthClient, AuthState, AuthUser } from '../src/types';
+import type { AuthClient, AuthState, AuthUser, TokenStorage } from '../src/types';
 
 const BASE_URL = 'http://localhost:8000/auth';
 
@@ -42,6 +42,18 @@ function jsonResponse(data: unknown, status = 200): Response {
     json: () => Promise.resolve(data),
     headers: new Headers(),
   } as Response;
+}
+
+function createMockStorage(): TokenStorage & {
+  _value: () => string | null;
+} {
+  const store = { value: null as string | null };
+  return {
+    get: vi.fn(async () => store.value),
+    set: vi.fn(async (token: string) => { store.value = token; }),
+    clear: vi.fn(async () => { store.value = null; }),
+    _value: () => store.value,
+  };
 }
 
 describe('AuthClient — cookie mode', () => {
@@ -260,17 +272,38 @@ describe('AuthClient — cookie mode', () => {
 
     vi.unstubAllGlobals();
   });
+
+  it('signOut sends empty body with credentials:include in cookie mode', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));
+    await client.signIn({ email: 'test@example.com', password: 'password123' });
+
+    mockFetch.mockResolvedValueOnce(jsonResponse(null, 204));
+    await client.signOut();
+
+    const logoutCall = mockFetch.mock.calls.find(
+      (call: unknown[]) => call[0] === `${BASE_URL}/logout`,
+    );
+    expect(logoutCall).toBeDefined();
+    expect(logoutCall![1].credentials).toBe('include');
+    expect(JSON.parse(logoutCall![1].body)).toEqual({});
+  });
 });
 
 describe('AuthClient — bearer mode', () => {
   let client: AuthClient;
   let mockFetch: ReturnType<typeof vi.fn>;
+  let storage: ReturnType<typeof createMockStorage>;
 
   beforeEach(() => {
     vi.useFakeTimers();
     mockFetch = vi.fn();
     vi.stubGlobal('fetch', mockFetch);
-    client = createAuthClient({ baseUrl: BASE_URL, tokenMode: 'bearer' });
+    storage = createMockStorage();
+    client = createAuthClient({
+      baseUrl: BASE_URL,
+      tokenMode: 'bearer',
+      tokenStorage: storage,
+    });
   });
 
   afterEach(() => {
@@ -278,13 +311,39 @@ describe('AuthClient — bearer mode', () => {
     vi.restoreAllMocks();
   });
 
-  it('initialize calls /refresh and sets state', async () => {
+  // ---------------------------------------------------------------------------
+  // Validation
+  // ---------------------------------------------------------------------------
+
+  it('throws when tokenStorage is missing in bearer mode', () => {
+    expect(() =>
+      createAuthClient({ baseUrl: BASE_URL, tokenMode: 'bearer' }),
+    ).toThrow('tokenStorage is required');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Core bearer flow
+  // ---------------------------------------------------------------------------
+
+  it('initialize calls /refresh with stored token and sets state', async () => {
+    // Pre-populate storage — simulates app restart with persisted token
+    storage.set('persisted-refresh');
     mockFetch.mockResolvedValue(jsonResponse(serverAuthResponse));
 
     await client.initialize();
 
     const token = await client.getToken();
     expect(token).toBe('access-123');
+  });
+
+  it('initialize with no stored token stays unauthenticated', async () => {
+    // Storage is empty
+    await client.initialize();
+
+    const stateChanges: AuthState[] = [];
+    client.onAuthStateChange((state) => stateChanges.push(state));
+    expect(stateChanges).toEqual(['unauthenticated']);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('getToken returns access token after signIn', async () => {
@@ -310,6 +369,17 @@ describe('AuthClient — bearer mode', () => {
     );
   });
 
+  it('fetch does not send credentials:include in bearer mode', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));
+    await client.signIn({ email: 'test@example.com', password: 'password123' });
+
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: 'ok' }));
+    await client.fetch('http://api.example.com/data');
+
+    const lastCall = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
+    expect(lastCall[1].credentials).toBeUndefined();
+  });
+
   it('fetch retries on 401 with refreshed token (bearer mode)', async () => {
     // signIn
     mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));
@@ -320,7 +390,11 @@ describe('AuthClient — bearer mode', () => {
     // Refresh returns new tokens
     const newAuthResponse = {
       ...serverAuthResponse,
-      tokens: { ...serverAuthResponse.tokens, access_token: 'access-456' },
+      tokens: {
+        ...serverAuthResponse.tokens,
+        access_token: 'access-456',
+        refresh_token: 'refresh-456',
+      },
     };
     mockFetch.mockResolvedValueOnce(jsonResponse(newAuthResponse));
     // Retry succeeds
@@ -334,5 +408,87 @@ describe('AuthClient — bearer mode', () => {
     expect(lastCall[1].headers).toEqual(
       expect.objectContaining({ Authorization: 'Bearer access-456' }),
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Token storage interactions
+  // ---------------------------------------------------------------------------
+
+  it('stores refresh token via tokenStorage on signIn', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(serverAuthResponse));
+    await client.signIn({ email: 'test@example.com', password: 'password123' });
+
+    expect(storage.set).toHaveBeenCalledWith('refresh-123');
+    expect(storage._value()).toBe('refresh-123');
+  });
+
+  it('stores refresh token via tokenStorage on signUp', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(serverAuthResponse, 201));
+    await client.signUp({ email: 'test@example.com', password: 'password123' });
+
+    expect(storage.set).toHaveBeenCalledWith('refresh-123');
+    expect(storage._value()).toBe('refresh-123');
+  });
+
+  it('sends refresh_token in body during refresh', async () => {
+    storage.set('stored-refresh-token');
+    mockFetch.mockResolvedValue(jsonResponse(serverAuthResponse));
+
+    await client.initialize();
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${BASE_URL}/refresh`,
+      expect.objectContaining({
+        body: JSON.stringify({ refresh_token: 'stored-refresh-token' }),
+      }),
+    );
+  });
+
+  it('signOut sends refresh_token in body for bearer mode', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));
+    await client.signIn({ email: 'test@example.com', password: 'password123' });
+
+    mockFetch.mockResolvedValueOnce(jsonResponse(null, 204));
+    await client.signOut();
+
+    const logoutCall = mockFetch.mock.calls.find(
+      (call: unknown[]) => call[0] === `${BASE_URL}/logout`,
+    );
+    expect(logoutCall).toBeDefined();
+    expect(JSON.parse(logoutCall![1].body)).toEqual({ refresh_token: 'refresh-123' });
+  });
+
+  it('signOut does not send credentials:include in bearer mode', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));
+    await client.signIn({ email: 'test@example.com', password: 'password123' });
+
+    mockFetch.mockResolvedValueOnce(jsonResponse(null, 204));
+    await client.signOut();
+
+    const logoutCall = mockFetch.mock.calls.find(
+      (call: unknown[]) => call[0] === `${BASE_URL}/logout`,
+    );
+    expect(logoutCall![1].credentials).toBeUndefined();
+  });
+
+  it('clears tokenStorage on signOut', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));
+    await client.signIn({ email: 'test@example.com', password: 'password123' });
+
+    mockFetch.mockResolvedValueOnce(jsonResponse(null, 204));
+    await client.signOut();
+
+    expect(storage.clear).toHaveBeenCalled();
+    expect(storage._value()).toBeNull();
+  });
+
+  it('clears tokenStorage on refresh failure', async () => {
+    storage.set('expired-refresh-token');
+    mockFetch.mockResolvedValue(jsonResponse(null, 401));
+
+    await client.initialize();
+
+    expect(storage.clear).toHaveBeenCalled();
+    expect(storage._value()).toBeNull();
   });
 });

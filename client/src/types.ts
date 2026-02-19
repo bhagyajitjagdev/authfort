@@ -1,3 +1,18 @@
+/**
+ * Storage adapter for refresh tokens in bearer mode.
+ *
+ * Implement this interface to persist the refresh token across app restarts.
+ * Examples: `localStorage`, `expo-secure-store`, `react-native-keychain`, etc.
+ */
+export interface TokenStorage {
+  /** Retrieve the stored refresh token, or null if none exists. */
+  get(): Promise<string | null>;
+  /** Persist a refresh token. */
+  set(token: string): Promise<void>;
+  /** Remove the stored refresh token. */
+  clear(): Promise<void>;
+}
+
 /** Configuration for creating an AuthFort client. */
 export interface AuthClientConfig {
   /** Base URL of the auth server (e.g., "https://myapp.com/auth") */
@@ -12,6 +27,14 @@ export interface AuthClientConfig {
 
   /** Seconds before expiry to trigger proactive refresh (default: 30) */
   refreshBuffer?: number;
+
+  /**
+   * Storage adapter for refresh tokens. Required when `tokenMode` is `'bearer'`.
+   *
+   * The client calls `get()`, `set()`, and `clear()` to manage the refresh token.
+   * You control what storage backend is used (localStorage, SecureStore, etc.).
+   */
+  tokenStorage?: TokenStorage;
 }
 
 /** Authentication state */
