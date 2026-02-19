@@ -12,6 +12,7 @@ class CookieConfig:
     httponly: bool = True
     samesite: Literal["lax", "strict", "none"] = "lax"
     path: str = "/"
+    domain: str | None = None
     access_cookie_name: str = "access_token"
     refresh_cookie_name: str = "refresh_token"
 
