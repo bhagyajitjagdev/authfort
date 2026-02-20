@@ -1,0 +1,213 @@
+---
+// Architecture diagram — clean flow between the 3 packages
+---
+
+<div class="not-content arch-diagram">
+  <svg viewBox="0 0 760 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+    <!-- Frontend Box -->
+    <rect class="box" x="20" y="60" width="180" height="100" rx="10" />
+    <text class="box-title" x="110" y="95">Frontend</text>
+    <text class="box-pkg" x="110" y="118">authfort-client</text>
+    <text class="box-lang" x="110" y="140">TypeScript</text>
+
+    <!-- Auth Server Box -->
+    <rect class="box box-primary" x="290" y="30" width="180" height="130" rx="10" />
+    <text class="box-title" x="380" y="68">Auth Server</text>
+    <text class="box-pkg" x="380" y="91">authfort</text>
+    <text class="box-lang" x="380" y="110">Python</text>
+
+    <!-- DB icon (small cylinder under auth server) -->
+    <ellipse class="db-shape" cx="380" cy="137" rx="28" ry="7" />
+    <rect class="db-body" x="352" y="137" width="56" height="14" />
+    <ellipse class="db-shape" cx="380" cy="151" rx="28" ry="7" />
+    <text class="db-label" x="380" y="148">DB</text>
+
+    <!-- Microservices Box -->
+    <rect class="box" x="560" y="60" width="180" height="100" rx="10" />
+    <text class="box-title" x="650" y="95">Microservices</text>
+    <text class="box-pkg" x="650" y="118">authfort-service</text>
+    <text class="box-lang" x="650" y="140">Python</text>
+
+    <!-- Arrow: Frontend → Auth Server -->
+    <path class="arrow-line" d="M200,95 L286,95" />
+    <polygon class="arrow-head" points="286,90 296,95 286,100" />
+    <text class="arrow-label" x="243" y="86">Login, Signup</text>
+    <text class="arrow-label" x="243" y="86" dy="13">Refresh</text>
+
+    <!-- Arrow: Auth Server → Frontend (tokens) -->
+    <path class="arrow-line" d="M290,125 L204,125" />
+    <polygon class="arrow-head" points="204,120 194,125 204,130" />
+    <text class="arrow-label" x="243" y="143">JWT + Refresh</text>
+
+    <!-- Arrow: Microservices → Auth Server (JWKS fetch) -->
+    <path class="arrow-line" d="M560,95 L474,95" />
+    <polygon class="arrow-head" points="474,90 464,95 474,100" />
+    <text class="arrow-label" x="517" y="86">Fetch JWKS</text>
+
+    <!-- Arrow: Auth Server → Microservices (public keys) -->
+    <path class="arrow-line" d="M470,125 L556,125" />
+    <polygon class="arrow-head" points="556,120 566,125 556,130" />
+    <text class="arrow-label" x="517" y="143">Public Keys</text>
+
+    <!-- Dashed arrow: Frontend → Microservices (with JWT) -->
+    <path class="arrow-dashed" d="M200,150 C240,220 520,220 560,150" />
+    <polygon class="arrow-head" points="557,155 565,147 553,148" />
+    <text class="arrow-label-accent" x="380" y="230">Authenticated requests (JWT in header/cookie)</text>
+  </svg>
+</div>
+
+<style>
+  .arch-diagram {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  .arch-diagram svg {
+    width: 100%;
+    max-width: 760px;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+  }
+
+  /* ── Dark mode ── */
+  :global([data-theme='dark']) .box {
+    fill: #141414;
+    stroke: #2a2a2a;
+    stroke-width: 1.5;
+  }
+  :global([data-theme='dark']) .box-primary {
+    fill: #181818;
+    stroke: #333;
+  }
+  :global([data-theme='dark']) .box-title {
+    fill: #e5e5e5;
+    font-size: 14px;
+    font-weight: 600;
+    text-anchor: middle;
+  }
+  :global([data-theme='dark']) .box-pkg {
+    fill: #a3a3a3;
+    font-size: 12px;
+    font-weight: 500;
+    text-anchor: middle;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  }
+  :global([data-theme='dark']) .box-lang {
+    fill: #525252;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  :global([data-theme='dark']) .db-shape {
+    fill: #141414;
+    stroke: #2a2a2a;
+    stroke-width: 1;
+  }
+  :global([data-theme='dark']) .db-body {
+    fill: #141414;
+    stroke: #2a2a2a;
+    stroke-width: 1;
+    stroke-dasharray: 0 56 14 0;
+  }
+  :global([data-theme='dark']) .db-label {
+    fill: #525252;
+    font-size: 9px;
+    text-anchor: middle;
+    font-weight: 500;
+  }
+  :global([data-theme='dark']) .arrow-line {
+    stroke: #404040;
+    stroke-width: 1.5;
+  }
+  :global([data-theme='dark']) .arrow-dashed {
+    stroke: #333;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+    fill: none;
+  }
+  :global([data-theme='dark']) .arrow-head {
+    fill: #404040;
+  }
+  :global([data-theme='dark']) .arrow-label {
+    fill: #666;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  :global([data-theme='dark']) .arrow-label-accent {
+    fill: #525252;
+    font-size: 10px;
+    text-anchor: middle;
+    font-style: italic;
+  }
+
+  /* ── Light mode ── */
+  :global([data-theme='light']) .box {
+    fill: #fafafa;
+    stroke: #e5e5e5;
+    stroke-width: 1.5;
+  }
+  :global([data-theme='light']) .box-primary {
+    fill: #f5f5f5;
+    stroke: #d4d4d4;
+  }
+  :global([data-theme='light']) .box-title {
+    fill: #171717;
+    font-size: 14px;
+    font-weight: 600;
+    text-anchor: middle;
+  }
+  :global([data-theme='light']) .box-pkg {
+    fill: #525252;
+    font-size: 12px;
+    font-weight: 500;
+    text-anchor: middle;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  }
+  :global([data-theme='light']) .box-lang {
+    fill: #a3a3a3;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  :global([data-theme='light']) .db-shape {
+    fill: #fafafa;
+    stroke: #d4d4d4;
+    stroke-width: 1;
+  }
+  :global([data-theme='light']) .db-body {
+    fill: #fafafa;
+    stroke: #d4d4d4;
+    stroke-width: 1;
+    stroke-dasharray: 0 56 14 0;
+  }
+  :global([data-theme='light']) .db-label {
+    fill: #a3a3a3;
+    font-size: 9px;
+    text-anchor: middle;
+    font-weight: 500;
+  }
+  :global([data-theme='light']) .arrow-line {
+    stroke: #d4d4d4;
+    stroke-width: 1.5;
+  }
+  :global([data-theme='light']) .arrow-dashed {
+    stroke: #d4d4d4;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+    fill: none;
+  }
+  :global([data-theme='light']) .arrow-head {
+    fill: #d4d4d4;
+  }
+  :global([data-theme='light']) .arrow-label {
+    fill: #999;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  :global([data-theme='light']) .arrow-label-accent {
+    fill: #a3a3a3;
+    font-size: 10px;
+    text-anchor: middle;
+    font-style: italic;
+  }
+</style>

@@ -1,0 +1,56 @@
+---
+title: Installation
+description: Install AuthFort packages for your stack.
+sidebar:
+  order: 2
+---
+
+import PackageInstall from '../../../components/PackageInstall.astro';
+
+## Server
+
+Requires Python 3.11+ and a SQL database (PostgreSQL, SQLite, or MySQL).
+
+### PostgreSQL (recommended)
+
+<PackageInstall syncKey="py" variants={[
+  { label: "pip", command: "pip install authfort" },
+  { label: "uv", command: "uv add authfort" },
+]} />
+
+### SQLite
+
+<PackageInstall syncKey="py" variants={[
+  { label: "pip", command: "pip install authfort[sqlite]" },
+  { label: "uv", command: "uv add authfort[sqlite]" },
+]} />
+
+### MySQL
+
+<PackageInstall syncKey="py" variants={[
+  { label: "pip", command: "pip install authfort[mysql]" },
+  { label: "uv", command: "uv add authfort[mysql]" },
+]} />
+
+The base install includes `asyncpg` for PostgreSQL. The extras install `aiosqlite` or `aiomysql` respectively.
+
+## Service SDK
+
+For microservices that need to verify JWTs. No database required.
+
+<PackageInstall syncKey="py" variants={[
+  { label: "pip", command: "pip install authfort-service" },
+  { label: "uv", command: "uv add authfort-service" },
+]} />
+
+## Client SDK
+
+For browsers and mobile apps. Requires Node.js 18+.
+
+<PackageInstall syncKey="js" variants={[
+  { label: "npm", command: "npm install authfort-client" },
+  { label: "yarn", command: "yarn add authfort-client" },
+  { label: "pnpm", command: "pnpm add authfort-client" },
+  { label: "bun", command: "bun add authfort-client" },
+]} />
+

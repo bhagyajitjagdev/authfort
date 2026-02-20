@@ -1,0 +1,66 @@
+---
+interface Package {
+  name: string;
+  description: string;
+  lang: 'python' | 'typescript';
+  install: string;
+}
+
+interface Props {
+  packages: Package[];
+}
+
+const { packages } = Astro.props;
+---
+
+<div class="not-content grid grid-cols-1 md:grid-cols-3 gap-5 my-4">
+  {packages.map((pkg) => (
+    <div class="border-trace rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0a0a0a] p-6">
+      <div class="flex items-center gap-2 mb-3">
+        <span class={`inline-block px-2 py-0.5 rounded text-xs font-medium ${pkg.lang === 'python' ? 'bg-blue-500/10 text-blue-400 dark:bg-blue-400/10 dark:text-blue-400' : 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400'}`}>
+          {pkg.lang === 'python' ? 'Python' : 'TypeScript'}
+        </span>
+      </div>
+      <h3 class="text-base font-semibold mb-2 text-gray-900 dark:text-gray-100">{pkg.name}</h3>
+      <p class="text-sm leading-relaxed mb-4 text-gray-500 dark:text-gray-400">{pkg.description}</p>
+      <code class="text-xs text-gray-400 dark:text-gray-500 !bg-transparent !p-0">{pkg.install}</code>
+    </div>
+  ))}
+</div>
+
+<style>
+  @property --trace-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  .border-trace {
+    position: relative;
+  }
+
+  .border-trace::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 2px;
+    background: conic-gradient(
+      from var(--trace-angle),
+      transparent 45%,
+      rgba(56, 189, 248, 0.35) 65%,
+      rgba(129, 140, 248, 0.3) 80%,
+      rgba(192, 132, 252, 0.25) 93%,
+      transparent 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: trace-rotate 6s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes trace-rotate {
+    to { --trace-angle: 360deg; }
+  }
+</style>

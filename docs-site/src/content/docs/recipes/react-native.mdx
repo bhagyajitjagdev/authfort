@@ -1,0 +1,124 @@
+---
+title: React Native
+description: React Native app with bearer mode and secure storage.
+sidebar:
+  order: 2
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import CodeBlock from '../../../components/CodeBlock.astro';
+import PackageInstall from '../../../components/PackageInstall.astro';
+
+export const authClient = `import { createAuthClient } from 'authfort-client';
+import * as SecureStore from 'expo-secure-store';
+
+export const auth = createAuthClient({
+  baseUrl: 'https://api.yourapp.com/auth',
+  tokenMode: 'bearer',
+  tokenStorage: {
+    get: () => SecureStore.getItemAsync('refresh_token'),
+    set: (token) => SecureStore.setItemAsync('refresh_token', token),
+    clear: () => SecureStore.deleteItemAsync('refresh_token'),
+  },
+});`;
+
+export const appFile = `import { AuthProvider } from 'authfort-client/react';
+import { auth } from './src/auth';
+
+auth.initialize();
+
+export default function App() {
+  return (
+    <AuthProvider client={auth}>
+      <Navigation />
+    </AuthProvider>
+  );
+}`;
+
+export const profileScreen = `import { useAuth } from 'authfort-client/react';
+
+function ProfileScreen() {
+  const { user, isAuthenticated, isLoading, client } = useAuth();
+
+  if (isLoading) return <ActivityIndicator />;
+  if (!isAuthenticated) return <LoginScreen />;
+
+  return (
+    <View>
+      <Text>Hello {user.email}</Text>
+      <Button title="Sign Out" onPress={() => client.signOut()} />
+    </View>
+  );
+}`;
+
+export const fetchExample = `const res = await auth.fetch('https://api.yourapp.com/api/profile');
+const data = await res.json();`;
+
+export const getTokenExample = `const token = await auth.getToken();
+const res = await fetch('https://api.yourapp.com/api/profile', {
+  headers: { Authorization: \`Bearer \${token}\` },
+});`;
+
+export const keychainExample = `import * as Keychain from 'react-native-keychain';
+
+const auth = createAuthClient({
+  baseUrl: 'https://api.yourapp.com/auth',
+  tokenMode: 'bearer',
+  tokenStorage: {
+    get: async () => {
+      const creds = await Keychain.getGenericPassword();
+      return creds ? creds.password : null;
+    },
+    set: (token) => Keychain.setGenericPassword('authfort', token),
+    clear: () => Keychain.resetGenericPassword().then(() => {}),
+  },
+});`;
+
+React Native can't use cookies, so we use bearer mode with secure storage for the refresh token.
+
+## Setup
+
+<Steps>
+
+1. **Install packages**
+
+   <PackageInstall syncKey="js" variants={[
+     { label: "npm", command: "npm install authfort-client expo-secure-store" },
+     { label: "yarn", command: "yarn add authfort-client expo-secure-store" },
+     { label: "pnpm", command: "pnpm add authfort-client expo-secure-store" },
+     { label: "bun", command: "bun add authfort-client expo-secure-store" },
+   ]} />
+
+2. **Create the auth client with secure storage**
+
+   <CodeBlock title="src/auth.ts" code={authClient} lang="typescript" />
+
+3. **Wrap with AuthProvider**
+
+   <CodeBlock title="App.tsx" code={appFile} lang="tsx" />
+
+</Steps>
+
+## Usage
+
+The `useAuth` hook works the same as on web:
+
+<CodeBlock code={profileScreen} lang="tsx" />
+
+## API Requests
+
+Use `auth.fetch()` for authenticated requests:
+
+<CodeBlock code={fetchExample} lang="typescript" />
+
+Or use `getToken()` with your preferred HTTP client:
+
+<CodeBlock code={getTokenExample} lang="typescript" />
+
+## Why Bearer Mode?
+
+React Native doesn't have browser cookies. Bearer mode stores the access token in memory (never persisted) and the refresh token in `expo-secure-store` (encrypted on-device storage backed by iOS Keychain / Android Keystore).
+
+## Alternative: react-native-keychain
+
+<CodeBlock code={keychainExample} lang="typescript" />

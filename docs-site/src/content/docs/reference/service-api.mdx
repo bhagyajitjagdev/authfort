@@ -1,0 +1,117 @@
+---
+title: Service API
+description: Complete ServiceAuth class reference.
+sidebar:
+  order: 5
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const constructor = `ServiceAuth(
+    jwks_url: str,
+    *,
+    issuer: str = "authfort",
+    algorithms: list[str] | None = None,
+    jwks_cache_ttl: float = 3600.0,
+    introspect_url: str | None = None,
+    introspect_secret: str | None = None,
+    introspect_cache_ttl: float = 0.0,
+    cookie_name: str | None = None,
+)`;
+
+## Constructor
+
+<CodeBlock code={constructor} lang="python" />
+
+See [Service Configuration](/authfort/service/configuration/) for parameter details.
+
+---
+
+## Methods
+
+### `verify_token(token)`
+
+Verify a JWT using cached JWKS public keys.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `token` | `str` | JWT access token |
+
+**Returns:** `TokenPayload`
+**Raises:** `TokenVerificationError`
+
+### `introspect(token)`
+
+Check token validity via the auth server's introspection endpoint.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `token` | `str` | JWT access token |
+
+**Returns:** `IntrospectionResult`
+
+---
+
+## FastAPI Dependencies
+
+### `current_user`
+
+Dependency that extracts and verifies the user from the request.
+
+**Returns:** `TokenPayload`
+**Raises:** `HTTPException(401)` if not authenticated
+
+### `require_role(role)`
+
+Dependency factory that checks for a required role.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `role` | `str \| list[str]` | Required role(s) |
+
+**Returns:** dependency that returns `TokenPayload`
+**Raises:** `HTTPException(403)` if role missing
+
+---
+
+## Types
+
+### TokenPayload
+
+Frozen dataclass with verified token claims.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sub` | `str` | User ID |
+| `email` | `str` | User email |
+| `name` | `str \| None` | Display name |
+| `roles` | `list[str]` | User roles |
+| `token_version` | `int` | Token version |
+| `exp` | `int` | Expiration timestamp |
+| `iat` | `int` | Issued-at timestamp |
+| `iss` | `str` | Issuer |
+
+### IntrospectionResult
+
+Frozen dataclass with introspection response.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `active` | `bool` | Whether the token is currently valid |
+| `sub` | `str \| None` | User ID |
+| `email` | `str \| None` | User email |
+| `name` | `str \| None` | Display name |
+| `roles` | `list[str] \| None` | Current roles (from database) |
+| `token_version` | `int \| None` | Current token version |
+| `exp` | `int \| None` | Expiration timestamp |
+| `iat` | `int \| None` | Issued-at timestamp |
+| `iss` | `str \| None` | Issuer |
+
+### TokenVerificationError
+
+Exception raised when token verification fails.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | `str` | Error message |
+| `code` | `str` | Error code (`token_expired`, `invalid_token`, `invalid_issuer`, `key_not_found`) |

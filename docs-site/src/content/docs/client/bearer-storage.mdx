@@ -1,0 +1,94 @@
+---
+title: Bearer Storage
+description: Pluggable token storage for bearer mode.
+sidebar:
+  order: 9
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const storageInterface = `interface TokenStorage {
+  get(): Promise<string | null>;
+  set(token: string): Promise<void>;
+  clear(): Promise<void>;
+}`;
+
+export const localStorageExample = `const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'bearer',
+  tokenStorage: {
+    get: async () => localStorage.getItem('refresh_token'),
+    set: async (token) => localStorage.setItem('refresh_token', token),
+    clear: async () => localStorage.removeItem('refresh_token'),
+  },
+});`;
+
+export const secureStoreExample = `import * as SecureStore from 'expo-secure-store';
+
+const auth = createAuthClient({
+  baseUrl: 'https://api.example.com/auth',
+  tokenMode: 'bearer',
+  tokenStorage: {
+    get: () => SecureStore.getItemAsync('refresh_token'),
+    set: (token) => SecureStore.setItemAsync('refresh_token', token),
+    clear: () => SecureStore.deleteItemAsync('refresh_token'),
+  },
+});`;
+
+export const keychainExample = `import * as Keychain from 'react-native-keychain';
+
+const auth = createAuthClient({
+  baseUrl: 'https://api.example.com/auth',
+  tokenMode: 'bearer',
+  tokenStorage: {
+    get: async () => {
+      const creds = await Keychain.getGenericPassword();
+      return creds ? creds.password : null;
+    },
+    set: (token) => Keychain.setGenericPassword('authfort', token),
+    clear: () => Keychain.resetGenericPassword().then(() => {}),
+  },
+});`;
+
+export const inMemoryExample = `let token: string | null = null;
+
+const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'bearer',
+  tokenStorage: {
+    get: async () => token,
+    set: async (t) => { token = t; },
+    clear: async () => { token = null; },
+  },
+});`;
+
+In bearer mode, the client needs somewhere to store the refresh token. The `TokenStorage` interface lets you plug in any storage mechanism.
+
+## TokenStorage Interface
+
+<CodeBlock code={storageInterface} lang="typescript" />
+
+## Examples
+
+### localStorage (Web)
+
+<CodeBlock code={localStorageExample} lang="typescript" />
+
+### expo-secure-store (React Native)
+
+<CodeBlock code={secureStoreExample} lang="typescript" />
+
+### react-native-keychain
+
+<CodeBlock code={keychainExample} lang="typescript" />
+
+### In-Memory (Testing)
+
+<CodeBlock code={inMemoryExample} lang="typescript" />
+
+## Security Notes
+
+- **Never use localStorage in production** for sensitive tokens if XSS is a concern. `localStorage` is accessible to any JavaScript on the page.
+- For web apps, cookie mode is more secure since HttpOnly cookies are not accessible via JavaScript.
+- For mobile apps, use platform-specific secure storage (Keychain on iOS, Keystore on Android).
+- The access token is always stored in memory only — never persisted. Only the refresh token uses `TokenStorage`.

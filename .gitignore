@@ -36,7 +36,7 @@ client/dist/
 
 # Alembic — migration files ARE committed (they're version-controlled schema changes)
 
-docs/
+/docs/
 
 # Testing
 .pytest_cache/

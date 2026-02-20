@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import select, update as sa_update
+from sqlalchemy import delete as sa_delete, select, update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.models.refresh_token import RefreshToken
@@ -111,6 +111,23 @@ async def get_sessions_by_user(
     statement = statement.order_by(RefreshToken.created_at.desc())
     result = (await session.execute(statement)).scalars()
     return list(result.all())
+
+
+async def delete_expired_refresh_tokens(
+    session: AsyncSession,
+) -> int:
+    """Delete refresh tokens that are expired or revoked.
+
+    Returns the number of deleted rows.
+    """
+    from datetime import UTC, datetime
+
+    stmt = sa_delete(RefreshToken).where(
+        (RefreshToken.revoked == True) | (RefreshToken.expires_at < datetime.now(UTC)),
+    )
+    result = await session.execute(stmt)
+    await session.flush()
+    return result.rowcount
 
 
 async def revoke_session_by_id(

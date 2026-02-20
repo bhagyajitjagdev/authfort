@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import urllib.parse
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -15,10 +15,11 @@ from authfort.providers.base import OAuthProvider, OAuthUserInfo
 class GoogleProvider(OAuthProvider):
     """Google OAuth provider.
 
-    Default scopes: openid, email, profile.
+    Required scopes: openid, email, profile.
+    Pass ``extra_scopes`` to request additional permissions (e.g., Calendar, Drive).
     """
 
-    scopes: tuple[str, ...] = ("openid", "email", "profile")
+    REQUIRED_SCOPES: ClassVar[tuple[str, ...]] = ("openid", "email", "profile")
 
     @property
     def name(self) -> str:

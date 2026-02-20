@@ -1,0 +1,97 @@
+---
+title: Vue
+description: Vue integration with provideAuth and useAuth composable.
+sidebar:
+  order: 7
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const authFile = `import { createAuthClient } from 'authfort-client';
+
+export const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie',
+});`;
+
+export const appFile = `<script setup>
+import { provideAuth } from 'authfort-client/vue';
+import { auth } from './auth';
+
+provideAuth(auth);
+</script>
+
+<template>
+  <router-view />
+</template>`;
+
+export const useAuthExample = `<script setup>
+import { useAuth } from 'authfort-client/vue';
+
+const { state, user, isAuthenticated, isLoading, client } = useAuth();
+</script>
+
+<template>
+  <div v-if="isLoading">Loading...</div>
+  <div v-else-if="isAuthenticated">
+    <p>Hello {{ user.email }}</p>
+    <p>Roles: {{ user.roles.join(', ') }}</p>
+    <button @click="client.signOut()">Sign Out</button>
+  </div>
+  <div v-else>Not signed in</div>
+</template>`;
+
+export const loginExample = `<script setup>
+import { ref } from 'vue';
+import { useAuth } from 'authfort-client/vue';
+
+const { client } = useAuth();
+const email = ref('');
+const password = ref('');
+const error = ref('');
+
+async function handleSubmit() {
+  try {
+    await client.signIn({ email: email.value, password: password.value });
+  } catch (err) {
+    error.value = err.message;
+  }
+}
+</script>
+
+<template>
+  <form @submit.prevent="handleSubmit">
+    <input v-model="email" placeholder="Email" />
+    <input type="password" v-model="password" placeholder="Password" />
+    <button type="submit">Sign In</button>
+    <p v-if="error">{{ error }}</p>
+  </form>
+</template>`;
+
+Call `provideAuth` in your root component and use the `useAuth` composable to access auth state anywhere.
+
+## Setup
+
+<CodeBlock title="src/auth.ts" code={authFile} lang="typescript" />
+
+<CodeBlock title="src/App.vue" code={appFile} lang="vue" />
+
+`provideAuth` provides the client to all child components and automatically calls `initialize()` to check for an existing session. You do not need to call `auth.initialize()` manually.
+
+## useAuth Composable
+
+<CodeBlock code={useAuthExample} lang="vue" />
+
+## Return Values
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | `Readonly<Ref<AuthState>>` | `'loading'`, `'authenticated'`, or `'unauthenticated'` |
+| `user` | `Readonly<Ref<AuthUser \| null>>` | Current user |
+| `isAuthenticated` | `ComputedRef<boolean>` | Whether the user is signed in |
+| `isLoading` | `ComputedRef<boolean>` | Whether `initialize()` is running |
+| `client` | `AuthClient` | The auth client instance |
+
+## Login Form Example
+
+<CodeBlock code={loginExample} lang="vue" />

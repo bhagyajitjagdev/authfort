@@ -1,0 +1,58 @@
+---
+title: Overview
+description: What AuthFort is and which packages you need.
+sidebar:
+  order: 1
+---
+
+import PackageInstall from '../../../components/PackageInstall.astro';
+import ArchitectureDiagram from '../../../components/ArchitectureDiagram.astro';
+
+AuthFort is a complete authentication and authorization system for Python applications. It handles user signup, login, JWT tokens, OAuth providers, roles, sessions, and more — so you don't have to build auth from scratch.
+
+## The Three Packages
+
+AuthFort consists of three packages that work together:
+
+### authfort (Server)
+
+The full auth server. Handles user management, password hashing, JWT issuance, OAuth flows, roles, sessions, and event hooks. This is what you install if you're building an application that needs authentication.
+
+<PackageInstall syncKey="py" variants={[
+  { label: "pip", command: "pip install authfort" },
+  { label: "uv", command: "uv add authfort" },
+]} />
+
+### authfort-service (Microservice Verifier)
+
+A lightweight JWT verifier for microservices. It fetches public keys from your auth server's JWKS endpoint and validates tokens locally — no database access needed. Install this on services that need to verify users but don't manage authentication themselves.
+
+<PackageInstall syncKey="py" variants={[
+  { label: "pip", command: "pip install authfort-service" },
+  { label: "uv", command: "uv add authfort-service" },
+]} />
+
+### authfort-client (Client SDK)
+
+A TypeScript SDK for browsers and mobile apps. Handles token lifecycle (refresh, retry on 401), auth state management, and OAuth redirects. Includes integrations for React, Vue, and Svelte.
+
+<PackageInstall syncKey="js" variants={[
+  { label: "npm", command: "npm install authfort-client" },
+  { label: "yarn", command: "yarn add authfort-client" },
+  { label: "pnpm", command: "pnpm add authfort-client" },
+  { label: "bun", command: "bun add authfort-client" },
+]} />
+
+## Which Package Do I Need?
+
+| Scenario | Packages |
+|----------|----------|
+| Single app (e.g., FastAPI + React) | `authfort` + `authfort-client` |
+| Microservices (auth server + downstream services) | `authfort` + `authfort-service` + `authfort-client` |
+| Just verify JWTs in a service | `authfort-service` only |
+
+## How They Connect
+
+<ArchitectureDiagram />
+
+The auth server issues JWTs and exposes a JWKS endpoint. Microservices fetch the public keys from JWKS to verify tokens locally. The client SDK handles token refresh and authenticated requests from the browser.

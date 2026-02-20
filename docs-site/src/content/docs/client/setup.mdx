@@ -1,0 +1,79 @@
+---
+title: Setup
+description: Initialize the AuthFort client SDK.
+sidebar:
+  order: 2
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const cookieMode = `import { createAuthClient } from 'authfort-client';
+
+const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie',
+});`;
+
+export const bearerMode = `import { createAuthClient } from 'authfort-client';
+
+const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'bearer',
+  tokenStorage: {
+    get: async () => localStorage.getItem('refresh_token'),
+    set: async (token) => localStorage.setItem('refresh_token', token),
+    clear: async () => localStorage.removeItem('refresh_token'),
+  },
+});`;
+
+export const initExample = `await auth.initialize();`;
+
+export const authFile = `import { createAuthClient } from 'authfort-client';
+
+export const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie',
+});`;
+
+export const mainFile = `import { auth } from './auth';
+
+await auth.initialize();`;
+
+Create a client instance by choosing a token mode. Cookie mode is recommended for web apps, bearer mode for mobile or non-browser environments.
+
+### Cookie Mode
+
+<CodeBlock code={cookieMode} lang="typescript" />
+
+### Bearer Mode
+
+<CodeBlock code={bearerMode} lang="typescript" />
+
+## Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `baseUrl` | `string` | — (required) | Auth server URL (e.g., `/auth` or `https://api.example.com/auth`) |
+| `tokenMode` | `'cookie' \| 'bearer'` | `'cookie'` | How tokens are delivered |
+| `refreshBuffer` | `number` | `30` | Seconds before expiry to trigger refresh |
+| `tokenStorage` | `TokenStorage` | — | Required for bearer mode |
+
+## Initialize
+
+Call `initialize()` once at app startup to check for an existing session:
+
+<CodeBlock code={initExample} lang="typescript" />
+
+This attempts to restore the user's auth state:
+- **Cookie mode** — calls `/auth/me` to check if session cookies are valid
+- **Bearer mode** — reads the stored refresh token and refreshes the access token
+
+After initialization, the auth state is either `'authenticated'` or `'unauthenticated'`.
+
+## App Integration
+
+Create the client once and share it across your app:
+
+<CodeBlock title="src/auth.ts" code={authFile} lang="typescript" />
+
+<CodeBlock title="src/main.ts" code={mainFile} lang="typescript" />

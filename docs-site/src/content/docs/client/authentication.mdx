@@ -1,0 +1,111 @@
+---
+title: Authentication
+description: Sign up, sign in, sign out, and OAuth.
+sidebar:
+  order: 3
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const signUpExample = `const user = await auth.signUp({
+  email: 'user@example.com',
+  password: 'strongpassword',
+  name: 'Jane Doe', // optional
+});
+
+console.log(user.id);    // "uuid-string"
+console.log(user.email); // "user@example.com"
+console.log(user.roles); // []`;
+
+export const signInExample = `const user = await auth.signIn({
+  email: 'user@example.com',
+  password: 'strongpassword',
+});`;
+
+export const signOutExample = `await auth.signOut();`;
+
+export const oauthExample = `// Redirect mode (default)
+auth.signInWithProvider('google');
+// or
+auth.signInWithProvider('github');`;
+
+export const oauthPopupExample = `// Popup mode — opens a window, returns a promise
+const user = await auth.signInWithProvider('google', { mode: 'popup' });
+console.log(user.email);`;
+
+export const oauthRedirectToExample = `// Redirect to a specific page after OAuth
+auth.signInWithProvider('google', { redirectTo: '/dashboard' });`;
+
+export const getUserExample = `const user = await auth.getUser();`;
+
+export const errorExample = `import { AuthClientError } from 'authfort-client';
+
+try {
+  await auth.signIn({ email: 'user@example.com', password: 'wrong' });
+} catch (error) {
+  if (error instanceof AuthClientError) {
+    console.log(error.message);    // "Invalid credentials"
+    console.log(error.code);       // "invalid_credentials"
+    console.log(error.statusCode); // 401
+  }
+}`;
+
+All authentication methods update the auth state automatically. After a successful sign in or sign up, the state changes to `'authenticated'` and any listeners are notified.
+
+## Sign Up
+
+<CodeBlock code={signUpExample} lang="typescript" />
+
+After signup, the user is automatically signed in and the auth state changes to `'authenticated'`.
+
+## Sign In
+
+<CodeBlock code={signInExample} lang="typescript" />
+
+## Sign Out
+
+<CodeBlock code={signOutExample} lang="typescript" />
+
+Revokes the refresh token and clears auth state. In bearer mode, also clears the stored token.
+
+## OAuth
+
+Redirect the user to the OAuth provider:
+
+<CodeBlock code={oauthExample} lang="typescript" />
+
+This navigates the browser to `/auth/oauth/google/authorize` (or `github`). After the OAuth flow completes, the user is redirected back to your app with auth cookies set.
+
+### Popup Mode
+
+Use popup mode to avoid a full-page redirect. The client opens a popup window for the OAuth flow and resolves a promise when auth completes:
+
+<CodeBlock code={oauthPopupExample} lang="typescript" />
+
+### Redirect To
+
+Specify where to land after OAuth completes:
+
+<CodeBlock code={oauthRedirectToExample} lang="typescript" />
+
+The `redirectTo` path must be relative (start with `/`). Framework integrations (React, Vue, Svelte) call `initialize()` automatically, so there's no need to call it manually on the landing page.
+
+## Get Current User
+
+<CodeBlock code={getUserExample} lang="typescript" />
+
+Returns the current user from the server (calls `/auth/me`).
+
+## Error Handling
+
+All methods throw `AuthClientError` on failure:
+
+<CodeBlock code={errorExample} lang="typescript" />
+
+| Code | Meaning |
+|------|---------|
+| `invalid_credentials` | Wrong email or password |
+| `user_exists` | Email already registered |
+| `oauth_account` | Account uses social login (includes `providers` list) |
+| `signup_disabled` | Public signup is disabled |
+| `user_banned` | Account is banned |

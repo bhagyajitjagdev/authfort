@@ -1,0 +1,216 @@
+---
+title: Client API
+description: Complete AuthClient reference.
+sidebar:
+  order: 6
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const createExample = `import { createAuthClient } from 'authfort-client';
+
+const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie',
+});`;
+
+export const tokenStorageInterface = `interface TokenStorage {
+  get(): Promise<string | null>;
+  set(token: string): Promise<void>;
+  clear(): Promise<void>;
+}`;
+
+export const oauthProviderType = `type OAuthProvider = 'google' | 'github';`;
+
+export const oauthSignInOptionsType = `interface OAuthSignInOptions {
+  /** OAuth flow mode. 'redirect' (default) or 'popup'. */
+  mode?: 'redirect' | 'popup';
+  /** URL path to redirect to after auth (relative path starting with "/"). Only used in redirect mode. */
+  redirectTo?: string;
+}`;
+
+export const authUserType = `interface AuthUser {
+  id: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  roles: string[];
+  emailVerified: boolean;
+  avatarUrl?: string;
+  createdAt: string;
+}`;
+
+export const authStateType = `type AuthState = 'authenticated' | 'unauthenticated' | 'loading';`;
+
+export const authClientErrorType = `class AuthClientError extends Error {
+  message: string;
+  code: string;
+  statusCode: number;
+}`;
+
+export const reactImport = `import { AuthProvider, useAuth } from 'authfort-client/react';`;
+
+export const vueImport = `import { provideAuth, useAuth } from 'authfort-client/vue';`;
+
+export const svelteImport = `import { createAuthStore } from 'authfort-client/svelte';`;
+
+## createAuthClient(config)
+
+Factory function that creates an `AuthClient` instance.
+
+<CodeBlock code={createExample} lang="typescript" />
+
+### AuthClientConfig
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `baseUrl` | `string` | — (required) | Auth server base URL |
+| `tokenMode` | `'cookie' \| 'bearer'` | `'cookie'` | Token delivery mode |
+| `refreshBuffer` | `number` | `30` | Seconds before expiry to trigger refresh |
+| `tokenStorage` | `TokenStorage` | — | Required for bearer mode |
+
+### TokenStorage
+
+<CodeBlock code={tokenStorageInterface} lang="typescript" />
+
+---
+
+## AuthClient Methods
+
+### `initialize()`
+
+Check for an existing session on startup.
+
+**Returns:** `Promise<void>`
+
+### `signUp(data)`
+
+Create a new user account.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `data.email` | `string` | User email |
+| `data.password` | `string` | Password |
+| `data.name` | `string?` | Display name |
+| `data.avatarUrl` | `string?` | Profile image URL |
+| `data.phone` | `string?` | Phone number |
+
+**Returns:** `Promise<AuthUser>`
+**Throws:** `AuthClientError`
+
+### `signIn(data)`
+
+Authenticate with email and password.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `data.email` | `string` | User email |
+| `data.password` | `string` | Password |
+
+**Returns:** `Promise<AuthUser>`
+**Throws:** `AuthClientError`
+
+### `signInWithProvider(provider, options?)`
+
+Start OAuth flow. In redirect mode (default), navigates the browser. In popup mode, opens a popup window and returns a promise.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `provider` | `OAuthProvider` | `'google'` or `'github'` |
+| `options` | `OAuthSignInOptions?` | OAuth flow options |
+
+**Returns:** `void` (redirect mode) or `Promise<AuthUser>` (popup mode)
+
+### `signOut()`
+
+Revoke the refresh token and clear auth state.
+
+**Returns:** `Promise<void>`
+
+### `getUser()`
+
+Get the current user from the server.
+
+**Returns:** `Promise<AuthUser>`
+**Throws:** `AuthClientError` if not authenticated
+
+### `getToken()`
+
+Get a valid access token. Refreshes automatically if expired.
+
+**Returns:** `Promise<string | null>` — `null` in cookie mode
+
+### `fetch(url, options?)`
+
+Make an authenticated request. Retries once on 401.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `url` | `string` | Request URL |
+| `options` | `RequestInit?` | Standard fetch options |
+
+**Returns:** `Promise<Response>`
+
+### `onAuthStateChange(callback)`
+
+Listen for auth state changes.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `callback` | `(state: AuthState, user: AuthUser \| null) => void` | State change handler |
+
+**Returns:** `() => void` — unsubscribe function
+
+---
+
+## Types
+
+### AuthUser
+
+<CodeBlock code={authUserType} lang="typescript" />
+
+### AuthState
+
+<CodeBlock code={authStateType} lang="typescript" />
+
+### OAuthProvider
+
+<CodeBlock code={oauthProviderType} lang="typescript" />
+
+### OAuthSignInOptions
+
+<CodeBlock code={oauthSignInOptionsType} lang="typescript" />
+
+### AuthClientError
+
+<CodeBlock code={authClientErrorType} lang="typescript" />
+
+---
+
+## Framework Integrations
+
+### React
+
+<CodeBlock code={reactImport} lang="typescript" />
+
+| Export | Description |
+|--------|-------------|
+| `AuthProvider` | Context provider component. Props: `client: AuthClient`. Auto-calls `initialize()`. |
+| `useAuth()` | Hook returning `{ state, user, isAuthenticated, isLoading, client }` |
+
+### Vue
+
+<CodeBlock code={vueImport} lang="typescript" />
+
+| Export | Description |
+|--------|-------------|
+| `provideAuth(client)` | Provide auth to component tree. Auto-calls `initialize()`. |
+| `useAuth()` | Composable returning `{ state, user, isAuthenticated, isLoading, client }` |
+
+### Svelte
+
+<CodeBlock code={svelteImport} lang="typescript" />
+
+| Export | Description |
+|--------|-------------|
+| `createAuthStore(client)` | Returns `{ state, user, isAuthenticated, isLoading, client }` as Svelte stores. Auto-calls `initialize()`. |

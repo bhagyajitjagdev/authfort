@@ -1,0 +1,97 @@
+---
+title: Authenticated Fetch
+description: Make authenticated API requests with automatic token handling.
+sidebar:
+  order: 4
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const basicFetch = `const res = await auth.fetch('/api/profile');
+const data = await res.json();`;
+
+export const fetchExamples = `// JSON POST
+const res = await auth.fetch('/api/data', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'test' }),
+});
+
+// Streaming
+const stream = await auth.fetch('/api/stream');
+const reader = stream.body.getReader();
+
+// AbortController
+const controller = new AbortController();
+await auth.fetch('/api/slow', { signal: controller.signal });`;
+
+export const getTokenExample = `const token = await auth.getToken();
+// Returns the current access token, or null in cookie mode`;
+
+export const axiosBearerExample = `// Bearer mode — attach token via interceptor
+axios.interceptors.request.use(async (config) => {
+  const token = await auth.getToken();
+  if (token) config.headers.Authorization = \`Bearer \${token}\`;
+  return config;
+});`;
+
+export const axiosCookieExample = `// Cookie mode — just enable credentials
+axios.defaults.withCredentials = true;`;
+
+export const tanstackExample = `const { data } = useQuery({
+  queryKey: ['profile'],
+  queryFn: async () => {
+    const token = await auth.getToken();
+    const res = await fetch('/api/profile', {
+      headers: { Authorization: \`Bearer \${token}\` },
+    });
+    return res.json();
+  },
+});`;
+
+## auth.fetch()
+
+`auth.fetch()` is a drop-in replacement for the native `fetch()`. It adds authentication automatically and retries on 401.
+
+<CodeBlock code={basicFetch} lang="typescript" />
+
+It has the same signature as `fetch()` — same `RequestInit` options, same `Response` return. Headers, streaming, `AbortController` — everything works.
+
+### How It Works
+
+1. Sends the request with credentials (cookie mode) or `Authorization` header (bearer mode)
+2. If the response is 401, refreshes the access token
+3. Retries the original request once with the new token
+4. If the retry also fails, returns the 401 response
+
+Multiple concurrent 401s share a single refresh call — no thundering herd.
+
+### Examples
+
+<CodeBlock code={fetchExamples} lang="typescript" />
+
+## getToken()
+
+For use with custom HTTP clients (Axios, TanStack Query, etc.) in bearer mode:
+
+<CodeBlock code={getTokenExample} lang="typescript" />
+
+`getToken()` refreshes automatically if the token is expired. Concurrent calls share a single refresh.
+
+### Axios
+
+<CodeBlock code={axiosCookieExample} lang="typescript" />
+
+<CodeBlock code={axiosBearerExample} lang="typescript" />
+
+### TanStack Query
+
+<CodeBlock code={tanstackExample} lang="typescript" />
+
+## Cookie Mode vs Bearer Mode
+
+| | Cookie Mode | Bearer Mode |
+|--|------------|-------------|
+| `auth.fetch()` adds | `credentials: 'include'` | `Authorization: Bearer <token>` |
+| `getToken()` returns | `null` (tokens are in cookies) | The access token string |
+| Who stores tokens | Browser (HttpOnly cookies) | You (via `TokenStorage`) |

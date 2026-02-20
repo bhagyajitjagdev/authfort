@@ -1,0 +1,111 @@
+---
+title: Database Setup
+description: PostgreSQL, SQLite, and MySQL configuration.
+sidebar:
+  order: 9
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const postgresExample = `auth = AuthFort(
+    database_url="postgresql+asyncpg://user:pass@localhost:5432/mydb",
+)`;
+
+export const sqliteExample = `auth = AuthFort(
+    database_url="sqlite+aiosqlite:///auth.db",
+)`;
+
+export const mysqlExample = `auth = AuthFort(
+    database_url="mysql+aiomysql://user:pass@localhost:3306/mydb",
+)`;
+
+export const migrateExample = `from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app):
+    await auth.migrate()
+    yield
+    await auth.dispose()`;
+
+export const alembicExclude = `from authfort import alembic_exclude
+from authfort.models import Base as AuthFortBase
+from your_app.models import Base as AppBase
+
+# Include both metadata sets so Alembic sees all tables
+target_metadata = [AppBase.metadata, AuthFortBase.metadata]
+
+def run_migrations_online():
+    # ...
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_name=alembic_exclude(),  # Skip authfort_* tables
+    )`;
+
+export const separateDb = `# Your app
+app_engine = create_async_engine("postgresql+asyncpg://user:pass@localhost/myapp")
+
+# AuthFort — separate database
+auth = AuthFort(
+    database_url="postgresql+asyncpg://user:pass@localhost/auth_db",
+)`;
+
+AuthFort uses SQLAlchemy and supports any SQL database with an async driver.
+
+## Connection Strings
+
+### PostgreSQL
+
+<CodeBlock code={postgresExample} />
+
+Requires: `pip install authfort` (asyncpg is included).
+
+### SQLite
+
+<CodeBlock code={sqliteExample} />
+
+Requires: `pip install authfort[sqlite]`
+
+SQLite is great for development and small deployments. The database file is created automatically.
+
+### MySQL
+
+<CodeBlock code={mysqlExample} />
+
+Requires: `pip install authfort[mysql]`
+
+## Migrations
+
+AuthFort includes bundled Alembic migrations. Run them at startup:
+
+<CodeBlock code={migrateExample} />
+
+`migrate()` is idempotent — it only runs pending migrations. Safe to call on every startup.
+
+All AuthFort tables are prefixed with `authfort_` to avoid conflicts with your application's tables:
+
+- `authfort_users`
+- `authfort_accounts`
+- `authfort_refresh_tokens`
+- `authfort_user_roles`
+- `authfort_signing_keys`
+- `authfort_verification_tokens`
+- `authfort_alembic_version`
+
+## Sharing a Database
+
+If your application uses the same database, AuthFort's tables coexist with yours. When running Alembic for your own migrations, use `alembic_exclude()` to filter out AuthFort's tables:
+
+<CodeBlock title="your_app/alembic/env.py" code={alembicExclude} />
+
+This prevents Alembic from generating migrations for AuthFort's tables.
+
+## Separate Database
+
+For production, you may want AuthFort on its own database. Just use a different connection string:
+
+<CodeBlock code={separateDb} />
+
+## Disposing the Engine
+
+Call `auth.dispose()` when your application exits to clean up database connections.

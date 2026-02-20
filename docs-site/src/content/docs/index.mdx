@@ -1,0 +1,95 @@
+---
+title: AuthFort
+description: Complete authentication and authorization for Python applications.
+template: splash
+hero:
+  title: ' '
+editUrl: false
+---
+
+import CodeBlock from '../../components/CodeBlock.astro';
+import FeatureGrid from '../../components/FeatureGrid.astro';
+import Hero from '../../components/Hero.astro';
+import PackageCard from '../../components/PackageCard.astro';
+
+export const quickLook = `from authfort import AuthFort, CookieConfig
+from fastapi import FastAPI, Depends
+
+auth = AuthFort(
+    database_url="postgresql+asyncpg://user:pass@localhost/mydb",
+    cookie=CookieConfig(),
+)
+
+app = FastAPI()
+app.include_router(auth.fastapi_router(), prefix="/auth")
+app.include_router(auth.jwks_router())
+
+@app.get("/api/profile")
+async def profile(user=Depends(auth.current_user)):
+    return {"email": user.email, "roles": user.roles}`;
+
+<Hero />
+
+## Three Packages, One Auth System
+
+<PackageCard packages={[
+  {
+    name: "authfort",
+    lang: "python",
+    description: "Full auth server — user management, JWT tokens, OAuth providers, roles, sessions, JWKS, and event hooks.",
+    install: "pip install authfort",
+  },
+  {
+    name: "authfort-service",
+    lang: "python",
+    description: "Lightweight JWT verifier for microservices. Validates tokens via JWKS without database access.",
+    install: "pip install authfort-service",
+  },
+  {
+    name: "authfort-client",
+    lang: "typescript",
+    description: "TypeScript SDK for browsers and mobile. Token refresh, 401 retry, and auth state with React, Vue, and Svelte integrations.",
+    install: "npm install authfort-client",
+  },
+]} />
+
+## Features
+
+<FeatureGrid features={[
+  {
+    icon: "🔐",
+    title: "JWT RS256",
+    description: "Stateless access tokens with automatic RSA key management and rotation."
+  },
+  {
+    icon: "🔗",
+    title: "OAuth 2.1 + PKCE",
+    description: "Google and GitHub providers with automatic account linking by email."
+  },
+  {
+    icon: "🛡️",
+    title: "Role-Based Access",
+    description: "Add, remove, and require roles. Works as FastAPI dependencies."
+  },
+  {
+    icon: "📋",
+    title: "Session Management",
+    description: "List sessions, revoke individual or all. \"Sign out other devices\" built in."
+  },
+  {
+    icon: "📡",
+    title: "Event Hooks",
+    description: "15 event types — user_created, login, password_reset, role_added, and more."
+  },
+  {
+    icon: "🗄️",
+    title: "Multi-Database",
+    description: "PostgreSQL, SQLite, and MySQL via SQLAlchemy. Zero config migrations."
+  }
+]} />
+
+## Quick Look
+
+<CodeBlock title="main.py" code={quickLook} lang="python" />
+
+This gives you `/auth/signup`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`, OAuth endpoints, `/.well-known/jwks.json`, and `/introspect` — all out of the box.

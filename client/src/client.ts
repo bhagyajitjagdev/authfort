@@ -9,6 +9,8 @@ import type {
   AuthClientConfig,
   AuthState,
   AuthUser,
+  OAuthProvider,
+  OAuthSignInOptions,
   ServerAuthResponse,
   ServerUserResponse,
 } from './types.js';
@@ -22,6 +24,7 @@ function mapUser(server: ServerUserResponse): AuthUser {
     id: server.id,
     email: server.email,
     name: server.name ?? undefined,
+    phone: server.phone ?? undefined,
     roles: server.roles,
     emailVerified: server.email_verified,
     avatarUrl: server.avatar_url ?? undefined,
@@ -40,6 +43,7 @@ class AuthClientImpl implements AuthClient {
     (state: AuthState, user: AuthUser | null) => void
   >();
   private _tokenManager: TokenManager | null = null;
+  private _initPromise: Promise<void> | null = null;
 
   private readonly _baseUrl: string;
   private readonly _tokenMode: 'cookie' | 'bearer';
@@ -66,7 +70,13 @@ class AuthClientImpl implements AuthClient {
     }
   }
 
-  async initialize(): Promise<void> {
+  initialize(): Promise<void> {
+    if (this._initPromise) return this._initPromise;
+    this._initPromise = this._doInitialize();
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     this._setState('loading', null);
 
     try {
@@ -182,12 +192,19 @@ class AuthClientImpl implements AuthClient {
     email: string;
     password: string;
     name?: string;
+    avatarUrl?: string;
+    phone?: string;
   }): Promise<AuthUser> {
+    const body: Record<string, string> = { email: data.email, password: data.password };
+    if (data.name !== undefined) body.name = data.name;
+    if (data.avatarUrl !== undefined) body.avatar_url = data.avatarUrl;
+    if (data.phone !== undefined) body.phone = data.phone;
+
     const response = await globalThis.fetch(`${this._baseUrl}/signup`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -234,8 +251,77 @@ class AuthClientImpl implements AuthClient {
     return user;
   }
 
-  signInWithProvider(provider: string): void {
-    window.location.href = `${this._baseUrl}/oauth/${provider}/authorize`;
+  signInWithProvider(provider: OAuthProvider, options?: OAuthSignInOptions): void | Promise<AuthUser> {
+    const mode = options?.mode ?? 'redirect';
+    const params = new URLSearchParams();
+    if (options?.redirectTo) params.set('redirect_to', options.redirectTo);
+    if (mode === 'popup') params.set('mode', 'popup');
+    const qs = params.toString();
+    const authorizeUrl = `${this._baseUrl}/oauth/${provider}/authorize${qs ? `?${qs}` : ''}`;
+
+    if (mode === 'popup') {
+      return this._oauthPopup(authorizeUrl);
+    }
+
+    window.location.href = authorizeUrl;
+  }
+
+  private _oauthPopup(url: string): Promise<AuthUser> {
+    return new Promise<AuthUser>((resolve, reject) => {
+      const width = 500;
+      const height = 600;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      const popup = window.open(
+        url,
+        'authfort-oauth',
+        `width=${width},height=${height},left=${left},top=${top},popup=yes`,
+      );
+
+      if (!popup) {
+        reject(new AuthClientError('Popup blocked by browser', 'popup_blocked', 0));
+        return;
+      }
+
+      const cleanup = () => {
+        window.removeEventListener('message', onMessage);
+        clearInterval(pollTimer);
+      };
+
+      const onMessage = (event: MessageEvent) => {
+        // Accept messages from our own origin or the auth server origin
+        const data = event.data;
+        if (!data || typeof data !== 'object' || !data.user) return;
+
+        cleanup();
+        try { popup.close(); } catch { /* ignore */ }
+
+        const user = mapUser(data.user);
+
+        if (this._tokenManager && data.tokens) {
+          this._tokenManager
+            .setTokens(data.tokens.access_token, data.tokens.refresh_token, data.tokens.expires_in)
+            .then(() => {
+              this._setAuthenticated(user);
+              resolve(user);
+            })
+            .catch(reject);
+        } else {
+          this._setAuthenticated(user);
+          resolve(user);
+        }
+      };
+
+      // Poll for popup closure (user closed manually)
+      const pollTimer = setInterval(() => {
+        if (popup.closed) {
+          cleanup();
+          reject(new AuthClientError('OAuth popup was closed', 'popup_closed', 0));
+        }
+      }, 500);
+
+      window.addEventListener('message', onMessage);
+    });
   }
 
   async signOut(): Promise<void> {

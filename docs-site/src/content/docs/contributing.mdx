@@ -1,0 +1,102 @@
+---
+title: Contributing
+description: How to contribute to AuthFort.
+---
+
+import CodeBlock from '../../components/CodeBlock.astro';
+
+export const cloneAndInstall = `git clone https://github.com/bhagyajitjagdev/authfort.git
+cd authfort
+
+# Server
+cd server && uv sync --dev && cd ..
+
+# Service
+cd service && uv sync --dev && cd ..
+
+# Client
+cd client && npm install && cd ..`;
+
+export const runTests = `# Server (207 tests)
+cd server && uv run pytest tests/ -v
+
+# Service (28 tests)
+cd service && uv run pytest tests/ -v
+
+# Client (42 tests)
+cd client && npm test`;
+
+export const projectStructure = `authfort/
+├── server/          # authfort — Python auth server
+│   ├── src/authfort/
+│   └── tests/
+├── service/         # authfort-service — Python JWT verifier
+│   ├── src/authfort_service/
+│   └── tests/
+├── client/          # authfort-client — TypeScript SDK
+│   ├── src/
+│   └── tests/
+└── docs-site/       # Documentation (this site)`;
+
+export const branchExample = `git checkout -b feat/my-feature
+# Make changes
+git add -A
+git commit -m "feat: add my feature"
+git push -u origin feat/my-feature
+# Open PR to main`;
+
+Contributions are welcome! AuthFort is a monorepo with three packages — pick the one that matches your expertise.
+
+## Development Setup
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
+
+### Clone and Install
+
+<CodeBlock code={cloneAndInstall} lang="bash" />
+
+## Running Tests
+
+<CodeBlock code={runTests} lang="bash" />
+
+Server tests use SQLite by default — no database setup needed.
+
+## Project Structure
+
+<CodeBlock code={projectStructure} lang="plaintext" />
+
+## Branch Strategy
+
+- **`main`** — stable, production-ready. Never push directly.
+- **Feature branches** — all work happens here, merged via PR.
+
+<CodeBlock code={branchExample} lang="bash" />
+
+### Commit Messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+| Prefix | Use |
+|--------|-----|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `docs:` | Documentation |
+| `refactor:` | Code restructure |
+| `test:` | Tests |
+| `chore:` | Maintenance |
+
+## Pull Request Guidelines
+
+1. One feature or fix per PR
+2. Include tests for new functionality
+3. All existing tests must pass
+4. Update documentation if the public API changes
+
+## Reporting Issues
+
+- **Bug reports** — [Open an issue](https://github.com/bhagyajitjagdev/authfort/issues/new?template=bug_report.md)
+- **Feature requests** — [Open an issue](https://github.com/bhagyajitjagdev/authfort/issues/new?template=feature_request.md)

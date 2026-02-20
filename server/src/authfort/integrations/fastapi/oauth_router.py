@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.config import AuthFortConfig
@@ -37,6 +37,8 @@ def create_oauth_router(
         provider_name: str,
         request: Request,
         session: Annotated[AsyncSession, Depends(get_db)],
+        redirect_to: str | None = None,
+        mode: str | None = None,
     ):
         """Initiate OAuth flow — redirect to provider's consent screen."""
         provider = provider_map.get(provider_name)
@@ -46,7 +48,17 @@ def create_oauth_router(
                 detail={"error": "unknown_provider", "message": f"Provider '{provider_name}' is not configured"},
             )
 
-        oauth_state = await create_oauth_state(session, config=config, provider_name=provider_name)
+        # Validate redirect_to — must be a relative path to prevent open redirect
+        if redirect_to and not redirect_to.startswith("/"):
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "invalid_redirect", "message": "redirect_to must be a relative path"},
+            )
+
+        oauth_state = await create_oauth_state(
+            session, config=config, provider_name=provider_name,
+            redirect_to=redirect_to, mode=mode,
+        )
 
         redirect_uri = provider.redirect_uri
         if redirect_uri is None:
@@ -107,7 +119,7 @@ def create_oauth_router(
             )
 
         try:
-            code_verifier = await verify_oauth_state(
+            state_data = await verify_oauth_state(
                 session, config=config, state=state, expected_provider=provider_name,
             )
         except AuthError as e:
@@ -125,7 +137,7 @@ def create_oauth_router(
                 provider=provider,
                 code=code,
                 redirect_uri=redirect_uri,
-                code_verifier=code_verifier,
+                code_verifier=state_data.code_verifier,
                 user_agent=request.headers.get("User-Agent"),
                 ip_address=request.client.host if request.client else None,
                 events=get_collector(),
@@ -135,6 +147,27 @@ def create_oauth_router(
             raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
 
         set_auth_cookies(config, response, result)
+
+        # Popup mode: return HTML that posts tokens to opener and closes
+        if state_data.mode == "popup":
+            import json
+
+            result_json = json.dumps(result.model_dump(), default=str)
+            html = (
+                "<!DOCTYPE html><html><body><script>"
+                f"window.opener.postMessage({result_json},'*');"
+                "window.close();"
+                "</script></body></html>"
+            )
+            return HTMLResponse(content=html)
+
+        # Redirect mode: redirect to specified URL after setting cookies
+        if state_data.redirect_to:
+            redirect_url = state_data.redirect_to
+            if config.frontend_url:
+                redirect_url = config.frontend_url + redirect_url
+            return RedirectResponse(url=redirect_url, status_code=302)
+
         return result
 
     return router

@@ -1,0 +1,64 @@
+---
+title: Key Rotation
+description: How JWKS key rotation works and how to manage it.
+sidebar:
+  order: 10
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const rotateKey = `new_kid = await auth.rotate_key()
+# Returns the new key's ID (kid)`;
+
+
+export const jwksResponse = `{
+  "keys": [
+    {
+      "kty": "RSA",
+      "kid": "key-uuid",
+      "use": "sig",
+      "alg": "RS256",
+      "n": "...",
+      "e": "AQAB"
+    }
+  ]
+}`;
+
+export const configExample = `auth = AuthFort(
+    database_url="...",
+    key_rotation_ttl=172800,  # 48 hours (default) — how long old keys stay valid after rotation
+)`;
+
+AuthFort uses RS256 (RSA) for signing JWTs. You rotate keys manually or via a scheduled task — AuthFort doesn't rotate them automatically.
+
+## How It Works
+
+1. AuthFort creates an RSA key pair on first startup
+2. The private key signs JWTs; the public key is published at `/.well-known/jwks.json`
+3. You call `auth.rotate_key()` to create a new key — the old key is marked inactive
+4. Both old and new public keys are served in JWKS during the transition
+5. After `key_rotation_ttl` expires, old keys are no longer served in JWKS
+
+This ensures tokens signed with the old key remain valid until they naturally expire.
+
+## Manual Rotation
+
+<CodeBlock code={rotateKey} />
+
+This creates a new key immediately and marks the old one as inactive. You might call this if you suspect a key compromise.
+
+## JWKS Endpoint
+
+The `/.well-known/jwks.json` endpoint returns all active public keys:
+
+<CodeBlock code={jwksResponse} lang="json" />
+
+Microservices fetch this to verify JWTs. The `authfort-service` package handles this automatically with caching and rate limiting.
+
+## Configuration
+
+<CodeBlock code={configExample} />
+
+## Events
+
+Emits `key_rotated` events. See [Events & Hooks](/authfort/server/events/) for all events and their payloads.

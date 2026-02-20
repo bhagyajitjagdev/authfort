@@ -1,0 +1,56 @@
+---
+title: Google
+description: Set up Google OAuth for your application.
+sidebar:
+  order: 2
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import CodeBlock from '../../../../components/CodeBlock.astro';
+
+export const configExample = `from authfort import GoogleProvider
+
+GoogleProvider(
+    client_id="your-google-client-id",
+    client_secret="your-google-client-secret",
+)`;
+
+## Setup
+
+<Steps>
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
+2. Create an OAuth 2.0 Client ID (Web application)
+3. Add authorized redirect URI: `https://yourapp.com/auth/oauth/google/callback`
+4. Copy the Client ID and Client Secret
+
+</Steps>
+
+## Configuration
+
+<CodeBlock code={configExample} />
+
+### Scopes
+
+Required scopes (`openid`, `email`, `profile`) are always included automatically. Use `extra_scopes` to request additional Google API access:
+
+```python
+GoogleProvider(
+    client_id="...",
+    client_secret="...",
+    extra_scopes=("https://www.googleapis.com/auth/calendar",),
+)
+```
+
+| Required Scope | Description |
+|-------|-------------|
+| `openid` | Required for OpenID Connect |
+| `email` | Access the user's email address |
+| `profile` | Access the user's name and avatar |
+
+## Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/auth/oauth/google/authorize` | Start Google OAuth flow |
+| GET | `/auth/oauth/google/callback` | Handle Google callback |

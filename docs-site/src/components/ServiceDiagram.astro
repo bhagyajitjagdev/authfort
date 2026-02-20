@@ -1,0 +1,179 @@
+---
+// Service SDK flow diagram — Browser → Microservice → Auth Server JWKS
+---
+
+<div class="not-content svc-diagram">
+  <svg viewBox="0 0 700 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+    <!-- Browser Box -->
+    <rect class="box" x="20" y="50" width="160" height="80" rx="10" />
+    <text class="box-title" x="100" y="85">Browser</text>
+    <text class="box-sub" x="100" y="105">or Mobile App</text>
+
+    <!-- Microservice Box -->
+    <rect class="box box-primary" x="270" y="50" width="160" height="80" rx="10" />
+    <text class="box-title" x="350" y="82">Microservice</text>
+    <text class="box-pkg" x="350" y="102">authfort-service</text>
+    <text class="box-lang" x="350" y="120">verifies JWT locally</text>
+
+    <!-- Auth Server Box -->
+    <rect class="box" x="520" y="50" width="160" height="80" rx="10" />
+    <text class="box-title" x="600" y="82">Auth Server</text>
+    <text class="box-pkg" x="600" y="102">authfort</text>
+    <text class="box-lang" x="600" y="120">JWKS endpoint</text>
+
+    <!-- Arrow: Browser → Microservice (request with JWT) -->
+    <path class="arrow-line" d="M180,80 L266,80" />
+    <polygon class="arrow-head" points="266,75 276,80 266,85" />
+    <text class="arrow-label" x="223" y="72">Request + JWT</text>
+
+    <!-- Arrow: Microservice → Browser (response) -->
+    <path class="arrow-line" d="M270,105 L184,105" />
+    <polygon class="arrow-head" points="184,100 174,105 184,110" />
+    <text class="arrow-label" x="223" y="124">Response</text>
+
+    <!-- Arrow: Microservice → Auth Server (fetch keys) -->
+    <path class="arrow-dashed" d="M430,80 L516,80" />
+    <polygon class="arrow-head-dashed" points="516,75 526,80 516,85" />
+    <text class="arrow-label" x="473" y="72">Fetch public keys</text>
+    <text class="arrow-label-accent" x="473" y="148">(cached — not on every request)</text>
+
+  </svg>
+</div>
+
+<style>
+  .svc-diagram {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  .svc-diagram svg {
+    width: 100%;
+    max-width: 700px;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+  }
+
+  /* ── Dark mode ── */
+  :global([data-theme='dark']) .svc-diagram .box {
+    fill: #141414;
+    stroke: #2a2a2a;
+    stroke-width: 1.5;
+  }
+  :global([data-theme='dark']) .svc-diagram .box-primary {
+    fill: #181818;
+    stroke: #333;
+  }
+  :global([data-theme='dark']) .svc-diagram .box-title {
+    fill: #e5e5e5;
+    font-size: 14px;
+    font-weight: 600;
+    text-anchor: middle;
+  }
+  :global([data-theme='dark']) .svc-diagram .box-sub {
+    fill: #525252;
+    font-size: 11px;
+    text-anchor: middle;
+  }
+  :global([data-theme='dark']) .svc-diagram .box-pkg {
+    fill: #a3a3a3;
+    font-size: 12px;
+    font-weight: 500;
+    text-anchor: middle;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  }
+  :global([data-theme='dark']) .svc-diagram .box-lang {
+    fill: #525252;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  :global([data-theme='dark']) .svc-diagram .arrow-line {
+    stroke: #404040;
+    stroke-width: 1.5;
+  }
+  :global([data-theme='dark']) .svc-diagram .arrow-dashed {
+    stroke: #333;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+    fill: none;
+  }
+  :global([data-theme='dark']) .svc-diagram .arrow-head {
+    fill: #404040;
+  }
+  :global([data-theme='dark']) .svc-diagram .arrow-head-dashed {
+    fill: #333;
+  }
+  :global([data-theme='dark']) .svc-diagram .arrow-label {
+    fill: #666;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  :global([data-theme='dark']) .svc-diagram .arrow-label-accent {
+    fill: #525252;
+    font-size: 10px;
+    text-anchor: middle;
+    font-style: italic;
+  }
+
+  /* ── Light mode ── */
+  :global([data-theme='light']) .svc-diagram .box {
+    fill: #fafafa;
+    stroke: #e5e5e5;
+    stroke-width: 1.5;
+  }
+  :global([data-theme='light']) .svc-diagram .box-primary {
+    fill: #f5f5f5;
+    stroke: #d4d4d4;
+  }
+  :global([data-theme='light']) .svc-diagram .box-title {
+    fill: #171717;
+    font-size: 14px;
+    font-weight: 600;
+    text-anchor: middle;
+  }
+  :global([data-theme='light']) .svc-diagram .box-sub {
+    fill: #a3a3a3;
+    font-size: 11px;
+    text-anchor: middle;
+  }
+  :global([data-theme='light']) .svc-diagram .box-pkg {
+    fill: #525252;
+    font-size: 12px;
+    font-weight: 500;
+    text-anchor: middle;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  }
+  :global([data-theme='light']) .svc-diagram .box-lang {
+    fill: #a3a3a3;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  :global([data-theme='light']) .svc-diagram .arrow-line {
+    stroke: #d4d4d4;
+    stroke-width: 1.5;
+  }
+  :global([data-theme='light']) .svc-diagram .arrow-dashed {
+    stroke: #d4d4d4;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+    fill: none;
+  }
+  :global([data-theme='light']) .svc-diagram .arrow-head {
+    fill: #d4d4d4;
+  }
+  :global([data-theme='light']) .svc-diagram .arrow-head-dashed {
+    fill: #d4d4d4;
+  }
+  :global([data-theme='light']) .svc-diagram .arrow-label {
+    fill: #999;
+    font-size: 10px;
+    text-anchor: middle;
+  }
+  :global([data-theme='light']) .svc-diagram .arrow-label-accent {
+    fill: #a3a3a3;
+    font-size: 10px;
+    text-anchor: middle;
+    font-style: italic;
+  }
+</style>

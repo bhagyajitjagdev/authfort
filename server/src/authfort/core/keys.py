@@ -7,15 +7,18 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 
-def generate_key_pair() -> tuple[str, str]:
-    """Generate an RSA 2048-bit key pair.
+def generate_key_pair(key_size: int = 2048) -> tuple[str, str]:
+    """Generate an RSA key pair.
+
+    Args:
+        key_size: RSA key size in bits (default 2048, must be >= 2048).
 
     Returns:
         Tuple of (private_key_pem, public_key_pem) as strings.
     """
     private_key = rsa.generate_private_key(
         public_exponent=65537,
-        key_size=2048,
+        key_size=key_size,
     )
 
     private_pem = private_key.private_bytes(

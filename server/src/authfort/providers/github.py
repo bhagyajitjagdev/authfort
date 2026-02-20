@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -15,10 +15,11 @@ from authfort.providers.base import OAuthProvider, OAuthUserInfo
 class GitHubProvider(OAuthProvider):
     """GitHub OAuth provider.
 
-    Default scopes: read:user, user:email.
+    Required scopes: read:user, user:email.
+    Pass ``extra_scopes`` to request additional permissions.
     """
 
-    scopes: tuple[str, ...] = ("read:user", "user:email")
+    REQUIRED_SCOPES: ClassVar[tuple[str, ...]] = ("read:user", "user:email")
 
     @property
     def name(self) -> str:

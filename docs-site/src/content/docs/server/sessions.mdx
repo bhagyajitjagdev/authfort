@@ -1,0 +1,67 @@
+---
+title: Sessions
+description: List, revoke, and manage user sessions.
+sidebar:
+  order: 5
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const listSessions = `sessions = await auth.get_sessions(user_id, active_only=True)
+
+for session in sessions:
+    print(session.id)          # UUID
+    print(session.user_agent)  # "Mozilla/5.0 ..."
+    print(session.ip_address)  # "192.168.1.1"
+    print(session.created_at)  # datetime
+    print(session.expires_at)  # datetime
+    print(session.revoked)     # bool`;
+
+export const revokeOne = `revoked = await auth.revoke_session(session_id)
+# True if found and revoked, False if not found`;
+
+export const revokeAll = `await auth.revoke_all_sessions(user_id)`;
+
+export const revokeExclude = `# Keep current session, revoke all others ("sign out other devices")
+await auth.revoke_all_sessions(user_id, exclude=current_session_id)`;
+
+Each refresh token represents a session. Sessions track when and where a user logged in, and can be revoked individually or all at once.
+
+## List Sessions
+
+<CodeBlock code={listSessions} />
+
+Set `active_only=False` to include revoked and expired sessions.
+
+## Revoke a Single Session
+
+<CodeBlock code={revokeOne} />
+
+This revokes the refresh token associated with the session. The user's access token for that session remains valid until it expires (typically 15 minutes).
+
+## Revoke All Sessions
+
+<CodeBlock code={revokeAll} />
+
+This revokes every refresh token for the user and bumps their token version, which invalidates all access tokens immediately.
+
+### Keep Current Session
+
+The `exclude` parameter keeps one session alive — useful for "sign out all other devices":
+
+<CodeBlock code={revokeExclude} />
+
+The `session_id` is available on the `UserResponse` from `current_user`. It comes from the `sid` claim in the JWT.
+
+## Session Metadata
+
+Sessions capture metadata from the HTTP request at login time:
+
+- **User Agent** — the browser or client identifier
+- **IP Address** — the client's IP at login
+
+This data is recorded when the refresh token is created and doesn't change for the life of the session.
+
+## Events
+
+Emits `session_revoked` events. See [Events & Hooks](/authfort/server/events/) for all events and their payloads.

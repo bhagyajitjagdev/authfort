@@ -1,8 +1,19 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../.github/logo-dark.svg" width="60">
+  <source media="(prefers-color-scheme: light)" srcset="../.github/logo-light.svg" width="60">
+  <img alt="AuthFort" src="../.github/logo-light.svg" width="60">
+</picture>
+
 # authfort
 
 [![PyPI](https://img.shields.io/pypi/v/authfort)](https://pypi.org/project/authfort/)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/Docs-blue?logo=readthedocs&logoColor=white)](https://bhagyajitjagdev.github.io/authfort/server/configuration/)
+
+</div>
 
 Complete authentication and authorization library for Python.
 

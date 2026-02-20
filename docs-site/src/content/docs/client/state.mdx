@@ -1,0 +1,66 @@
+---
+title: Auth State
+description: Track authentication state changes.
+sidebar:
+  order: 5
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const listenExample = `const unsubscribe = auth.onAuthStateChange((state, user) => {
+  console.log('State:', state);  // 'authenticated' | 'unauthenticated' | 'loading'
+  console.log('User:', user);    // AuthUser | null
+});
+
+// Later, stop listening
+unsubscribe();`;
+
+export const usageExample = `auth.onAuthStateChange((state, user) => {
+  if (state === 'authenticated') {
+    showApp(user);
+  } else if (state === 'unauthenticated') {
+    showLoginPage();
+  } else {
+    showSpinner();
+  }
+});
+
+await auth.initialize();`;
+
+The client tracks three states:
+
+| State | Meaning |
+|-------|---------|
+| `'loading'` | Checking for existing session (during `initialize()`) |
+| `'authenticated'` | User is signed in |
+| `'unauthenticated'` | No valid session |
+
+## Listening for Changes
+
+<CodeBlock code={listenExample} lang="typescript" />
+
+The callback fires on:
+- `initialize()` completing
+- `signIn()` / `signUp()` succeeding
+- `signOut()` completing
+- Token refresh failing (session expired)
+
+## AuthUser
+
+When the state is `'authenticated'`, the `user` object has:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | User UUID |
+| `email` | `string` | Email address |
+| `name` | `string \| undefined` | Display name |
+| `roles` | `string[]` | Assigned roles |
+| `emailVerified` | `boolean` | Whether email is verified |
+| `avatarUrl` | `string \| undefined` | Profile image URL |
+| `createdAt` | `string` | ISO timestamp |
+
+## Usage Pattern
+
+<CodeBlock code={usageExample} lang="typescript" />
+
+For React, Vue, and Svelte, the framework integrations handle this automatically — see the framework-specific pages.

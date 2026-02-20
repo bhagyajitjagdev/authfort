@@ -1,0 +1,164 @@
+---
+title: Events & Hooks
+description: React to authentication events in your application.
+sidebar:
+  order: 7
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const decoratorExample = `@auth.on("user_created")
+async def on_signup(event):
+    await send_welcome_email(event.email)
+
+@auth.on("login_failed")
+async def on_failed_login(event):
+    await log_failed_attempt(event.email, event.ip_address, event.reason)`;
+
+export const typedHandlerExample = `from authfort import AuthFort
+from authfort.events import UserCreated, LoginFailed, UserUpdated
+
+auth = AuthFort(database_url="...")
+
+@auth.on("user_created")
+async def on_signup(event: UserCreated):
+    await send_welcome_email(event.email)
+
+@auth.on("login_failed")
+async def on_failed_login(event: LoginFailed):
+    await log_failed_attempt(event.email, event.ip_address, event.reason)
+
+@auth.on("user_updated")
+async def on_profile_update(event: UserUpdated):
+    await sync_profile(event.user_id, event.fields)`;
+
+export const programmaticExample = `async def on_signup(event):
+    await send_welcome_email(event.email)
+
+auth.add_hook("user_created", on_signup)`;
+
+export const auditExample = `@auth.on("login")
+async def audit_login(event):
+    await db.insert("audit_log", {
+        "action": "login",
+        "user_id": event.user_id,
+        "ip": event.ip_address,
+        "user_agent": event.user_agent,
+        "timestamp": event.timestamp,
+    })`;
+
+export const rateLimitExample = `from collections import defaultdict
+
+failed_attempts = defaultdict(int)
+
+@auth.on("login_failed")
+async def track_failures(event):
+    failed_attempts[event.email] += 1
+    if failed_attempts[event.email] >= 5:
+        await notify_admin(f"Multiple failed logins for {event.email}")`;
+
+export const welcomeExample = `@auth.on("user_created")
+async def welcome(event):
+    if event.provider == "email":
+        await send_welcome_email(event.email, event.name)`;
+
+export const multipleHooksExample = `@auth.on("login")
+async def hook_1(event):
+    await update_last_login(event.user_id)
+
+@auth.on("login")
+async def hook_2(event):
+    await send_login_notification(event.email)`;
+
+AuthFort emits events for every authentication action. Use hooks to react to these events — send emails, log audit trails, update analytics, sync with external systems.
+
+## Registering Hooks
+
+### Decorator
+
+<CodeBlock code={decoratorExample} />
+
+### Programmatic
+
+<CodeBlock code={programmaticExample} />
+
+Both approaches are equivalent. The decorator is syntactic sugar for `add_hook()`.
+
+### Typed Handlers
+
+Event types are importable from `authfort.events` for type-safe handlers:
+
+<CodeBlock code={typedHandlerExample} />
+
+## All Events
+
+### User Lifecycle
+
+| Event | Payload Fields |
+|-------|---------------|
+| `user_created` | `user_id`, `email`, `name`, `provider`, `timestamp` |
+| `user_updated` | `user_id`, `fields`, `timestamp` |
+| `user_banned` | `user_id`, `timestamp` |
+| `user_unbanned` | `user_id`, `timestamp` |
+
+### Authentication
+
+| Event | Payload Fields |
+|-------|---------------|
+| `login` | `user_id`, `email`, `provider`, `ip_address`, `user_agent`, `timestamp` |
+| `login_failed` | `email`, `reason`, `ip_address`, `user_agent`, `timestamp` |
+| `logout` | `user_id`, `timestamp` |
+| `token_refreshed` | `user_id`, `ip_address`, `user_agent`, `timestamp` |
+
+### Roles
+
+| Event | Payload Fields |
+|-------|---------------|
+| `role_added` | `user_id`, `role`, `timestamp` |
+| `role_removed` | `user_id`, `role`, `timestamp` |
+
+### Sessions
+
+| Event | Payload Fields |
+|-------|---------------|
+| `session_revoked` | `user_id`, `session_id`, `revoke_all`, `timestamp` |
+
+### OAuth
+
+| Event | Payload Fields |
+|-------|---------------|
+| `oauth_link` | `user_id`, `email`, `provider`, `timestamp` |
+
+### Password
+
+| Event | Payload Fields |
+|-------|---------------|
+| `password_reset_requested` | `user_id`, `email`, `timestamp` |
+| `password_reset` | `user_id`, `timestamp` |
+| `password_changed` | `user_id`, `timestamp` |
+
+### Keys
+
+| Event | Payload Fields |
+|-------|---------------|
+| `key_rotated` | `old_kid`, `new_kid`, `timestamp` |
+
+## Examples
+
+### Audit Log
+
+<CodeBlock code={auditExample} />
+
+### Rate Limiting Failed Logins
+
+<CodeBlock code={rateLimitExample} />
+
+### Welcome Email
+
+<CodeBlock code={welcomeExample} />
+
+## Multiple Hooks
+
+You can register multiple hooks for the same event. They run concurrently:
+
+<CodeBlock code={multipleHooksExample} />

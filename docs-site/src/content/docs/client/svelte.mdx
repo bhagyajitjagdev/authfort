@@ -1,0 +1,85 @@
+---
+title: Svelte
+description: Svelte integration with createAuthStore.
+sidebar:
+  order: 8
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const authFile = `import { createAuthClient } from 'authfort-client';
+
+export const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie',
+});`;
+
+export const storeExample = `<script>
+import { createAuthStore } from 'authfort-client/svelte';
+import { auth } from './auth';
+
+const { state, user, isAuthenticated, isLoading, client } = createAuthStore(auth);
+</script>
+
+{#if $isLoading}
+  <p>Loading...</p>
+{:else if $isAuthenticated}
+  <p>Hello {$user.email}</p>
+  <p>Roles: {$user.roles.join(', ')}</p>
+  <button on:click={() => client.signOut()}>Sign Out</button>
+{:else}
+  <p>Not signed in</p>
+{/if}`;
+
+export const loginExample = `<script>
+import { createAuthStore } from 'authfort-client/svelte';
+import { auth } from './auth';
+
+const { client } = createAuthStore(auth);
+let email = '';
+let password = '';
+let error = '';
+
+async function handleSubmit() {
+  try {
+    await client.signIn({ email, password });
+  } catch (err) {
+    error = err.message;
+  }
+}
+</script>
+
+<form on:submit|preventDefault={handleSubmit}>
+  <input bind:value={email} placeholder="Email" />
+  <input type="password" bind:value={password} placeholder="Password" />
+  <button type="submit">Sign In</button>
+  {#if error}<p>{error}</p>{/if}
+</form>`;
+
+Call `createAuthStore` with your client instance to get reactive Svelte stores for auth state.
+
+## Setup
+
+<CodeBlock title="src/auth.ts" code={authFile} lang="typescript" />
+
+## createAuthStore
+
+<CodeBlock title="src/App.svelte" code={storeExample} lang="svelte" />
+
+`createAuthStore` provides reactive stores and automatically calls `initialize()` to check for an existing session. You do not need to call `auth.initialize()` manually.
+
+All stores are Svelte `Readable` stores — use the `$` prefix to subscribe in templates.
+
+## Return Values
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | `Readable<AuthState>` | `'loading'`, `'authenticated'`, or `'unauthenticated'` |
+| `user` | `Readable<AuthUser \| null>` | Current user |
+| `isAuthenticated` | `Readable<boolean>` | Whether the user is signed in |
+| `isLoading` | `Readable<boolean>` | Whether `initialize()` is running |
+| `client` | `AuthClient` | The auth client instance (not a store) |
+
+## Login Form Example
+
+<CodeBlock code={loginExample} lang="svelte" />

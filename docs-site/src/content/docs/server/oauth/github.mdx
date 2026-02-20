@@ -1,0 +1,54 @@
+---
+title: GitHub
+description: Set up GitHub OAuth for your application.
+sidebar:
+  order: 3
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import CodeBlock from '../../../../components/CodeBlock.astro';
+
+export const configExample = `from authfort import GitHubProvider
+
+GitHubProvider(
+    client_id="your-github-client-id",
+    client_secret="your-github-client-secret",
+)`;
+
+## Setup
+
+<Steps>
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers) → OAuth Apps → New
+2. Set the Authorization callback URL: `https://yourapp.com/auth/oauth/github/callback`
+3. Copy the Client ID and Client Secret
+
+</Steps>
+
+## Configuration
+
+<CodeBlock code={configExample} />
+
+### Scopes
+
+Required scopes (`read:user`, `user:email`) are always included automatically. Use `extra_scopes` to request additional GitHub API access:
+
+```python
+GitHubProvider(
+    client_id="...",
+    client_secret="...",
+    extra_scopes=("repo",),
+)
+```
+
+| Required Scope | Description |
+|-------|-------------|
+| `read:user` | Access the user's profile (name, avatar) |
+| `user:email` | Access the user's email address |
+
+## Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/auth/oauth/github/authorize` | Start GitHub OAuth flow |
+| GET | `/auth/oauth/github/callback` | Handle GitHub callback |

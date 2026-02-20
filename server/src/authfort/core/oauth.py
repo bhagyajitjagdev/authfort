@@ -15,7 +15,7 @@ import jwt
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from authfort.config import AuthFortConfig
+from authfort.config import JWT_ALGORITHM, AuthFortConfig
 from authfort.core.auth import AuthError, _get_or_create_signing_key, _issue_tokens
 from authfort.core.schemas import AuthResponse
 from authfort.core.tokens import get_unverified_header
@@ -58,11 +58,17 @@ async def create_oauth_state(
     *,
     config: AuthFortConfig,
     provider_name: str,
+    redirect_to: str | None = None,
+    mode: str | None = None,
 ) -> OAuthState:
     """Create a signed JWT state token with PKCE code_verifier embedded.
 
     The state JWT contains the code_verifier so it can be recovered on callback
     without any server-side storage. The JWT is signed, so it can't be tampered with.
+
+    Args:
+        redirect_to: Optional URL to redirect to after auth (must be relative path).
+        mode: OAuth mode ('redirect' or 'popup').
 
     Returns:
         OAuthState with state token, code_verifier, and code_challenge.
@@ -81,15 +87,28 @@ async def create_oauth_state(
         "exp": now + timedelta(seconds=_STATE_TTL_SECONDS),
         "iss": config.jwt_issuer,
     }
+    if redirect_to:
+        payload["redirect_to"] = redirect_to
+    if mode:
+        payload["mode"] = mode
 
     state = jwt.encode(
         payload,
         signing_key.private_key,
-        algorithm=config.jwt_algorithm,
+        algorithm=JWT_ALGORITHM,
         headers={"kid": signing_key.kid},
     )
 
     return OAuthState(state=state, code_verifier=code_verifier, code_challenge=code_challenge)
+
+
+@dataclass(frozen=True, slots=True)
+class OAuthStateData:
+    """Verified OAuth state data."""
+
+    code_verifier: str
+    redirect_to: str | None = None
+    mode: str | None = None
 
 
 async def verify_oauth_state(
@@ -98,11 +117,11 @@ async def verify_oauth_state(
     config: AuthFortConfig,
     state: str,
     expected_provider: str,
-) -> str:
-    """Verify the OAuth state token and extract the PKCE code_verifier.
+) -> OAuthStateData:
+    """Verify the OAuth state token and extract data.
 
     Returns:
-        The code_verifier embedded in the state token.
+        OAuthStateData with code_verifier, redirect_to, and mode.
 
     Raises:
         AuthError: If invalid, expired, or provider mismatch.
@@ -124,7 +143,7 @@ async def verify_oauth_state(
         payload = jwt.decode(
             state,
             signing_key.public_key,
-            algorithms=[config.jwt_algorithm],
+            algorithms=[JWT_ALGORITHM],
             issuer=config.jwt_issuer,
         )
     except jwt.ExpiredSignatureError:
@@ -142,7 +161,11 @@ async def verify_oauth_state(
             status_code=400,
         )
 
-    return payload.get("pkce", "")
+    return OAuthStateData(
+        code_verifier=payload.get("pkce", ""),
+        redirect_to=payload.get("redirect_to"),
+        mode=payload.get("mode"),
+    )
 
 
 async def oauth_authenticate(
@@ -184,6 +207,9 @@ async def oauth_authenticate(
             status_code=400,
         )
 
+    # Provider refresh token comes from exchange_code(), not get_user_info()
+    provider_refresh_token = token_data.get("refresh_token")
+
     # Fetch user info from provider
     try:
         user_info: OAuthUserInfo = await provider.get_user_info(
@@ -215,8 +241,8 @@ async def oauth_authenticate(
         if user.banned:
             raise AuthError("This account has been banned", code="user_banned", status_code=403)
 
-        account.access_token = user_info.access_token
-        account.refresh_token = user_info.refresh_token
+        account.access_token = provider_access_token
+        account.refresh_token = provider_refresh_token
         session.add(account)
         await session.flush()
     else:
@@ -252,8 +278,8 @@ async def oauth_authenticate(
             user_id=user.id,
             provider=provider.name,
             provider_account_id=user_info.provider_account_id,
-            access_token=user_info.access_token,
-            refresh_token=user_info.refresh_token,
+            access_token=provider_access_token,
+            refresh_token=provider_refresh_token,
         )
 
         if events is not None:

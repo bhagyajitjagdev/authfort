@@ -1,0 +1,124 @@
+---
+title: Server Types
+description: Response and error types reference.
+sidebar:
+  order: 3
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const authResponseExample = `{
+    "user": UserResponse,
+    "tokens": AuthTokens,
+}`;
+
+export const userResponseExample = `{
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "name": "Jane Doe",
+    "email_verified": false,
+    "avatar_url": null,
+    "phone": null,
+    "roles": ["admin"],
+    "created_at": "2026-01-15T10:30:00Z",
+    "session_id": "660f9500-f30c-52e5-b827-557766550000"
+}`;
+
+export const authErrorExample = `from authfort import AuthError
+
+try:
+    await auth.login("user@example.com", "wrong")
+except AuthError as e:
+    print(e.message)      # "Invalid credentials"
+    print(e.code)         # "invalid_credentials"
+    print(e.status_code)  # 401`;
+
+## AuthResponse
+
+Returned by `create_user()`, `login()`, and `refresh()`.
+
+<CodeBlock code={authResponseExample} lang="python" />
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `user` | `UserResponse` | User info |
+| `tokens` | `AuthTokens` | Token pair |
+
+---
+
+## UserResponse
+
+User information. Returned inside `AuthResponse` and from the `current_user` dependency.
+
+<CodeBlock code={userResponseExample} lang="json" />
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `UUID` | User UUID |
+| `email` | `str` | Email address |
+| `name` | `str \| None` | Display name |
+| `email_verified` | `bool` | Whether email is verified |
+| `avatar_url` | `str \| None` | Profile image URL (from OAuth) |
+| `phone` | `str \| None` | Phone number |
+| `roles` | `list[str]` | Assigned roles |
+| `created_at` | `datetime` | Account creation time |
+| `session_id` | `UUID \| None` | Current session ID (from `sid` JWT claim) |
+
+---
+
+## AuthTokens
+
+Token pair returned inside `AuthResponse`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `access_token` | `str` | JWT access token |
+| `refresh_token` | `str` | Opaque refresh token |
+| `expires_in` | `int` | Access token TTL in seconds |
+
+---
+
+## SessionResponse
+
+Returned by `get_sessions()`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `UUID` | Session UUID |
+| `user_agent` | `str \| None` | Browser/client identifier at login |
+| `ip_address` | `str \| None` | Client IP at login |
+| `created_at` | `datetime` | Session creation time |
+| `expires_at` | `datetime` | Session expiration time |
+| `revoked` | `bool` | Whether the session is revoked |
+
+---
+
+## AuthError
+
+Exception raised by all AuthFort methods on failure.
+
+<CodeBlock code={authErrorExample} lang="python" />
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | `str` | Human-readable error message |
+| `code` | `str` | Machine-readable error code |
+| `status_code` | `int` | HTTP status code |
+
+### Error Codes
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `invalid_credentials` | 401 | Wrong email or password |
+| `user_exists` | 409 | Email already registered |
+| `oauth_account` | 401 | Account uses social login |
+| `user_banned` | 403 | Account is banned |
+| `signup_disabled` | 403 | Public signup is disabled |
+| `refresh_token_invalid` | 401 | Refresh token invalid |
+| `refresh_token_expired` | 401 | Refresh token expired |
+| `user_not_found` | 404 | User not found |
+| `invalid_password` | 401 | Old password incorrect (change password) |
+| `invalid_reset_token` | 400 | Reset token invalid or expired |
+| `oauth_state_invalid` | 400 | Invalid OAuth state |
+| `oauth_state_expired` | 400 | OAuth state expired |
+| `invalid_email` | 400 | Invalid email address |

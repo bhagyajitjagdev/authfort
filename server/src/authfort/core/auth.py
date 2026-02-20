@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from authfort.config import AuthFortConfig
+from authfort.config import JWT_ALGORITHM, AuthFortConfig
 from authfort.core.keys import generate_key_pair, generate_kid
 from authfort.core.refresh import generate_refresh_token, hash_refresh_token
 from authfort.core.schemas import AuthResponse, AuthTokens, UserResponse
@@ -58,6 +58,8 @@ async def signup(
     email: str,
     password: str,
     name: str | None = None,
+    avatar_url: str | None = None,
+    phone: str | None = None,
     user_agent: str | None = None,
     ip_address: str | None = None,
     events: EventCollector | None = None,
@@ -76,6 +78,7 @@ async def signup(
     hashed = hash_password(password)
     user = await user_repo.create_user(
         session, email=email, password_hash=hashed, name=name,
+        avatar_url=avatar_url, phone=phone,
     )
 
     await account_repo.create_account(
@@ -386,14 +389,14 @@ async def _get_or_create_signing_key(session: AsyncSession, config: AuthFortConf
     """Get the current signing key, or create one if none exists (first startup)."""
     key = await signing_key_repo.get_current_signing_key(session)
     if key is None:
-        private_pem, public_pem = generate_key_pair()
+        private_pem, public_pem = generate_key_pair(config.rsa_key_size)
         kid = generate_kid()
         key = await signing_key_repo.create_signing_key(
             session,
             kid=kid,
             private_key=private_pem,
             public_key=public_pem,
-            algorithm=config.jwt_algorithm,
+            algorithm=JWT_ALGORITHM,
             is_current=True,
         )
     return key
@@ -442,6 +445,7 @@ async def _issue_tokens(
         name=user.name,
         email_verified=user.email_verified,
         avatar_url=user.avatar_url,
+        phone=user.phone,
         roles=roles,
         created_at=user.created_at,
         session_id=stored_token.id,

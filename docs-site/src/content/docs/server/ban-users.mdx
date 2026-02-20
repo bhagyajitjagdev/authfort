@@ -1,0 +1,54 @@
+---
+title: Ban / Unban
+description: Instantly revoke all access for a user.
+sidebar:
+  order: 12
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const banUser = `await auth.ban_user(user_id)`;
+
+export const unbanUser = `await auth.unban_user(user_id)`;
+
+Banning a user immediately invalidates all their tokens and prevents them from logging in.
+
+## Ban a User
+
+<CodeBlock code={banUser} />
+
+This does three things atomically:
+
+1. Sets `banned=True` on the user record
+2. Bumps the `token_version` — all existing access tokens are rejected
+3. Revokes all refresh tokens — no new access tokens can be issued
+
+The user is locked out immediately, even if they have a valid access token.
+
+## Unban a User
+
+<CodeBlock code={unbanUser} />
+
+Sets `banned=False`. The user can log in again.
+
+## Banned User Behavior
+
+| Action | Result |
+|--------|--------|
+| Login (email/password) | 403 Forbidden |
+| Login (OAuth) | 403 Forbidden |
+| Refresh token | Rejected |
+| Access token | Rejected (token version mismatch) |
+| Introspection | Returns `active: false` |
+
+## How Instant Invalidation Works
+
+Access tokens are stateless JWTs — the server doesn't check the database on every request. So how does banning work instantly?
+
+Each access token contains a `ver` (token version) claim. When a user is banned, their `token_version` in the database is bumped. Any token with an older version is rejected.
+
+For microservices using `authfort-service` with JWKS-only verification (no introspection), the ban takes effect when the access token expires (default: 15 minutes). To get instant invalidation in microservices, enable introspection.
+
+## Events
+
+Emits `user_banned` and `user_unbanned` events. See [Events & Hooks](/authfort/server/events/) for all events and their payloads.

@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.9] - 2026-02-20
+
+### Added
+- **server**: `auth.has_role(user_id, role)` — convenience method for single-role checks
+- **server**: `auth.get_jwks()` — returns JWKS dict for non-FastAPI frameworks (Django, Flask, etc.)
+- **server**: `auth.cleanup_expired_sessions()` — deletes expired and revoked refresh tokens
+- **server**: `auth.update_user(user_id, *, name, avatar_url, phone)` — update user profile fields programmatically
+- **server**: `auth.get_provider_tokens(user_id, provider)` — retrieve stored OAuth provider tokens (access + refresh)
+- **server**: `phone` column on User model — optional phone number field
+- **server**: `avatar_url` and `phone` params on `create_user()` and `/auth/signup` endpoint
+- **server**: `rsa_key_size` config param (default 2048, must be >= 2048) — configurable RSA key size for JWT signing
+- **server**: `frontend_url` config param — prepends frontend origin to OAuth `redirect_to` paths for cross-origin setups
+- **server**: OAuth `redirect_to` query param — redirect users to a specific path after OAuth callback
+- **server**: OAuth `mode=popup` — callback returns HTML with `postMessage` for SPA popup flows
+- **server**: OAuth `extra_scopes` param on providers — request additional provider API scopes beyond required ones
+- **server**: OAuth provider token storage — `access_token` and `refresh_token` from providers are now saved on callback
+- **server**: `UserUpdated` event — fired when `update_user()` modifies profile fields
+- **server**: `AuthTokens` added to public exports
+- **server**: All 16 event classes exported from top-level `__init__.py`
+- **client**: `OAuthProvider` type (`'google' | 'github'`) for typed provider params
+- **client**: `OAuthSignInOptions` — `mode` (`'redirect' | 'popup'`) and `redirectTo` options for `signInWithProvider()`
+- **client**: OAuth popup mode — opens popup window, returns `Promise<AuthUser>` via `postMessage`
+- **client**: `signUp()` accepts `avatarUrl` and `phone` optional fields
+- **client**: Auto-initialize in React `AuthProvider`, Vue `provideAuth()`, and Svelte `createAuthStore()`
+
+### Changed
+- **server**: OAuth providers use `extra_scopes` instead of `scopes` — required scopes (`REQUIRED_SCOPES`) are always included automatically
+- **server**: `get_jwks()` extracted from JWKS router — router now delegates to the method (DRY)
+- **server**: `jwt_algorithm` removed from constructor and config — RS256 is the only supported algorithm, now a module constant `JWT_ALGORITHM`
+
+### Removed
+- **server**: `jwt_algorithm` config parameter — hardcoded to RS256 (key size is what's configurable via `rsa_key_size`)
+
+### Fixed
+- **server**: OAuth provider `refresh_token` was never saved — now extracted from `exchange_code()` response and stored on Account
+
 ## [0.0.8] - 2026-02-19
 
 ### Breaking
@@ -137,6 +173,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.9]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.8...v0.0.9
 [0.0.8]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.7...v0.0.8
 [0.0.7]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.5...v0.0.6

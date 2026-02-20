@@ -1,0 +1,154 @@
+---
+title: OAuth Overview
+description: How OAuth works in AuthFort — flow, account linking, and events.
+sidebar:
+  order: 1
+---
+
+import CodeBlock from '../../../../components/CodeBlock.astro';
+
+export const configExample = `from authfort import AuthFort, CookieConfig, GoogleProvider, GitHubProvider
+
+auth = AuthFort(
+    database_url="postgresql+asyncpg://user:pass@localhost/mydb",
+    cookie=CookieConfig(),
+    providers=[
+        GoogleProvider(client_id="...", client_secret="..."),
+        GitHubProvider(client_id="...", client_secret="..."),
+    ],
+)`;
+
+export const extraScopesExample = `from authfort import GoogleProvider
+
+# Request additional Google API scopes
+provider = GoogleProvider(
+    client_id="...",
+    client_secret="...",
+    extra_scopes=("https://www.googleapis.com/auth/calendar",),
+)
+# REQUIRED_SCOPES ("openid", "email", "profile") are always included automatically`;
+
+export const redirectToExample = `# Authorize URL with redirect_to
+GET /auth/oauth/google/authorize?redirect_to=/dashboard
+
+# After successful auth, user is redirected to /dashboard instead of
+# the default callback response. Must be a relative path (starts with /).`;
+
+export const popupExample = `// Popup mode — opens a window, returns a promise
+const user = await auth.signInWithProvider('google', { mode: 'popup' });
+console.log(user.email);`;
+
+export const providerTokensExample = `# Get stored OAuth tokens for a user
+tokens = await auth.get_provider_tokens(user_id, "google")
+if tokens:
+    print(tokens["access_token"])
+    print(tokens["refresh_token"])
+    print(tokens["expires_at"])`;
+
+export const clientExample = `// Redirect mode (default)
+auth.signInWithProvider('google');
+
+// With redirect destination
+auth.signInWithProvider('google', { redirectTo: '/dashboard' });
+
+// Popup mode
+const user = await auth.signInWithProvider('google', { mode: 'popup' });`;
+
+AuthFort supports OAuth 2.1 with PKCE. Users can sign in with their existing accounts, and AuthFort handles the full flow — authorization URL, code exchange, user info fetching, and account linking.
+
+## How It Works
+
+1. User clicks "Sign in with Google" in your frontend
+2. Your app redirects to `/auth/oauth/google/authorize`
+3. AuthFort redirects to Google's consent screen
+4. Google redirects back to `/auth/oauth/google/callback` with an auth code
+5. AuthFort exchanges the code for user info and creates/links the account
+6. User is redirected to your app with tokens set
+
+## Configuration
+
+<CodeBlock code={configExample} />
+
+### Extra Scopes
+
+Providers have `REQUIRED_SCOPES` that are always included (e.g., `openid`, `email`, `profile` for Google). Use `extra_scopes` to request additional permissions:
+
+<CodeBlock code={extraScopesExample} />
+
+See the individual provider pages for setup instructions:
+- [Google](/authfort/server/oauth/google/)
+- [GitHub](/authfort/server/oauth/github/)
+
+## Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/auth/oauth/{provider}/authorize` | Start OAuth flow (redirects to provider) |
+| GET | `/auth/oauth/{provider}/callback` | Handle provider callback |
+
+Replace `{provider}` with `google` or `github`.
+
+The state, PKCE code challenge, and redirect URI are all handled internally by the server — the client just hits the authorize URL and gets redirected.
+
+### Query Parameters
+
+| Param | Description |
+|-------|-------------|
+| `redirect_to` | Relative path to redirect to after auth (e.g., `/dashboard`). Must start with `/`. |
+| `mode` | Set to `popup` to return HTML with `postMessage` instead of a redirect. |
+
+<CodeBlock code={redirectToExample} lang="http" />
+
+## Cross-Origin Setup
+
+If your frontend and API are on different domains (e.g., `app.example.com` and `api.example.com`), set `frontend_url` so that `redirect_to` paths land on the correct domain:
+
+```python
+auth = AuthFort(
+    database_url="...",
+    cookie=CookieConfig(domain=".example.com"),
+    frontend_url="https://app.example.com",
+    providers=[GoogleProvider(client_id="...", client_secret="...")],
+)
+```
+
+Without `frontend_url`, a `redirect_to=/dashboard` redirects to `api.example.com/dashboard`. With it, the redirect goes to `https://app.example.com/dashboard`.
+
+Popup mode works cross-origin without `frontend_url` since it uses `postMessage` instead of HTTP redirects.
+
+## Account Linking
+
+When a user signs in with OAuth, AuthFort checks if the provider email matches an existing user:
+
+- **Email match found** — the OAuth account is linked to the existing user. An `oauth_link` event is emitted.
+- **No match** — a new user is created with the provider's email, name, and avatar. A `user_created` event is emitted.
+
+This means a user who signed up with email/password can later sign in with Google (if the emails match) without creating a duplicate account.
+
+## Provider Tokens
+
+AuthFort stores the OAuth access and refresh tokens from the provider. You can retrieve them to call the provider's API on behalf of the user:
+
+<CodeBlock code={providerTokensExample} />
+
+Returns `None` if the user has no linked account for that provider.
+
+## Popup Mode
+
+In popup mode, the callback returns an HTML page that posts the auth result to the opener window via `postMessage`, then closes. This is useful for SPAs that don't want a full-page redirect:
+
+<CodeBlock code={popupExample} lang="typescript" />
+
+The client SDK handles the popup window lifecycle and message handling automatically.
+
+## Events
+
+OAuth emits `user_created`, `login`, `login_failed`, and `oauth_link` events. See [Events & Hooks](/authfort/server/events/) for all events and their payloads.
+
+## Client SDK
+
+In the browser, use `signInWithProvider()` to start the OAuth flow:
+
+<CodeBlock code={clientExample} lang="typescript" />
+
+After the callback, the user is redirected to your app with tokens set. The client SDK picks up the auth state automatically via `initialize()`. Framework integrations (React, Vue, Svelte) call `initialize()` automatically.

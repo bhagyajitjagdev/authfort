@@ -130,6 +130,37 @@ async def oauth_client(auth_with_oauth: AuthFort):
 
 
 @pytest_asyncio.fixture
+async def auth_with_frontend_url():
+    """AuthFort instance with OAuth providers and frontend_url for cross-origin testing."""
+    from authfort import GitHubProvider, GoogleProvider
+
+    instance = AuthFort(
+        database_url=TEST_DATABASE_URL,
+        cookie=CookieConfig(secure=False),
+        providers=[
+            GoogleProvider(client_id="test-google-id", client_secret="test-google-secret"),
+        ],
+        frontend_url="https://app.example.com",
+    )
+    await instance.migrate()
+    yield instance
+    await instance.dispose()
+
+
+@pytest_asyncio.fixture
+async def frontend_oauth_client(auth_with_frontend_url: AuthFort):
+    """HTTP client for testing OAuth with frontend_url set."""
+    app = FastAPI()
+    app.include_router(auth_with_frontend_url.fastapi_router(), prefix="/auth")
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        yield client
+
+
+@pytest_asyncio.fixture
 async def auth_no_signup():
     """AuthFort instance with signup disabled."""
     instance = AuthFort(
