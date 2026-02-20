@@ -32,8 +32,12 @@ export interface AuthProviderProps {
   children: ReactNode;
 }
 
-/** Provides the AuthFort client to all child components. */
+/** Provides the AuthFort client to all child components. Auto-calls initialize(). */
 export function AuthProvider({ client, children }: AuthProviderProps) {
+  useEffect(() => {
+    client.initialize();
+  }, [client]);
+
   return <AuthContext.Provider value={client}>{children}</AuthContext.Provider>;
 }
 

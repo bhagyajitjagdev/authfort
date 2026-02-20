@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 
-from authfort.config import AuthFortConfig
+from authfort.config import JWT_ALGORITHM, AuthFortConfig
 
 
 def create_access_token(
@@ -51,7 +51,7 @@ def create_access_token(
     return jwt.encode(
         payload,
         private_key,
-        algorithm=config.jwt_algorithm,
+        algorithm=JWT_ALGORITHM,
         headers={"kid": kid},
     )
 
@@ -74,7 +74,7 @@ def verify_access_token(token: str, public_key: str, config: AuthFortConfig) -> 
     return jwt.decode(
         token,
         public_key,
-        algorithms=[config.jwt_algorithm],
+        algorithms=[JWT_ALGORITHM],
         issuer=config.jwt_issuer,
         options={"require": ["sub", "email", "roles", "ver", "exp", "iat", "iss"]},
     )

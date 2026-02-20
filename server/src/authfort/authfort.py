@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from authfort.config import AuthFortConfig, CookieConfig
+from authfort.config import JWT_ALGORITHM, AuthFortConfig, CookieConfig
 from authfort.db import create_engine, create_session_factory, get_session
 from authfort.events import (
     EventCollector,
@@ -23,6 +23,7 @@ from authfort.events import (
     SessionRevoked,
     UserBanned,
     UserUnbanned,
+    UserUpdated,
     _current_collector,
 )
 
@@ -38,7 +39,6 @@ class AuthFort:
         access_token_ttl: Access token lifetime in seconds (default 900 = 15 min).
         refresh_token_ttl: Refresh token lifetime in seconds (default 2592000 = 30 days).
         jwt_issuer: JWT issuer claim (default "authfort").
-        jwt_algorithm: JWT algorithm (default "RS256").
         cookie: CookieConfig or None. None = bearer-only, no cookies set.
         providers: List of OAuth providers (e.g. GoogleProvider, GitHubProvider).
         key_rotation_ttl: How long retired signing keys remain valid (seconds, default 48h).
@@ -46,6 +46,10 @@ class AuthFort:
         allow_signup: If False, the /auth/signup endpoint returns 403. Programmatic
             create_user() always works regardless of this flag.
         password_reset_ttl: Password reset token lifetime in seconds (default 3600 = 1 hour).
+        rsa_key_size: RSA key size in bits (default 2048, must be >= 2048).
+        frontend_url: Frontend origin URL for cross-origin OAuth redirects
+            (e.g. "https://app.example.com"). When set, OAuth redirect_to paths
+            are prefixed with this URL. When None, redirects are relative to the server.
     """
 
     def __init__(
@@ -55,17 +59,19 @@ class AuthFort:
         access_token_ttl: int = 900,
         refresh_token_ttl: int = 60 * 60 * 24 * 30,
         jwt_issuer: str = "authfort",
-        jwt_algorithm: str = "RS256",
         cookie: CookieConfig | None = None,
         providers: list | None = None,
         key_rotation_ttl: int = 60 * 60 * 48,
         introspect_secret: str | None = None,
         allow_signup: bool = True,
         password_reset_ttl: int = 3600,
+        rsa_key_size: int = 2048,
+        frontend_url: str | None = None,
     ) -> None:
+        if rsa_key_size < 2048:
+            raise ValueError("rsa_key_size must be >= 2048")
         self._config = AuthFortConfig(
             database_url=database_url,
-            jwt_algorithm=jwt_algorithm,
             access_token_expire_seconds=access_token_ttl,
             refresh_token_expire_seconds=refresh_token_ttl,
             jwt_issuer=jwt_issuer,
@@ -74,6 +80,8 @@ class AuthFort:
             introspect_secret=introspect_secret,
             allow_signup=allow_signup,
             password_reset_ttl_seconds=password_reset_ttl,
+            rsa_key_size=rsa_key_size,
+            frontend_url=frontend_url.rstrip("/") if frontend_url else None,
         )
         self._engine = create_engine(database_url)
         self._session_factory = create_session_factory(self._engine)
@@ -145,6 +153,8 @@ class AuthFort:
         password: str,
         *,
         name: str | None = None,
+        avatar_url: str | None = None,
+        phone: str | None = None,
     ):
         """Create a user programmatically. Always works regardless of allow_signup.
 
@@ -160,7 +170,8 @@ class AuthFort:
         async with get_session(self._session_factory) as session:
             result = await signup(
                 session, config=self._config, email=email,
-                password=password, name=name, events=collector,
+                password=password, name=name, avatar_url=avatar_url,
+                phone=phone, events=collector,
             )
         await collector.flush()
         return result
@@ -271,6 +282,13 @@ class AuthFort:
         async with get_session(self._session_factory) as session:
             return await role_repo.get_roles(session, user_id)
 
+    async def has_role(self, user_id: uuid.UUID, role: str) -> bool:
+        """Check if a user has a specific role."""
+        from authfort.repositories import role as role_repo
+
+        async with get_session(self._session_factory) as session:
+            return await role_repo.has_role(session, user_id, role)
+
     # ------ Password management ------
 
     async def create_password_reset_token(self, email: str) -> str | None:
@@ -335,6 +353,92 @@ class AuthFort:
         await collector.flush()
 
     # ------ User management ------
+
+    _UNSET = object()
+
+    async def update_user(
+        self,
+        user_id: uuid.UUID,
+        *,
+        name=_UNSET,
+        avatar_url=_UNSET,
+        phone=_UNSET,
+    ):
+        """Update a user's profile fields.
+
+        Only provided fields are updated. Pass ``None`` to clear a field.
+
+        Args:
+            user_id: The user's UUID.
+            name: New display name (or None to clear).
+            avatar_url: New avatar URL (or None to clear).
+            phone: New phone number (or None to clear).
+
+        Returns:
+            UserResponse with updated user data.
+
+        Raises:
+            AuthError: If user not found.
+        """
+        from authfort.core.auth import AuthError
+        from authfort.core.schemas import UserResponse
+        from authfort.repositories import role as role_repo
+        from authfort.repositories import user as user_repo
+
+        updates = {}
+        if name is not self._UNSET:
+            updates["name"] = name
+        if avatar_url is not self._UNSET:
+            updates["avatar_url"] = avatar_url
+        if phone is not self._UNSET:
+            updates["phone"] = phone
+
+        if not updates:
+            raise ValueError("No fields to update")
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            user = await user_repo.get_user_by_id(session, user_id)
+            if user is None:
+                raise AuthError("User not found", code="user_not_found", status_code=404)
+            user = await user_repo.update_user(session, user, **updates)
+            roles = await role_repo.get_roles(session, user_id)
+            collector.collect("user_updated", UserUpdated(
+                user_id=user_id, fields=list(updates.keys()),
+            ))
+        await collector.flush()
+        return UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            email_verified=user.email_verified,
+            avatar_url=user.avatar_url,
+            phone=user.phone,
+            roles=roles,
+            created_at=user.created_at,
+        )
+
+    async def get_provider_tokens(
+        self, user_id: uuid.UUID, provider: str,
+    ) -> dict | None:
+        """Get the stored OAuth tokens for a provider account.
+
+        Returns a dict with ``access_token``, ``refresh_token``, and ``expires_at``
+        keys, or None if no account exists for this provider.
+        """
+        from authfort.repositories import account as account_repo
+
+        async with get_session(self._session_factory) as session:
+            account = await account_repo.get_user_account_by_provider(
+                session, user_id, provider,
+            )
+            if account is None:
+                return None
+            return {
+                "access_token": account.access_token,
+                "refresh_token": account.refresh_token,
+                "expires_at": account.expires_at,
+            }
 
     async def ban_user(self, user_id: uuid.UUID) -> None:
         """Ban a user — immediately invalidates all tokens and sessions.
@@ -438,14 +542,14 @@ class AuthFort:
                 )
                 await signing_key_repo.set_expires_at(session, old_key.id, expires_at)
 
-            private_pem, public_pem = generate_key_pair()
+            private_pem, public_pem = generate_key_pair(self._config.rsa_key_size)
             kid = generate_kid()
             await signing_key_repo.create_signing_key(
                 session,
                 kid=kid,
                 private_key=private_pem,
                 public_key=public_pem,
-                algorithm=self._config.jwt_algorithm,
+                algorithm=JWT_ALGORITHM,
                 is_current=True,
             )
 
@@ -476,6 +580,40 @@ class AuthFort:
 
         async with get_session(self._session_factory) as session:
             return await verification_token_repo.delete_expired_verification_tokens(session)
+
+    async def cleanup_expired_sessions(self) -> int:
+        """Delete refresh tokens that are expired or revoked.
+
+        Call periodically to prevent database bloat from accumulated sessions.
+
+        Returns:
+            Number of sessions deleted.
+        """
+        from authfort.repositories import refresh_token as refresh_token_repo
+
+        async with get_session(self._session_factory) as session:
+            return await refresh_token_repo.delete_expired_refresh_tokens(session)
+
+    async def get_jwks(self) -> dict:
+        """Get the JWKS (JSON Web Key Set) as a dict.
+
+        Returns the public signing keys in JWK format. Useful for serving
+        JWKS from non-FastAPI frameworks (Django, Flask, etc.).
+
+        Returns:
+            Dict with ``{"keys": [...]}`` structure.
+        """
+        from authfort.core.keys import public_key_to_jwk
+        from authfort.repositories import signing_key as signing_key_repo
+
+        async with get_session(self._session_factory) as session:
+            keys = await signing_key_repo.get_non_expired_signing_keys(session)
+            return {
+                "keys": [
+                    public_key_to_jwk(k.kid, k.public_key, k.algorithm)
+                    for k in keys
+                ]
+            }
 
     # ------ FastAPI integration ------
 

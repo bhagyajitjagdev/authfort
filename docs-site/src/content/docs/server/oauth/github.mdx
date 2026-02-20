@@ -13,7 +13,6 @@ export const configExample = `from authfort import GitHubProvider
 GitHubProvider(
     client_id="your-github-client-id",
     client_secret="your-github-client-secret",
-    scopes=("read:user", "user:email"),  # default
 )`;
 
 ## Setup
@@ -32,12 +31,20 @@ GitHubProvider(
 
 ### Scopes
 
-| Scope | Description |
+Required scopes (`read:user`, `user:email`) are always included automatically. Use `extra_scopes` to request additional GitHub API access:
+
+```python
+GitHubProvider(
+    client_id="...",
+    client_secret="...",
+    extra_scopes=("repo",),
+)
+```
+
+| Required Scope | Description |
 |-------|-------------|
 | `read:user` | Access the user's profile (name, avatar) |
 | `user:email` | Access the user's email address |
-
-The default scopes cover everything AuthFort needs. Only customize if you need additional GitHub API access.
 
 ## Endpoints
 

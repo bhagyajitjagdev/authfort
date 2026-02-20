@@ -5,7 +5,7 @@ from __future__ import annotations
 import abc
 import urllib.parse
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,8 +36,10 @@ class OAuthProvider(abc.ABC):
 
     client_id: str
     client_secret: str
-    scopes: tuple[str, ...] = ()
+    extra_scopes: tuple[str, ...] = ()
     redirect_uri: str | None = None
+
+    REQUIRED_SCOPES: ClassVar[tuple[str, ...]] = ()
 
     @property
     @abc.abstractmethod
@@ -50,6 +52,17 @@ class OAuthProvider(abc.ABC):
     @property
     @abc.abstractmethod
     def token_url(self) -> str: ...
+
+    @property
+    def scopes(self) -> tuple[str, ...]:
+        """Combined required + extra scopes (deduplicated, order-preserving)."""
+        seen: set[str] = set()
+        result: list[str] = []
+        for s in self.REQUIRED_SCOPES + self.extra_scopes:
+            if s not in seen:
+                seen.add(s)
+                result.append(s)
+        return tuple(result)
 
     def get_authorization_url(
         self, *, redirect_uri: str, state: str, code_challenge: str | None = None,

@@ -56,7 +56,9 @@ export const githubImport = `from authfort import GitHubProvider`;
 |-------|------|---------|-------------|
 | `client_id` | `str` | — (required) | Google OAuth client ID |
 | `client_secret` | `str` | — (required) | Google OAuth client secret |
-| `scopes` | `tuple[str, ...]` | `("openid", "email", "profile")` | OAuth scopes |
+| `extra_scopes` | `tuple[str, ...]` | `()` | Additional OAuth scopes beyond required ones |
+
+`REQUIRED_SCOPES`: `("openid", "email", "profile")` — always included automatically.
 
 ### Properties
 
@@ -76,7 +78,9 @@ export const githubImport = `from authfort import GitHubProvider`;
 |-------|------|---------|-------------|
 | `client_id` | `str` | — (required) | GitHub OAuth client ID |
 | `client_secret` | `str` | — (required) | GitHub OAuth client secret |
-| `scopes` | `tuple[str, ...]` | `("read:user", "user:email")` | OAuth scopes |
+| `extra_scopes` | `tuple[str, ...]` | `()` | Additional OAuth scopes beyond required ones |
+
+`REQUIRED_SCOPES`: `("read:user", "user:email")` — always included automatically.
 
 ### Properties
 
@@ -95,7 +99,6 @@ Internal configuration object, accessible via `auth.config`. Read-only.
 | Field | Type | Description |
 |-------|------|-------------|
 | `database_url` | `str` | Database connection string |
-| `jwt_algorithm` | `str` | Signing algorithm |
 | `access_token_expire_seconds` | `int` | Access token TTL |
 | `refresh_token_expire_seconds` | `int` | Refresh token TTL |
 | `jwt_issuer` | `str` | JWT issuer claim |
@@ -104,3 +107,5 @@ Internal configuration object, accessible via `auth.config`. Read-only.
 | `introspect_secret` | `str \| None` | Introspection secret |
 | `allow_signup` | `bool` | Public signup enabled |
 | `password_reset_ttl_seconds` | `int` | Reset token TTL |
+| `rsa_key_size` | `int` | RSA key size in bits (default 2048) |
+| `frontend_url` | `str \| None` | Frontend origin for cross-origin OAuth redirects |

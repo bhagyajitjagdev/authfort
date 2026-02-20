@@ -139,6 +139,13 @@ class PasswordChanged(Event):
     user_id: uuid.UUID = field(default_factory=uuid.uuid4)
 
 
+@dataclass(frozen=True, slots=True)
+class UserUpdated(Event):
+    """Fired when a user's profile fields are updated."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    fields: list[str] = field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Event name mapping
 # ---------------------------------------------------------------------------
@@ -159,6 +166,7 @@ EVENT_MAP: dict[str, type[Event]] = {
     "password_reset_requested": PasswordResetRequested,
     "password_reset": PasswordReset,
     "password_changed": PasswordChanged,
+    "user_updated": UserUpdated,
 }
 
 

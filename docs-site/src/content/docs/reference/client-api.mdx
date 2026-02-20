@@ -20,10 +20,20 @@ export const tokenStorageInterface = `interface TokenStorage {
   clear(): Promise<void>;
 }`;
 
+export const oauthProviderType = `type OAuthProvider = 'google' | 'github';`;
+
+export const oauthSignInOptionsType = `interface OAuthSignInOptions {
+  /** OAuth flow mode. 'redirect' (default) or 'popup'. */
+  mode?: 'redirect' | 'popup';
+  /** URL path to redirect to after auth (relative path starting with "/"). Only used in redirect mode. */
+  redirectTo?: string;
+}`;
+
 export const authUserType = `interface AuthUser {
   id: string;
   email: string;
   name?: string;
+  phone?: string;
   roles: string[];
   emailVerified: boolean;
   avatarUrl?: string;
@@ -82,6 +92,8 @@ Create a new user account.
 | `data.email` | `string` | User email |
 | `data.password` | `string` | Password |
 | `data.name` | `string?` | Display name |
+| `data.avatarUrl` | `string?` | Profile image URL |
+| `data.phone` | `string?` | Phone number |
 
 **Returns:** `Promise<AuthUser>`
 **Throws:** `AuthClientError`
@@ -98,15 +110,16 @@ Authenticate with email and password.
 **Returns:** `Promise<AuthUser>`
 **Throws:** `AuthClientError`
 
-### `signInWithProvider(provider)`
+### `signInWithProvider(provider, options?)`
 
-Start OAuth flow by redirecting to the provider.
+Start OAuth flow. In redirect mode (default), navigates the browser. In popup mode, opens a popup window and returns a promise.
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `provider` | `string` | `'google'` or `'github'` |
+| `provider` | `OAuthProvider` | `'google'` or `'github'` |
+| `options` | `OAuthSignInOptions?` | OAuth flow options |
 
-**Returns:** `void` (navigates the browser)
+**Returns:** `void` (redirect mode) or `Promise<AuthUser>` (popup mode)
 
 ### `signOut()`
 
@@ -160,6 +173,14 @@ Listen for auth state changes.
 
 <CodeBlock code={authStateType} lang="typescript" />
 
+### OAuthProvider
+
+<CodeBlock code={oauthProviderType} lang="typescript" />
+
+### OAuthSignInOptions
+
+<CodeBlock code={oauthSignInOptionsType} lang="typescript" />
+
 ### AuthClientError
 
 <CodeBlock code={authClientErrorType} lang="typescript" />
@@ -174,7 +195,7 @@ Listen for auth state changes.
 
 | Export | Description |
 |--------|-------------|
-| `AuthProvider` | Context provider component. Props: `client: AuthClient` |
+| `AuthProvider` | Context provider component. Props: `client: AuthClient`. Auto-calls `initialize()`. |
 | `useAuth()` | Hook returning `{ state, user, isAuthenticated, isLoading, client }` |
 
 ### Vue
@@ -183,7 +204,7 @@ Listen for auth state changes.
 
 | Export | Description |
 |--------|-------------|
-| `provideAuth(client)` | Provide auth to component tree |
+| `provideAuth(client)` | Provide auth to component tree. Auto-calls `initialize()`. |
 | `useAuth()` | Composable returning `{ state, user, isAuthenticated, isLoading, client }` |
 
 ### Svelte
@@ -192,4 +213,4 @@ Listen for auth state changes.
 
 | Export | Description |
 |--------|-------------|
-| `createAuthStore(client)` | Returns `{ state, user, isAuthenticated, isLoading, client }` as Svelte stores |
+| `createAuthStore(client)` | Returns `{ state, user, isAuthenticated, isLoading, client }` as Svelte stores. Auto-calls `initialize()`. |

@@ -13,7 +13,6 @@ export const configExample = `from authfort import GoogleProvider
 GoogleProvider(
     client_id="your-google-client-id",
     client_secret="your-google-client-secret",
-    scopes=("openid", "email", "profile"),  # default
 )`;
 
 ## Setup
@@ -33,13 +32,21 @@ GoogleProvider(
 
 ### Scopes
 
-| Scope | Description |
+Required scopes (`openid`, `email`, `profile`) are always included automatically. Use `extra_scopes` to request additional Google API access:
+
+```python
+GoogleProvider(
+    client_id="...",
+    client_secret="...",
+    extra_scopes=("https://www.googleapis.com/auth/calendar",),
+)
+```
+
+| Required Scope | Description |
 |-------|-------------|
 | `openid` | Required for OpenID Connect |
 | `email` | Access the user's email address |
 | `profile` | Access the user's name and avatar |
-
-The default scopes cover everything AuthFort needs. Only customize if you need additional Google API access.
 
 ## Endpoints
 

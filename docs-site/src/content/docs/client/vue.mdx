@@ -76,7 +76,7 @@ Call `provideAuth` in your root component and use the `useAuth` composable to ac
 
 <CodeBlock title="src/App.vue" code={appFile} lang="vue" />
 
-`provideAuth` provides the client to all child components. Call `auth.initialize()` at app startup to check for an existing session.
+`provideAuth` provides the client to all child components and automatically calls `initialize()` to check for an existing session. You do not need to call `auth.initialize()` manually.
 
 ## useAuth Composable
 

@@ -45,6 +45,20 @@ async def get_account_by_provider(
     return result.first()
 
 
+async def get_user_account_by_provider(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    provider: str,
+) -> Account | None:
+    """Get a specific provider account for a user."""
+    statement = select(Account).where(
+        Account.user_id == user_id,
+        Account.provider == provider,
+    )
+    result = (await session.execute(statement)).scalars()
+    return result.first()
+
+
 async def get_accounts_by_user(
     session: AsyncSession,
     user_id: uuid.UUID,

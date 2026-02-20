@@ -18,6 +18,7 @@ export const userResponseExample = `{
     "name": "Jane Doe",
     "email_verified": false,
     "avatar_url": null,
+    "phone": null,
     "roles": ["admin"],
     "created_at": "2026-01-15T10:30:00Z",
     "session_id": "660f9500-f30c-52e5-b827-557766550000"
@@ -58,6 +59,7 @@ User information. Returned inside `AuthResponse` and from the `current_user` dep
 | `name` | `str \| None` | Display name |
 | `email_verified` | `bool` | Whether email is verified |
 | `avatar_url` | `str \| None` | Profile image URL (from OAuth) |
+| `phone` | `str \| None` | Phone number |
 | `roles` | `list[str]` | Assigned roles |
 | `created_at` | `datetime` | Account creation time |
 | `session_id` | `UUID \| None` | Current session ID (from `sid` JWT claim) |

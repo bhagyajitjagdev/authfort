@@ -46,6 +46,8 @@ export function createAuthStore(client: AuthClient): AuthStore {
     user.set(u);
   });
 
+  client.initialize();
+
   return {
     state: { subscribe: state.subscribe } as Readable<AuthState>,
     user: { subscribe: user.subscribe } as Readable<AuthUser | null>,

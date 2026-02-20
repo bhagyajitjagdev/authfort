@@ -34,9 +34,10 @@ const AUTH_KEY: InjectionKey<AuthClient> = Symbol('authfort');
 // Provider
 // ---------------------------------------------------------------------------
 
-/** Provide the AuthFort client to all descendant components. Call in root component's setup. */
+/** Provide the AuthFort client to all descendant components. Call in root component's setup. Auto-calls initialize(). */
 export function provideAuth(client: AuthClient): void {
   provide(AUTH_KEY, client);
+  client.initialize();
 }
 
 // ---------------------------------------------------------------------------

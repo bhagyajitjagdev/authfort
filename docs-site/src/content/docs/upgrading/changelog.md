@@ -9,6 +9,36 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.9
+
+### Added
+- `auth.has_role(user_id, role)` — single-role convenience check
+- `auth.get_jwks()` — JWKS dict for non-FastAPI frameworks
+- `auth.cleanup_expired_sessions()` — delete expired/revoked sessions
+- `auth.update_user(user_id, *, name, avatar_url, phone)` — update profile fields
+- `auth.get_provider_tokens(user_id, provider)` — retrieve stored OAuth tokens
+- `phone` field on User model, `create_user()`, and `/auth/signup`
+- `rsa_key_size` config — configurable RSA key size (default 2048)
+- `frontend_url` config — cross-origin OAuth redirect support
+- OAuth `redirect_to` query param — redirect after callback
+- OAuth `mode=popup` — popup flow with `postMessage`
+- OAuth `extra_scopes` — request additional provider API scopes
+- OAuth provider token storage — saves `access_token` and `refresh_token` from providers
+- `UserUpdated` event — fired on profile update
+- `AuthTokens` added to public exports
+- All 16 event classes exported from top-level
+- **client**: `OAuthProvider` type, `OAuthSignInOptions`, popup mode, `avatarUrl`/`phone` in `signUp()`
+- **client**: Auto-initialize in React, Vue, and Svelte integrations
+
+### Changed
+- OAuth providers use `extra_scopes` instead of `scopes` — required scopes always included
+- `jwt_algorithm` removed — RS256 is hardcoded (use `rsa_key_size` for key strength)
+
+### Fixed
+- OAuth provider `refresh_token` was never saved — now stored on callback
+
+---
+
 ## v0.0.8
 
 ### Breaking

@@ -98,7 +98,7 @@ Wrap your app with `AuthProvider` and use the `useAuth` hook to access auth stat
 
 <CodeBlock title="src/App.tsx" code={appFile} lang="tsx" />
 
-`AuthProvider` provides the client to all child components. Call `auth.initialize()` at app startup (e.g., in `main.ts`) to check for an existing session.
+`AuthProvider` provides the client to all child components and automatically calls `initialize()` to check for an existing session. You do not need to call `auth.initialize()` manually.
 
 ## useAuth Hook
 

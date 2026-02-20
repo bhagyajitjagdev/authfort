@@ -26,6 +26,8 @@ async def create_user(
     email: str,
     password_hash: str | None = None,
     name: str | None = None,
+    avatar_url: str | None = None,
+    phone: str | None = None,
     email_verified: bool = False,
 ) -> User:
     """Create a new user."""
@@ -33,6 +35,8 @@ async def create_user(
         email=email,
         password_hash=password_hash,
         name=name,
+        avatar_url=avatar_url,
+        phone=phone,
         email_verified=email_verified,
     )
     session.add(user)

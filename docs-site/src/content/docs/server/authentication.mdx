@@ -13,15 +13,32 @@ Content-Type: application/json
 {
   "email": "user@example.com",
   "password": "strongpassword",
-  "name": "Jane Doe"
+  "name": "Jane Doe",
+  "avatar_url": "https://example.com/avatar.jpg",
+  "phone": "+1234567890"
 }`;
 
 export const signupProgrammatic = `result = await auth.create_user(
     "user@example.com",
     "strongpassword",
     name="Jane Doe",
+    avatar_url="https://example.com/avatar.jpg",
+    phone="+1234567890",
 )
 # result.user.id, result.user.email, result.tokens.access_token`;
+
+export const updateUserExample = `# Update specific fields — only provided fields are changed
+updated = await auth.update_user(
+    user_id,
+    name="New Name",
+    phone="+1987654321",
+)
+
+# Pass None to clear a field
+updated = await auth.update_user(user_id, phone=None)
+
+# Omitted fields are not touched — this only changes the name
+updated = await auth.update_user(user_id, name="Jane")`;
 
 export const loginEndpoint = `POST /auth/login
 Content-Type: application/json
@@ -72,6 +89,16 @@ Returns `AuthResponse` with user info and tokens. Returns 400 if the email is al
 
 Passwords are hashed with argon2 before storage. Emails are normalized (stripped and lowercased).
 
+All fields except `email` and `password` are optional: `name`, `avatar_url`, and `phone`.
+
+## Update User
+
+Update a user's profile fields. Uses a sentinel pattern so that omitted fields are left unchanged, while passing `None` explicitly clears a field:
+
+<CodeBlock title="Programmatic" code={updateUserExample} />
+
+**Returns:** `UserResponse` with the updated user data. Emits a `user_updated` event with the list of changed fields.
+
 ## Login
 
 Authenticates a user and issues tokens.
@@ -114,4 +141,4 @@ The `/auth/me` endpoint returns the authenticated user's info:
 
 In cookie mode, the access token is read from the cookie automatically — no `Authorization` header needed.
 
-Returns a `UserResponse` with: `id`, `email`, `name`, `email_verified`, `avatar_url`, `roles`, `created_at`, and `session_id`.
+Returns a `UserResponse` with: `id`, `email`, `name`, `email_verified`, `avatar_url`, `phone`, `roles`, `created_at`, and `session_id`.

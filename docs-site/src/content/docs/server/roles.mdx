@@ -28,6 +28,12 @@ if "admin" in roles:
     # do admin stuff
     pass`;
 
+export const hasRoleExample = `# Quick check for a single role
+is_admin = await auth.has_role(user_id, "admin")
+if is_admin:
+    # do admin stuff
+    pass`;
+
 export const jwtExample = `{
   "sub": "user-uuid",
   "email": "user@example.com",
@@ -51,6 +57,12 @@ By default, role changes bump the user's `token_version`, which invalidates all 
 Use `immediate=False` when adding non-sensitive roles where you don't need instant enforcement.
 
 ## Checking Roles
+
+Use `has_role()` for a quick single-role check:
+
+<CodeBlock code={hasRoleExample} />
+
+Or fetch all roles at once:
 
 <CodeBlock code={checkRoles} />
 

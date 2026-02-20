@@ -13,13 +13,14 @@ export const constructor = `AuthFort(
     access_token_ttl: int = 900,
     refresh_token_ttl: int = 2592000,
     jwt_issuer: str = "authfort",
-    jwt_algorithm: str = "RS256",
     cookie: CookieConfig | None = None,
     providers: list | None = None,
     key_rotation_ttl: int = 172800,
     introspect_secret: str | None = None,
     allow_signup: bool = True,
     password_reset_ttl: int = 3600,
+    rsa_key_size: int = 2048,
+    frontend_url: str | None = None,
 )`;
 
 export const hookDecorator = `@auth.on("login")
@@ -39,7 +40,7 @@ See [Configuration](/authfort/server/configuration/) for parameter details.
 
 ## Authentication
 
-### `create_user(email, password, *, name=None)`
+### `create_user(email, password, *, name=None, avatar_url=None, phone=None)`
 
 Create a new user. Works regardless of `allow_signup` setting.
 
@@ -48,6 +49,8 @@ Create a new user. Works regardless of `allow_signup` setting.
 | `email` | `str` | User email (normalized) |
 | `password` | `str` | Plain text password (hashed with argon2) |
 | `name` | `str \| None` | Display name |
+| `avatar_url` | `str \| None` | Profile image URL |
+| `phone` | `str \| None` | Phone number |
 
 **Returns:** `AuthResponse`
 **Raises:** `AuthError` if email already exists
@@ -123,6 +126,17 @@ Get all roles assigned to a user.
 
 **Returns:** `list[str]`
 
+### `has_role(user_id, role)`
+
+Check if a user has a specific role.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `user_id` | `UUID` | User ID |
+| `role` | `str` | Role name |
+
+**Returns:** `bool`
+
 ---
 
 ## User Management
@@ -138,6 +152,20 @@ Ban a user. Sets banned flag, bumps token version, revokes all refresh tokens.
 Unban a user.
 
 **Returns:** `None`
+
+### `update_user(user_id, *, name, avatar_url, phone)`
+
+Update a user's profile fields. Only provided fields are changed — omitted fields are left untouched. Pass `None` to clear a field.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `user_id` | `UUID` | User ID |
+| `name` | `str \| None` | Display name (omit to leave unchanged) |
+| `avatar_url` | `str \| None` | Profile image URL (omit to leave unchanged) |
+| `phone` | `str \| None` | Phone number (omit to leave unchanged) |
+
+**Returns:** `UserResponse`
+**Raises:** `AuthError` if user not found, or if no fields are provided
 
 ---
 
@@ -193,6 +221,33 @@ Delete expired verification tokens (password reset tokens).
 
 **Returns:** `int` — number of tokens deleted
 
+### `cleanup_expired_sessions()`
+
+Delete expired or revoked refresh tokens (sessions).
+
+**Returns:** `int` — number of sessions deleted
+
+### `get_jwks()`
+
+Get the JWKS (JSON Web Key Set) as a dict. Returns the public signing keys in JWK format. Useful for serving JWKS from non-FastAPI frameworks (Django, Flask, etc.).
+
+**Returns:** `dict` — JWKS document with `keys` array
+
+---
+
+## OAuth
+
+### `get_provider_tokens(user_id, provider)`
+
+Get the stored OAuth tokens for a provider account.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `user_id` | `UUID` | User ID |
+| `provider` | `str` | Provider name (`"google"` or `"github"`) |
+
+**Returns:** `dict | None` — dict with `access_token`, `refresh_token`, and `expires_at` keys, or `None` if no account exists for this provider
+
 ---
 
 ## Event Hooks
@@ -228,6 +283,48 @@ Dispose the database engine and connection pool.
 Async context manager for database sessions (for non-FastAPI code).
 
 <CodeBlock code={getSessionExample} lang="python" />
+
+---
+
+## FastAPI Integration
+
+### `fastapi_router()`
+
+Returns a FastAPI `APIRouter` with all auth endpoints (signup, login, logout, refresh, me, password reset, OAuth). Mount with `app.include_router(auth.fastapi_router(), prefix="/auth")`.
+
+**Returns:** `APIRouter`
+
+### `jwks_router()`
+
+Returns a FastAPI `APIRouter` serving `/.well-known/jwks.json`. Mount separately: `app.include_router(auth.jwks_router())`.
+
+**Returns:** `APIRouter`
+
+### `current_user`
+
+FastAPI dependency that extracts and verifies the JWT from the request. Returns a `UserResponse`.
+
+```python
+@app.get("/profile")
+async def profile(user: UserResponse = Depends(auth.current_user)):
+    return user
+```
+
+### `require_role(role)`
+
+FastAPI dependency factory that checks if the authenticated user has a specific role (or any of a list of roles).
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `role` | `str \| list[str]` | Required role(s) — user must have at least one |
+
+```python
+@app.get("/admin")
+async def admin(user=Depends(auth.require_role("admin"))):
+    ...
+```
+
+See [FastAPI Integration](/authfort/server/fastapi/) for full usage guide.
 
 ---
 

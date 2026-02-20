@@ -13,9 +13,13 @@ export const cleanupKeys = `deleted = await auth.cleanup_expired_keys()
 export const cleanupTokens = `deleted = await auth.cleanup_expired_tokens()
 # Returns count of deleted verification tokens`;
 
+export const cleanupSessions = `deleted = await auth.cleanup_expired_sessions()
+# Returns count of deleted expired/revoked sessions`;
+
 export const cleanupAll = `keys = await auth.cleanup_expired_keys()
 tokens = await auth.cleanup_expired_tokens()
-print(f"Cleaned up {keys} keys, {tokens} tokens")`;
+sessions = await auth.cleanup_expired_sessions()
+print(f"Cleaned up {keys} keys, {tokens} tokens, {sessions} sessions")`;
 
 AuthFort doesn't delete expired data automatically. Over time, expired signing keys, used password reset tokens, and revoked sessions accumulate in the database. Call these methods on a schedule to keep things clean.
 
@@ -32,6 +36,12 @@ Deletes signing keys that have passed their `key_rotation_ttl` expiry. These key
 Deletes verification tokens (password reset) that have expired or been used. These are single-use and expire after `password_reset_ttl` (default: 1 hour).
 
 <CodeBlock code={cleanupTokens} />
+
+### `cleanup_expired_sessions()`
+
+Deletes refresh tokens (sessions) that are expired or revoked. Over time these accumulate — especially in apps with many users or short refresh token TTLs.
+
+<CodeBlock code={cleanupSessions} />
 
 ## Recommended Schedule
 

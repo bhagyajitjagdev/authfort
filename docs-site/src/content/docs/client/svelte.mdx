@@ -66,7 +66,7 @@ Call `createAuthStore` with your client instance to get reactive Svelte stores f
 
 <CodeBlock title="src/App.svelte" code={storeExample} lang="svelte" />
 
-`createAuthStore` provides reactive stores but does not call `initialize()`. Call `auth.initialize()` at app startup to check for an existing session.
+`createAuthStore` provides reactive stores and automatically calls `initialize()` to check for an existing session. You do not need to call `auth.initialize()` manually.
 
 All stores are Svelte `Readable` stores — use the `$` prefix to subscribe in templates.
 

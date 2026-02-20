@@ -159,7 +159,7 @@ class TestJWT:
 
         header = get_unverified_header(token)
         assert header["kid"] == self.kid
-        assert header["alg"] == _test_config.jwt_algorithm
+        assert header["alg"] == "RS256"
 
     def test_verify_with_wrong_key_fails(self):
         token = create_access_token(
@@ -192,7 +192,7 @@ class TestJWT:
         token = jwt.encode(
             payload,
             self.private_pem,
-            algorithm=_test_config.jwt_algorithm,
+            algorithm="RS256",
             headers={"kid": self.kid},
         )
 

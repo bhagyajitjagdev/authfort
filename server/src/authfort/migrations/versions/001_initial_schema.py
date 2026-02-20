@@ -22,6 +22,7 @@ def upgrade() -> None:
         sa.Column("email_verified", sa.Boolean(), nullable=False, server_default=sa.text("0")),
         sa.Column("name", sa.String(255), nullable=True),
         sa.Column("avatar_url", sa.Text(), nullable=True),
+        sa.Column("phone", sa.String(50), nullable=True),
         sa.Column("password_hash", sa.String(255), nullable=True),
         sa.Column("token_version", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("banned", sa.Boolean(), nullable=False, server_default=sa.text("0")),

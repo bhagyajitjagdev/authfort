@@ -40,11 +40,28 @@ export interface AuthClientConfig {
 /** Authentication state */
 export type AuthState = 'authenticated' | 'unauthenticated' | 'loading';
 
+/** Known OAuth provider names */
+export type OAuthProvider = 'google' | 'github';
+
+/** Options for OAuth sign-in */
+export interface OAuthSignInOptions {
+  /**
+   * OAuth flow mode.
+   * - `'redirect'` — full-page redirect (default)
+   * - `'popup'` — opens a popup window, resolves when auth completes
+   */
+  mode?: 'redirect' | 'popup';
+
+  /** URL path to redirect to after auth (must be a relative path starting with "/"). Only used in redirect mode. */
+  redirectTo?: string;
+}
+
 /** Authenticated user data (camelCase) */
 export interface AuthUser {
   id: string;
   email: string;
   name?: string;
+  phone?: string;
   roles: string[];
   emailVerified: boolean;
   avatarUrl?: string;
@@ -66,13 +83,13 @@ export interface AuthClient {
   getUser(): Promise<AuthUser>;
 
   /** Sign up with email and password */
-  signUp(data: { email: string; password: string; name?: string }): Promise<AuthUser>;
+  signUp(data: { email: string; password: string; name?: string; avatarUrl?: string; phone?: string }): Promise<AuthUser>;
 
   /** Sign in with email and password */
   signIn(data: { email: string; password: string }): Promise<AuthUser>;
 
-  /** Sign in with OAuth provider (redirects the browser) */
-  signInWithProvider(provider: string): void;
+  /** Sign in with OAuth provider. Redirect mode (default) navigates the browser. Popup mode opens a window and returns a promise. */
+  signInWithProvider(provider: OAuthProvider, options?: OAuthSignInOptions): void | Promise<AuthUser>;
 
   /** Sign out */
   signOut(): Promise<void>;
@@ -99,6 +116,7 @@ export interface ServerUserResponse {
   id: string;
   email: string;
   name: string | null;
+  phone: string | null;
   email_verified: boolean;
   avatar_url: string | null;
   roles: string[];

@@ -61,6 +61,8 @@ def create_auth_router(
                 email=data.email,
                 password=data.password,
                 name=data.name,
+                avatar_url=data.avatar_url,
+                phone=data.phone,
                 user_agent=request.headers.get("User-Agent"),
                 ip_address=request.client.host if request.client else None,
                 events=get_collector(),

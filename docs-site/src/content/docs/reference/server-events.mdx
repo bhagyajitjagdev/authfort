@@ -97,6 +97,16 @@ Fired when a role is removed.
 | `role` | `str` |
 | `timestamp` | `datetime` |
 
+## user_updated
+
+Fired when a user's profile fields are updated via `update_user()`.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `fields` | `list[str]` — names of updated fields (e.g., `["name", "phone"]`) |
+| `timestamp` | `datetime` |
+
 ## user_banned
 
 Fired when a user is banned.

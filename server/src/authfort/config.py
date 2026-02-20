@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Literal
 
+JWT_ALGORITHM = "RS256"
+
 
 @dataclass(frozen=True, slots=True)
 class CookieConfig:
@@ -22,7 +24,6 @@ class AuthFortConfig:
     """Internal config built by the AuthFort constructor. Not user-facing."""
 
     database_url: str
-    jwt_algorithm: str = "RS256"
     access_token_expire_seconds: int = 900
     refresh_token_expire_seconds: int = 60 * 60 * 24 * 30  # 30 days
     jwt_issuer: str = "authfort"
@@ -31,3 +32,5 @@ class AuthFortConfig:
     introspect_secret: str | None = None
     allow_signup: bool = True
     password_reset_ttl_seconds: int = 3600  # 1 hour
+    rsa_key_size: int = 2048
+    frontend_url: str | None = None

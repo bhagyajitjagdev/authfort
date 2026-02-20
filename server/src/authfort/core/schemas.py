@@ -26,6 +26,7 @@ class UserResponse(BaseModel):
     name: str | None
     email_verified: bool
     avatar_url: str | None
+    phone: str | None = None
     roles: list[str]
     created_at: datetime
     session_id: uuid.UUID | None = None
@@ -46,6 +47,8 @@ class SignupRequest(BaseModel):
     email: str
     password: str
     name: str | None = None
+    avatar_url: str | None = None
+    phone: str | None = None
 
 
 class LoginRequest(BaseModel):

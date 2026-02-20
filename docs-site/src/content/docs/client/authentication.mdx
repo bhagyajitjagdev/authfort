@@ -24,9 +24,17 @@ export const signInExample = `const user = await auth.signIn({
 
 export const signOutExample = `await auth.signOut();`;
 
-export const oauthExample = `auth.signInWithProvider('google');
+export const oauthExample = `// Redirect mode (default)
+auth.signInWithProvider('google');
 // or
 auth.signInWithProvider('github');`;
+
+export const oauthPopupExample = `// Popup mode — opens a window, returns a promise
+const user = await auth.signInWithProvider('google', { mode: 'popup' });
+console.log(user.email);`;
+
+export const oauthRedirectToExample = `// Redirect to a specific page after OAuth
+auth.signInWithProvider('google', { redirectTo: '/dashboard' });`;
 
 export const getUserExample = `const user = await auth.getUser();`;
 
@@ -68,7 +76,19 @@ Redirect the user to the OAuth provider:
 
 This navigates the browser to `/auth/oauth/google/authorize` (or `github`). After the OAuth flow completes, the user is redirected back to your app with auth cookies set.
 
-Call `auth.initialize()` on the redirect landing page to pick up the session.
+### Popup Mode
+
+Use popup mode to avoid a full-page redirect. The client opens a popup window for the OAuth flow and resolves a promise when auth completes:
+
+<CodeBlock code={oauthPopupExample} lang="typescript" />
+
+### Redirect To
+
+Specify where to land after OAuth completes:
+
+<CodeBlock code={oauthRedirectToExample} lang="typescript" />
+
+The `redirectTo` path must be relative (start with `/`). Framework integrations (React, Vue, Svelte) call `initialize()` automatically, so there's no need to call it manually on the landing page.
 
 ## Get Current User
 

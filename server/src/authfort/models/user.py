@@ -16,6 +16,7 @@ class User(Base):
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     name: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True, default=None)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     token_version: Mapped[int] = mapped_column(Integer, default=0)
     banned: Mapped[bool] = mapped_column(Boolean, default=False)

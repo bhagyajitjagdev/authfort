@@ -15,6 +15,23 @@ async def on_signup(event):
 async def on_failed_login(event):
     await log_failed_attempt(event.email, event.ip_address, event.reason)`;
 
+export const typedHandlerExample = `from authfort import AuthFort
+from authfort.events import UserCreated, LoginFailed, UserUpdated
+
+auth = AuthFort(database_url="...")
+
+@auth.on("user_created")
+async def on_signup(event: UserCreated):
+    await send_welcome_email(event.email)
+
+@auth.on("login_failed")
+async def on_failed_login(event: LoginFailed):
+    await log_failed_attempt(event.email, event.ip_address, event.reason)
+
+@auth.on("user_updated")
+async def on_profile_update(event: UserUpdated):
+    await sync_profile(event.user_id, event.fields)`;
+
 export const programmaticExample = `async def on_signup(event):
     await send_welcome_email(event.email)
 
@@ -67,6 +84,12 @@ AuthFort emits events for every authentication action. Use hooks to react to the
 
 Both approaches are equivalent. The decorator is syntactic sugar for `add_hook()`.
 
+### Typed Handlers
+
+Event types are importable from `authfort.events` for type-safe handlers:
+
+<CodeBlock code={typedHandlerExample} />
+
 ## All Events
 
 ### User Lifecycle
@@ -74,6 +97,7 @@ Both approaches are equivalent. The decorator is syntactic sugar for `add_hook()
 | Event | Payload Fields |
 |-------|---------------|
 | `user_created` | `user_id`, `email`, `name`, `provider`, `timestamp` |
+| `user_updated` | `user_id`, `fields`, `timestamp` |
 | `user_banned` | `user_id`, `timestamp` |
 | `user_unbanned` | `user_id`, `timestamp` |
 

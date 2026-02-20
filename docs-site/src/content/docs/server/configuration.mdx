@@ -14,13 +14,14 @@ auth = AuthFort(
     access_token_ttl=900,
     refresh_token_ttl=2592000,
     jwt_issuer="authfort",
-    jwt_algorithm="RS256",
     cookie=CookieConfig(),
     providers=[GoogleProvider(client_id="...", client_secret="...")],
     key_rotation_ttl=172800,
     introspect_secret="shared-secret-with-services",
     allow_signup=True,
     password_reset_ttl=3600,
+    rsa_key_size=2048,
+    frontend_url="https://app.example.com",
 )`;
 
 export const providersExample = `from authfort import GoogleProvider, GitHubProvider
@@ -64,12 +65,6 @@ The `iss` claim in issued JWTs. Default: `"authfort"`.
 
 Microservices using `authfort-service` must configure the same issuer value.
 
-### `jwt_algorithm`
-
-JWT signing algorithm. Default: `"RS256"`.
-
-RS256 (RSA + SHA-256) is the only supported algorithm. It uses asymmetric keys — the auth server signs with a private key, and microservices verify with the public key from JWKS.
-
 ### `cookie`
 
 Cookie configuration. Default: `None` (bearer-only mode).
@@ -107,3 +102,27 @@ Set to `False` to disable public signup. You can still create users programmatic
 Password reset token lifetime in seconds. Default: `3600` (1 hour).
 
 After this time, the reset token expires and the user must request a new one.
+
+### `rsa_key_size`
+
+RSA key size in bits. Default: `2048`. Must be `>= 2048`.
+
+Controls the size of RSA keys generated for JWT signing. Larger keys are more secure but slower. 2048-bit keys are considered safe for most use cases. Use `4096` for higher security requirements.
+
+### `frontend_url`
+
+Frontend origin URL for cross-origin OAuth redirects. Default: `None`.
+
+When your frontend and API are on different domains (e.g., `app.example.com` and `api.example.com`), set this to your frontend origin. AuthFort will prepend it to `redirect_to` paths so OAuth redirects land on the correct domain.
+
+```python
+auth = AuthFort(
+    database_url="...",
+    frontend_url="https://app.example.com",
+    # ...
+)
+```
+
+Without `frontend_url`, a `redirect_to=/dashboard` will redirect to `api.example.com/dashboard` (the API server). With `frontend_url="https://app.example.com"`, it redirects to `https://app.example.com/dashboard`.
+
+If your frontend and API share the same origin, you don't need this.
