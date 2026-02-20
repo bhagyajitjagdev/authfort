@@ -1,0 +1,67 @@
+---
+title: Roles & Permissions
+description: Role-based access control with AuthFort.
+sidebar:
+  order: 4
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const manageRoles = `# Add a role
+await auth.add_role(user_id, "admin")
+
+# Remove a role
+await auth.remove_role(user_id, "editor")
+
+# Get all roles for a user
+roles = await auth.get_roles(user_id)
+# ["admin", "editor"]`;
+
+export const immediateExample = `# Immediate — existing tokens are invalidated
+await auth.add_role(user_id, "admin", immediate=True)  # default
+
+# Deferred — takes effect on next token refresh
+await auth.add_role(user_id, "admin", immediate=False)`;
+
+export const checkRoles = `roles = await auth.get_roles(user_id)
+if "admin" in roles:
+    # do admin stuff
+    pass`;
+
+export const jwtExample = `{
+  "sub": "user-uuid",
+  "email": "user@example.com",
+  "roles": ["admin", "editor"],
+  "ver": 3,
+  "exp": 1234567890
+}`;
+
+AuthFort includes a simple, flexible role system. Roles are strings (e.g., `"admin"`, `"editor"`, `"moderator"`) stored in a join table and embedded in every access token.
+
+## Managing Roles
+
+<CodeBlock code={manageRoles} />
+
+## Immediate vs Deferred
+
+By default, role changes bump the user's `token_version`, which invalidates all existing access tokens immediately:
+
+<CodeBlock code={immediateExample} />
+
+Use `immediate=False` when adding non-sensitive roles where you don't need instant enforcement.
+
+## Checking Roles
+
+<CodeBlock code={checkRoles} />
+
+## How Roles Work in Tokens
+
+Roles are embedded in the JWT `roles` claim:
+
+<CodeBlock code={jwtExample} lang="json" />
+
+When `immediate=True`, bumping the token version means any token with `ver < 3` is rejected. The user's next request triggers a token refresh, which issues a new token with the updated roles.
+
+## Events
+
+Emits `role_added` and `role_removed` events. See [Events & Hooks](/authfort/server/events/) for all events and their payloads.

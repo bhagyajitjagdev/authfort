@@ -1,0 +1,193 @@
+---
+title: React SPA
+description: Full React single-page application with AuthFort.
+sidebar:
+  order: 1
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import CodeBlock from '../../../components/CodeBlock.astro';
+import PackageInstall from '../../../components/PackageInstall.astro';
+
+export const authClient = `import { createAuthClient } from 'authfort-client';
+
+export const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie',
+});`;
+
+export const mainFile = `import { AuthProvider } from 'authfort-client/react';
+import { BrowserRouter } from 'react-router-dom';
+import { auth } from './auth';
+import App from './App';
+
+auth.initialize();
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <BrowserRouter>
+    <AuthProvider client={auth}>
+      <App />
+    </AuthProvider>
+  </BrowserRouter>
+);`;
+
+export const protectedRoute = `import { useAuth } from 'authfort-client/react';
+import { Navigate } from 'react-router-dom';
+
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <div>Loading...</div>;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  return children;
+}`;
+
+export const loginPage = `import { useState } from 'react';
+import { useAuth } from 'authfort-client/react';
+import { useNavigate } from 'react-router-dom';
+
+export function LoginPage() {
+  const { client } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await client.signIn({ email, password });
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h1>Sign In</h1>
+      <input
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="Email"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        placeholder="Password"
+      />
+      <button type="submit">Sign In</button>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      <hr />
+      <button type="button" onClick={() => client.signInWithProvider('google')}>
+        Sign in with Google
+      </button>
+      <button type="button" onClick={() => client.signInWithProvider('github')}>
+        Sign in with GitHub
+      </button>
+    </form>
+  );
+}`;
+
+export const profilePage = `import { useAuth } from 'authfort-client/react';
+
+export function ProfilePage() {
+  const { user, client } = useAuth();
+
+  return (
+    <div>
+      <h1>Profile</h1>
+      <p>Email: {user?.email}</p>
+      <p>Name: {user?.name}</p>
+      <p>Roles: {user?.roles.join(', ') || 'none'}</p>
+      <button onClick={() => client.signOut()}>Sign Out</button>
+    </div>
+  );
+}`;
+
+export const appRoutes = `import { Routes, Route } from 'react-router-dom';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { LoginPage } from './pages/Login';
+import { ProfilePage } from './pages/Profile';
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={
+        <ProtectedRoute>
+          <ProfilePage />
+        </ProtectedRoute>
+      } />
+    </Routes>
+  );
+}`;
+
+export const fetchData = `import { useAuth } from 'authfort-client/react';
+import { useEffect, useState } from 'react';
+
+function Orders() {
+  const { client } = useAuth();
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    client.fetch('/api/orders')
+      .then(res => res.json())
+      .then(setOrders);
+  }, [client]);
+
+  return (
+    <ul>
+      {orders.map((o: any) => <li key={o.id}>{o.name}</li>)}
+    </ul>
+  );
+}`;
+
+A complete React SPA with cookie-based auth, protected routes, login page, and profile page.
+
+## Setup
+
+<Steps>
+
+1. **Install packages**
+
+   <PackageInstall syncKey="js" variants={[
+     { label: "npm", command: "npm install authfort-client react-router-dom" },
+     { label: "yarn", command: "yarn add authfort-client react-router-dom" },
+     { label: "pnpm", command: "pnpm add authfort-client react-router-dom" },
+     { label: "bun", command: "bun add authfort-client react-router-dom" },
+   ]} />
+
+2. **Create the auth client**
+
+   <CodeBlock title="src/auth.ts" code={authClient} lang="typescript" />
+
+3. **Wrap your app with AuthProvider**
+
+   <CodeBlock title="src/main.tsx" code={mainFile} lang="tsx" />
+
+</Steps>
+
+## Protected Route Component
+
+<CodeBlock title="src/components/ProtectedRoute.tsx" code={protectedRoute} lang="tsx" />
+
+## Login Page
+
+<CodeBlock title="src/pages/Login.tsx" code={loginPage} lang="tsx" />
+
+## Profile Page
+
+<CodeBlock title="src/pages/Profile.tsx" code={profilePage} lang="tsx" />
+
+## App Routes
+
+<CodeBlock title="src/App.tsx" code={appRoutes} lang="tsx" />
+
+## Fetching Data
+
+<CodeBlock code={fetchData} lang="tsx" />

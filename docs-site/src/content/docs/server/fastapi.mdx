@@ -1,0 +1,153 @@
+---
+title: FastAPI Integration
+description: Mount AuthFort routes and protect endpoints in FastAPI.
+sidebar:
+  order: 13
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const fullSetup = `from contextlib import asynccontextmanager
+from authfort import AuthFort, CookieConfig
+from fastapi import FastAPI, Depends
+
+auth = AuthFort(
+    database_url="sqlite+aiosqlite:///auth.db",
+    cookie=CookieConfig(),
+)
+
+@asynccontextmanager
+async def lifespan(app):
+    await auth.migrate()
+    yield
+    await auth.dispose()
+
+app = FastAPI(lifespan=lifespan)
+app.include_router(auth.fastapi_router(), prefix="/auth")
+app.include_router(auth.jwks_router())`;
+
+export const currentUserExample = `from authfort import UserResponse
+from fastapi import Depends
+
+@app.get("/api/profile")
+async def profile(user: UserResponse = Depends(auth.current_user)):
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "name": user.name,
+        "roles": user.roles,
+        "session_id": str(user.session_id),
+    }`;
+
+export const requireRoleExample = `@app.get("/api/admin")
+async def admin_panel(user: UserResponse = Depends(auth.require_role("admin"))):
+    return {"message": f"Welcome, {user.email}"}`;
+
+export const multipleRolesExample = `@app.get("/api/manage")
+async def manage(
+    user: UserResponse = Depends(auth.require_role(["admin", "editor"])),
+):
+    return {"roles": user.roles}`;
+
+export const checkRolesExample = `@app.get("/api/dashboard")
+async def dashboard(user: UserResponse = Depends(auth.current_user)):
+    if "admin" in user.roles:
+        # Show admin-specific data
+        pass
+    return {"email": user.email, "roles": user.roles}`;
+
+export const signOutOthers = `@app.post("/api/sign-out-others")
+async def sign_out_others(user: UserResponse = Depends(auth.current_user)):
+    await auth.revoke_all_sessions(user.id, exclude=user.session_id)
+    return {"message": "All other sessions revoked"}`;
+
+export const forgotPassword = `@app.post("/api/forgot-password")
+async def forgot_password(email: str):
+    token = await auth.create_password_reset_token(email)
+    if token:
+        await send_email(
+            to=email,
+            subject="Reset your password",
+            body=f"https://myapp.com/reset?token={token}",
+        )
+    # Always return success to prevent enumeration
+    return {"message": "If that email exists, a reset link was sent."}`;
+
+export const resetPassword = `@app.post("/api/reset-password")
+async def reset_password(token: str, new_password: str):
+    success = await auth.reset_password(token, new_password)
+    if not success:
+        raise HTTPException(400, "Invalid or expired token")
+    return {"message": "Password reset successfully"}`;
+
+export const changePassword = `@app.post("/api/change-password")
+async def change_password(
+    old_password: str,
+    new_password: str,
+    user: UserResponse = Depends(auth.current_user),
+):
+    await auth.change_password(user.id, old_password, new_password)
+    return {"message": "Password changed"}`;
+
+AuthFort provides first-class FastAPI integration via routers and dependencies.
+
+## Setup
+
+<CodeBlock title="main.py" code={fullSetup} />
+
+This gives you:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/signup` | Create a new user |
+| POST | `/auth/login` | Authenticate and get tokens |
+| POST | `/auth/refresh` | Refresh access token |
+| POST | `/auth/logout` | Revoke refresh token |
+| GET | `/auth/me` | Get current user info |
+| GET | `/.well-known/jwks.json` | Public signing keys |
+
+## Protecting Routes
+
+### current_user
+
+Returns the authenticated user as a `UserResponse` with: `id`, `email`, `name`, `email_verified`, `avatar_url`, `roles`, `created_at`, and `session_id`.
+
+<CodeBlock code={currentUserExample} />
+
+If no valid token is found, returns `401 Unauthorized`.
+
+### require_role
+
+Verifies the user has a specific role:
+
+<CodeBlock code={requireRoleExample} />
+
+Returns `403 Forbidden` if the user doesn't have the required role.
+
+### Multiple Roles
+
+Pass a list to require any one of the roles:
+
+<CodeBlock code={multipleRolesExample} />
+
+### Checking Roles in Code
+
+<CodeBlock code={checkRolesExample} />
+
+## Common Patterns
+
+### Sign Out Other Devices
+
+<CodeBlock code={signOutOthers} />
+
+The `session_id` comes from the `sid` claim in the JWT.
+
+### Password Reset Flow
+
+<CodeBlock code={forgotPassword} />
+
+<CodeBlock code={resetPassword} />
+
+### Change Password
+
+<CodeBlock code={changePassword} />

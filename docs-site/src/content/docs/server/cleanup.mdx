@@ -1,0 +1,46 @@
+---
+title: Cleanup
+description: Remove expired data from the database.
+sidebar:
+  order: 11
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const cleanupKeys = `deleted = await auth.cleanup_expired_keys()
+# Returns count of deleted signing keys`;
+
+export const cleanupTokens = `deleted = await auth.cleanup_expired_tokens()
+# Returns count of deleted verification tokens`;
+
+export const cleanupAll = `keys = await auth.cleanup_expired_keys()
+tokens = await auth.cleanup_expired_tokens()
+print(f"Cleaned up {keys} keys, {tokens} tokens")`;
+
+AuthFort doesn't delete expired data automatically. Over time, expired signing keys, used password reset tokens, and revoked sessions accumulate in the database. Call these methods on a schedule to keep things clean.
+
+## Methods
+
+### `cleanup_expired_keys()`
+
+Deletes signing keys that have passed their `key_rotation_ttl` expiry. These keys are already excluded from JWKS — this removes them from the database entirely.
+
+<CodeBlock code={cleanupKeys} />
+
+### `cleanup_expired_tokens()`
+
+Deletes verification tokens (password reset) that have expired or been used. These are single-use and expire after `password_reset_ttl` (default: 1 hour).
+
+<CodeBlock code={cleanupTokens} />
+
+## Recommended Schedule
+
+Run cleanup daily — either as a cron job or a background task:
+
+<CodeBlock code={cleanupAll} />
+
+Cleanup is safe to run at any time. It only deletes data that is already expired and no longer functional.
+
+## Audit Trail
+
+Cleanup permanently deletes records. If you need traceability, capture the data via [event hooks](/authfort/server/events/) before it's cleaned up. For example, `password_reset_requested` and `key_rotated` events fire when those records are created — log them to your audit table there.

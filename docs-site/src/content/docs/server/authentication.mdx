@@ -1,0 +1,117 @@
+---
+title: Authentication
+description: Signup, login, and logout — via endpoints and programmatic API.
+sidebar:
+  order: 2
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const signupEndpoint = `POST /auth/signup
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "strongpassword",
+  "name": "Jane Doe"
+}`;
+
+export const signupProgrammatic = `result = await auth.create_user(
+    "user@example.com",
+    "strongpassword",
+    name="Jane Doe",
+)
+# result.user.id, result.user.email, result.tokens.access_token`;
+
+export const loginEndpoint = `POST /auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "strongpassword"
+}`;
+
+export const loginProgrammatic = `result = await auth.login("user@example.com", "strongpassword")
+# result.tokens.access_token, result.tokens.refresh_token`;
+
+export const refreshEndpoint = `POST /auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "the-refresh-token"
+}`;
+
+export const refreshProgrammatic = `result = await auth.refresh("the-refresh-token")`;
+
+export const logoutEndpoint = `POST /auth/logout
+Content-Type: application/json
+
+{
+  "refresh_token": "the-refresh-token"
+}`;
+
+export const logoutProgrammatic = `await auth.logout("the-refresh-token")`;
+
+export const getMeEndpoint = `GET /auth/me
+Authorization: Bearer <access-token>`;
+
+
+AuthFort provides authentication through both REST endpoints (via the FastAPI router) and a programmatic API (for use in backend code).
+
+## Signup
+
+Creates a new user with email and password.
+
+<CodeBlock title="Endpoint" code={signupEndpoint} lang="http" />
+
+Returns `AuthResponse` with user info and tokens. Returns 400 if the email is already taken, or 403 if `allow_signup=False`.
+
+<CodeBlock title="Programmatic" code={signupProgrammatic} />
+
+`create_user()` always works regardless of the `allow_signup` setting. Use it for admin-created accounts or seeding.
+
+Passwords are hashed with argon2 before storage. Emails are normalized (stripped and lowercased).
+
+## Login
+
+Authenticates a user and issues tokens.
+
+<CodeBlock title="Endpoint" code={loginEndpoint} lang="http" />
+
+Returns `AuthResponse` with tokens. Returns 401 if credentials are invalid. If the user is banned, returns 403.
+
+<CodeBlock title="Programmatic" code={loginProgrammatic} />
+
+On successful login, a `login` event is emitted. On failure, a `login_failed` event is emitted with the reason.
+
+## Refresh
+
+Exchanges a valid refresh token for a new access token and refresh token pair.
+
+<CodeBlock title="Endpoint" code={refreshEndpoint} lang="http" />
+
+In cookie mode, the refresh token is read from the cookie automatically — the body can be empty.
+
+<CodeBlock title="Programmatic" code={refreshProgrammatic} />
+
+Refresh tokens are single-use. The old token is revoked and a new pair is issued. If a revoked token is reused (indicating theft), the entire token family is revoked.
+
+## Logout
+
+Revokes a refresh token, ending the session.
+
+<CodeBlock title="Endpoint" code={logoutEndpoint} lang="http" />
+
+In cookie mode, the refresh token is read from the cookie automatically — the body can be empty.
+
+<CodeBlock title="Programmatic" code={logoutProgrammatic} />
+
+## Get Current User
+
+The `/auth/me` endpoint returns the authenticated user's info:
+
+<CodeBlock code={getMeEndpoint} lang="http" />
+
+In cookie mode, the access token is read from the cookie automatically — no `Authorization` header needed.
+
+Returns a `UserResponse` with: `id`, `email`, `name`, `email_verified`, `avatar_url`, `roles`, `created_at`, and `session_id`.

@@ -1,0 +1,226 @@
+---
+import { Code } from 'astro:components';
+
+interface Variant {
+  label: string;
+  command: string;
+}
+
+interface Props {
+  variants: Variant[];
+  syncKey?: string;
+}
+
+const { variants, syncKey = 'pkg' } = Astro.props;
+const id = Math.random().toString(36).slice(2, 8);
+---
+
+<div class="not-content pkg-install" data-sync-key={syncKey} data-id={id}>
+  <div class="pkg-header">
+    <div class="pkg-tabs">
+      {variants.map((v, i) => (
+        <button
+          class:list={['pkg-tab', i === 0 && 'active']}
+          data-index={i}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+    <button class="pkg-copy" title="Copy to clipboard">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    </button>
+  </div>
+  <div class="pkg-body">
+    {variants.map((v, i) => (
+      <div
+        class:list={['pkg-panel', i !== 0 && 'hidden']}
+        data-index={i}
+      >
+        <div class="code-dark">
+          <Code code={v.command} lang="bash" theme="github-dark" />
+        </div>
+        <div class="code-light">
+          <Code code={v.command} lang="bash" theme="github-light" />
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+<style>
+  .pkg-install {
+    border-radius: 0.75rem;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+
+  /* Dark mode */
+  :global([data-theme='dark']) .pkg-install {
+    background: #0a0a0a;
+    border: 1px solid #1f1f1f;
+  }
+
+  /* Light mode */
+  :global([data-theme='light']) .pkg-install {
+    background: #fafafa;
+    border: 1px solid #eaeaea;
+  }
+
+  .pkg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+  }
+
+  :global([data-theme='dark']) .pkg-header {
+    border-bottom: 1px solid #1f1f1f;
+  }
+
+  :global([data-theme='light']) .pkg-header {
+    border-bottom: 1px solid #eaeaea;
+  }
+
+  .pkg-tabs {
+    display: flex;
+    gap: 0.125rem;
+  }
+
+  .pkg-tab {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+    background: transparent;
+  }
+
+  :global([data-theme='dark']) .pkg-tab { color: #666; }
+  :global([data-theme='dark']) .pkg-tab:hover { color: #999; }
+  :global([data-theme='dark']) .pkg-tab.active { background: #262626; color: #fafafa; }
+
+  :global([data-theme='light']) .pkg-tab { color: #999; }
+  :global([data-theme='light']) .pkg-tab:hover { color: #666; }
+  :global([data-theme='light']) .pkg-tab.active { background: #e5e5e5; color: #171717; }
+
+  .pkg-copy {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.375rem;
+    border-radius: 0.375rem;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s;
+  }
+
+  :global([data-theme='dark']) .pkg-copy { color: #525252; }
+  :global([data-theme='dark']) .pkg-copy:hover { color: #a3a3a3; }
+  :global([data-theme='light']) .pkg-copy { color: #a3a3a3; }
+  :global([data-theme='light']) .pkg-copy:hover { color: #525252; }
+
+  .pkg-body {
+    padding: 0;
+  }
+
+  .pkg-panel {
+    margin: 0;
+  }
+
+  .pkg-panel.hidden {
+    display: none;
+  }
+
+  /* Show/hide code blocks based on theme */
+  :global([data-theme='dark']) .code-light { display: none; }
+  :global([data-theme='light']) .code-dark { display: none; }
+
+  .pkg-panel :global(pre) {
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0.875rem 1rem !important;
+    font-size: 0.875rem !important;
+  }
+
+  .pkg-panel :global(code) {
+    background: transparent !important;
+    padding: 0 !important;
+    font-size: inherit !important;
+  }
+</style>
+
+<script>
+  function initPackageInstalls() {
+    const installs = document.querySelectorAll<HTMLElement>('.pkg-install');
+    const syncGroups = new Map<string, HTMLElement[]>();
+
+    installs.forEach((install) => {
+      const syncKey = install.dataset.syncKey!;
+      if (!syncGroups.has(syncKey)) syncGroups.set(syncKey, []);
+      syncGroups.get(syncKey)!.push(install);
+
+      const tabs = install.querySelectorAll<HTMLButtonElement>('.pkg-tab');
+      const copyBtn = install.querySelector<HTMLButtonElement>('.pkg-copy');
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const index = parseInt(tab.dataset.index!);
+          const key = install.dataset.syncKey!;
+
+          syncGroups.get(key)?.forEach((el) => {
+            activateTab(el, index);
+          });
+
+          localStorage.setItem(`pkg-${key}`, String(index));
+        });
+      });
+
+      copyBtn?.addEventListener('click', () => {
+        const active = install.querySelector<HTMLElement>('.pkg-panel:not(.hidden)');
+        if (active) {
+          const theme = document.documentElement.dataset.theme || 'dark';
+          const codeBlock = active.querySelector<HTMLElement>(`.code-${theme} code`);
+          navigator.clipboard.writeText(codeBlock?.textContent?.trim() || '');
+          copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          setTimeout(() => {
+            copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+          }, 1500);
+        }
+      });
+
+      const saved = localStorage.getItem(`pkg-${syncKey}`);
+      if (saved !== null) {
+        const idx = parseInt(saved);
+        if (idx < tabs.length) activateTab(install, idx);
+      }
+    });
+  }
+
+  function activateTab(install: HTMLElement, index: number) {
+    const tabs = install.querySelectorAll<HTMLButtonElement>('.pkg-tab');
+    const panels = install.querySelectorAll<HTMLElement>('.pkg-panel');
+
+    tabs.forEach((t, i) => {
+      if (i === index) {
+        t.classList.add('active');
+      } else {
+        t.classList.remove('active');
+      }
+    });
+
+    panels.forEach((p, i) => {
+      p.classList.toggle('hidden', i !== index);
+    });
+  }
+
+  initPackageInstalls();
+  document.addEventListener('astro:after-swap', initPackageInstalls);
+</script>

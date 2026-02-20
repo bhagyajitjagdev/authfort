@@ -1,0 +1,106 @@
+---
+title: FastAPI Integration
+description: Protect endpoints in microservices with FastAPI dependencies.
+sidebar:
+  order: 5
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const currentUserExample = `from authfort_service import ServiceAuth
+from fastapi import FastAPI, Depends
+
+service = ServiceAuth(
+    jwks_url="https://auth.example.com/.well-known/jwks.json",
+    issuer="authfort",
+)
+
+app = FastAPI()
+
+@app.get("/api/orders")
+async def my_orders(user=Depends(service.current_user)):
+    return {
+        "user_id": user.sub,
+        "email": user.email,
+        "roles": user.roles,
+    }`;
+
+export const requireRoleExample = `@app.get("/api/admin/stats")
+async def admin_stats(user=Depends(service.require_role("admin"))):
+    return {"total_orders": 1234}`;
+
+export const multipleRolesExample = `@app.get("/api/manage")
+async def manage(
+    user=Depends(service.require_role(["admin", "editor"])),
+):
+    return {"roles": user.roles}`;
+
+export const cookieExample = `service = ServiceAuth(
+    jwks_url="https://auth.example.com/.well-known/jwks.json",
+    issuer="authfort",
+    cookie_name="access_token",  # Same as CookieConfig.access_cookie_name
+)`;
+
+export const fullExample = `from authfort_service import ServiceAuth
+from fastapi import FastAPI, Depends
+
+service = ServiceAuth(
+    jwks_url="https://auth.example.com/.well-known/jwks.json",
+    issuer="authfort",
+    cookie_name="access_token",
+)
+
+app = FastAPI()
+
+@app.get("/api/orders")
+async def list_orders(user=Depends(service.current_user)):
+    orders = await get_orders_for_user(user.sub)
+    return {"orders": orders}
+
+@app.post("/api/orders")
+async def create_order(data: OrderCreate, user=Depends(service.current_user)):
+    order = await create_order_for_user(user.sub, data)
+    return {"order": order}
+
+@app.delete("/api/orders/{order_id}")
+async def delete_order(order_id: str, user=Depends(service.require_role("admin"))):
+    await delete_order_by_id(order_id)
+    return {"deleted": True}`;
+
+`authfort-service` provides FastAPI dependencies that work the same as the ones on the main auth server.
+
+## current_user
+
+Extracts and verifies the JWT from the request:
+
+<CodeBlock code={currentUserExample} />
+
+The dependency reads the token from:
+1. `Authorization: Bearer <token>` header (checked first)
+2. Cookie named by `cookie_name` (if configured, checked second)
+
+If no valid token is found, returns `401 Unauthorized`.
+
+## require_role
+
+Verifies the user has a specific role:
+
+<CodeBlock code={requireRoleExample} />
+
+Returns `403 Forbidden` if the user doesn't have the required role.
+
+### Multiple Roles
+
+<CodeBlock code={multipleRolesExample} />
+
+## Token from Cookies
+
+If your frontend uses cookie mode, configure the service to read cookies:
+
+<CodeBlock code={cookieExample} />
+
+The dependency checks the `Authorization` header first, then falls back to the cookie.
+
+## Example: Full Microservice
+
+<CodeBlock title="orders_service/main.py" code={fullExample} />

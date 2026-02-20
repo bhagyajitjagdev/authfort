@@ -1,0 +1,240 @@
+---
+title: Server API
+description: Complete AuthFort class method reference.
+sidebar:
+  order: 1
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const constructor = `AuthFort(
+    database_url: str,
+    *,
+    access_token_ttl: int = 900,
+    refresh_token_ttl: int = 2592000,
+    jwt_issuer: str = "authfort",
+    jwt_algorithm: str = "RS256",
+    cookie: CookieConfig | None = None,
+    providers: list | None = None,
+    key_rotation_ttl: int = 172800,
+    introspect_secret: str | None = None,
+    allow_signup: bool = True,
+    password_reset_ttl: int = 3600,
+)`;
+
+export const hookDecorator = `@auth.on("login")
+async def on_login(event):
+    ...`;
+
+export const getSessionExample = `async with auth.get_session() as session:
+    ...`;
+
+## Constructor
+
+<CodeBlock code={constructor} lang="python" />
+
+See [Configuration](/authfort/server/configuration/) for parameter details.
+
+---
+
+## Authentication
+
+### `create_user(email, password, *, name=None)`
+
+Create a new user. Works regardless of `allow_signup` setting.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `email` | `str` | User email (normalized) |
+| `password` | `str` | Plain text password (hashed with argon2) |
+| `name` | `str \| None` | Display name |
+
+**Returns:** `AuthResponse`
+**Raises:** `AuthError` if email already exists
+
+### `login(email, password)`
+
+Authenticate with email and password.
+
+**Returns:** `AuthResponse`
+**Raises:** `AuthError` if credentials invalid or user banned
+
+### `refresh(raw_refresh_token)`
+
+Exchange a refresh token for new tokens.
+
+**Returns:** `AuthResponse`
+**Raises:** `AuthError` if token invalid, expired, or revoked
+
+### `logout(raw_refresh_token)`
+
+Revoke a refresh token.
+
+**Returns:** `None`
+
+---
+
+## Password Management
+
+### `create_password_reset_token(email)`
+
+Generate a password reset token.
+
+**Returns:** `str | None` — token string, or `None` if email not found / OAuth-only account
+
+### `reset_password(token, new_password)`
+
+Reset password using a reset token. Bumps token version and revokes all refresh tokens.
+
+**Returns:** `bool` — `True` if successful, `False` if token invalid/expired
+
+### `change_password(user_id, old_password, new_password)`
+
+Change password for an authenticated user. Bumps token version and revokes all refresh tokens.
+
+**Returns:** `None`
+**Raises:** `AuthError` if old password is wrong
+
+---
+
+## Role Management
+
+### `add_role(user_id, role, *, immediate=True)`
+
+Assign a role to a user.
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `user_id` | `UUID` | — | User ID |
+| `role` | `str` | — | Role name |
+| `immediate` | `bool` | `True` | Bump token version to invalidate existing tokens |
+
+**Returns:** `None`
+
+### `remove_role(user_id, role, *, immediate=True)`
+
+Remove a role from a user.
+
+**Returns:** `None`
+
+### `get_roles(user_id)`
+
+Get all roles assigned to a user.
+
+**Returns:** `list[str]`
+
+---
+
+## User Management
+
+### `ban_user(user_id)`
+
+Ban a user. Sets banned flag, bumps token version, revokes all refresh tokens.
+
+**Returns:** `None`
+
+### `unban_user(user_id)`
+
+Unban a user.
+
+**Returns:** `None`
+
+---
+
+## Session Management
+
+### `get_sessions(user_id, *, active_only=False)`
+
+List sessions for a user.
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `user_id` | `UUID` | — | User ID |
+| `active_only` | `bool` | `False` | Only return non-revoked, non-expired sessions |
+
+**Returns:** `list[SessionResponse]`
+
+### `revoke_session(session_id)`
+
+Revoke a single session.
+
+**Returns:** `bool` — `True` if found and revoked
+
+### `revoke_all_sessions(user_id, *, exclude=None)`
+
+Revoke all sessions for a user. Bumps token version.
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `user_id` | `UUID` | — | User ID |
+| `exclude` | `UUID \| None` | `None` | Session ID to keep alive |
+
+**Returns:** `None`
+
+---
+
+## Key Management
+
+### `rotate_key()`
+
+Create a new signing key and retire the current one.
+
+**Returns:** `str` — new key ID (kid)
+
+### `cleanup_expired_keys()`
+
+Delete expired signing keys from the database.
+
+**Returns:** `int` — number of keys deleted
+
+### `cleanup_expired_tokens()`
+
+Delete expired verification tokens (password reset tokens).
+
+**Returns:** `int` — number of tokens deleted
+
+---
+
+## Event Hooks
+
+### `on(event_name)`
+
+Decorator to register an event hook.
+
+<CodeBlock code={hookDecorator} lang="python" />
+
+### `add_hook(event_name, callback)`
+
+Programmatically register an event hook.
+
+---
+
+## Database
+
+### `migrate()`
+
+Run pending Alembic migrations. Idempotent — safe to call on every startup.
+
+**Returns:** `None`
+
+### `dispose()`
+
+Dispose the database engine and connection pool.
+
+**Returns:** `None`
+
+### `get_session()`
+
+Async context manager for database sessions (for non-FastAPI code).
+
+<CodeBlock code={getSessionExample} lang="python" />
+
+---
+
+## Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `config` | `AuthFortConfig` | Read-only access to configuration |
+| `session_factory` | `async_sessionmaker` | The async session factory |
+| `hooks` | `HookRegistry` | The event hook registry |

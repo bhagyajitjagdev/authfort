@@ -1,0 +1,108 @@
+---
+title: Quick Start
+description: Build a working auth server in 5 minutes.
+sidebar:
+  order: 3
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import PackageInstall from '../../../components/PackageInstall.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const mainCode = `from contextlib import asynccontextmanager
+from authfort import AuthFort, CookieConfig
+from fastapi import FastAPI, Depends
+
+auth = AuthFort(
+    database_url="sqlite+aiosqlite:///auth.db",
+    cookie=CookieConfig(),
+)
+
+@asynccontextmanager
+async def lifespan(app):
+    await auth.migrate()
+    yield
+    await auth.dispose()
+
+app = FastAPI(lifespan=lifespan)
+app.include_router(auth.fastapi_router(), prefix="/auth")
+app.include_router(auth.jwks_router())
+
+@app.get("/api/profile")
+async def profile(user=Depends(auth.current_user)):
+    return {"email": user.email, "roles": user.roles}`;
+
+export const oauthCode = `from authfort import AuthFort, CookieConfig, GoogleProvider, GitHubProvider
+
+auth = AuthFort(
+    database_url="sqlite+aiosqlite:///auth.db",
+    cookie=CookieConfig(),
+    providers=[
+        GoogleProvider(client_id="...", client_secret="..."),
+        GitHubProvider(client_id="...", client_secret="..."),
+    ],
+)`;
+
+export const roleCode = `@app.get("/api/admin")
+async def admin_panel(user=Depends(auth.require_role("admin"))):
+    return {"message": "Welcome, admin"}`;
+
+This guide creates a working FastAPI application with signup, login, protected routes, and OAuth — in under 20 lines.
+
+## Minimal Setup
+
+<Steps>
+
+1. **Install**
+
+   <PackageInstall syncKey="py" variants={[
+     { label: "pip", command: "pip install authfort[fastapi] uvicorn" },
+     { label: "uv", command: "uv add authfort[fastapi] uvicorn" },
+   ]} />
+
+2. **Create the app**
+
+   <CodeBlock title="main.py" code={mainCode} />
+
+3. **Run it**
+
+   <CodeBlock title="Terminal" lang="bash" code="uvicorn main:app --reload" />
+
+</Steps>
+
+That's it. You now have these endpoints:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/signup` | Create a new user |
+| POST | `/auth/login` | Authenticate and get tokens |
+| POST | `/auth/refresh` | Refresh access token |
+| POST | `/auth/logout` | Revoke refresh token |
+| GET | `/auth/me` | Get current user info |
+| GET | `/.well-known/jwks.json` | Public signing keys |
+
+## Try It
+
+Open the interactive docs at `http://localhost:8000/docs` and:
+
+1. **Create a user** — POST `/auth/signup` with `{"email": "test@example.com", "password": "mypassword"}`
+2. **Log in** — POST `/auth/login` with the same credentials
+3. **Access profile** — GET `/api/profile` (the cookie is set automatically)
+
+## Add OAuth
+
+<CodeBlock title="main.py" code={oauthCode} />
+
+This adds `/auth/oauth/google/authorize` and `/auth/oauth/github/authorize` endpoints. See the [OAuth guide](/authfort/server/oauth/) for setup details.
+
+## Add Role Protection
+
+<CodeBlock title="main.py" code={roleCode} />
+
+Users without the `admin` role get a 403 response.
+
+## Next Steps
+
+- [Concepts](/authfort/getting-started/concepts/) — Understand how tokens, sessions, and JWKS work
+- [Configuration](/authfort/server/configuration/) — All available options
+- [Client SDK](/authfort/client/) — Connect a frontend

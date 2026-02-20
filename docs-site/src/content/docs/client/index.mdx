@@ -1,0 +1,55 @@
+---
+title: Overview
+description: What the AuthFort client SDK does and when to use it.
+sidebar:
+  order: 1
+---
+
+import PackageInstall from '../../../components/PackageInstall.astro';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const quickStart = `import { createAuthClient } from 'authfort-client';
+
+const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie',
+});
+
+await auth.initialize();
+await auth.signIn({ email: 'user@example.com', password: 'secret' });
+
+// Authenticated requests — handles tokens automatically
+const res = await auth.fetch('/api/profile');
+const data = await res.json();`;
+
+`authfort-client` is a TypeScript SDK for browsers and mobile apps. It handles the entire token lifecycle — login, refresh, 401 retry, and auth state management — so you don't have to.
+
+## What It Does
+
+- **Token refresh** — automatically refreshes before expiry
+- **401 retry** — if a request gets 401, refreshes the token and retries once
+- **Deduplication** — multiple concurrent 401s share a single refresh call
+- **Auth state** — reactive state management with callbacks
+- **Framework integrations** — React, Vue, and Svelte hooks included
+
+## Install
+
+<PackageInstall syncKey="js" variants={[
+  { label: "npm", command: "npm install authfort-client" },
+  { label: "yarn", command: "yarn add authfort-client" },
+  { label: "pnpm", command: "pnpm add authfort-client" },
+  { label: "bun", command: "bun add authfort-client" },
+]} />
+
+## Quick Start
+
+<CodeBlock code={quickStart} lang="typescript" />
+
+## Token Modes
+
+| Mode | How Tokens Are Sent | Storage | Best For |
+|------|-------------------|---------|----------|
+| `cookie` | HttpOnly cookies (automatic) | Browser handles it | Web apps |
+| `bearer` | `Authorization: Bearer` header | `TokenStorage` adapter | Mobile, desktop, non-browser |
+
+In cookie mode, `auth.fetch()` adds `credentials: 'include'` and the browser sends cookies automatically. In bearer mode, `auth.fetch()` reads the access token from memory and adds the `Authorization` header.

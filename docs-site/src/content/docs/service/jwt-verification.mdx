@@ -1,0 +1,67 @@
+---
+title: JWT Verification
+description: How token verification and JWKS caching work.
+sidebar:
+  order: 3
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const verifyExample = `from authfort_service import ServiceAuth, TokenPayload, TokenVerificationError
+
+service = ServiceAuth(
+    jwks_url="https://auth.example.com/.well-known/jwks.json",
+    issuer="authfort",
+)
+
+try:
+    payload: TokenPayload = await service.verify_token(token)
+    print(payload.sub)    # user ID
+    print(payload.email)  # user email
+    print(payload.roles)  # ["admin", "editor"]
+except TokenVerificationError as e:
+    print(e.message)  # "Token expired"
+    print(e.code)     # "token_expired"`;
+
+## Verifying a Token
+
+<CodeBlock code={verifyExample} />
+
+## TokenPayload
+
+The verified token contains these fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sub` | `str` | User ID |
+| `email` | `str` | User email |
+| `name` | `str \| None` | User display name |
+| `roles` | `list[str]` | User roles |
+| `token_version` | `int` | Token version (for revocation checks) |
+| `exp` | `int` | Expiration timestamp |
+| `iat` | `int` | Issued-at timestamp |
+| `iss` | `str` | Issuer |
+
+## JWKS Caching
+
+The service fetches public keys from the JWKS endpoint and caches them:
+
+1. **First request** — fetches keys from JWKS, caches them
+2. **Subsequent requests** — uses cached keys (no network call)
+3. **Cache expires** (`jwks_cache_ttl`) — next request refreshes the cache
+4. **Unknown key ID** — triggers an immediate refresh (handles key rotation)
+
+This means verification has zero network latency after the initial fetch, except during key rotation or cache expiry.
+
+### Rate Limiting
+
+To prevent hammering the JWKS endpoint (e.g., during an attack with invalid tokens), the fetcher rate-limits itself. If a fetch was attempted recently, subsequent unknown-key requests fail fast rather than making another network call.
+
+## Error Codes
+
+| Code | Meaning |
+|------|---------|
+| `token_expired` | Token's `exp` claim is in the past |
+| `invalid_token` | Signature invalid, malformed, or missing claims |
+| `invalid_issuer` | Token's `iss` doesn't match expected issuer |
+| `key_not_found` | No matching public key in JWKS |

@@ -1,0 +1,84 @@
+---
+title: Introspection
+description: Real-time token validation via the auth server.
+sidebar:
+  order: 4
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const setupExample = `service = ServiceAuth(
+    jwks_url="https://auth.example.com/.well-known/jwks.json",
+    issuer="authfort",
+    introspect_url="https://auth.example.com/introspect",
+    introspect_secret="shared-secret-from-auth-server",
+)`;
+
+export const introspectExample = `from authfort_service import IntrospectionResult
+
+result: IntrospectionResult = await service.introspect(token)
+
+if result.active:
+    print(result.sub)    # user ID
+    print(result.email)  # user email
+    print(result.roles)  # current roles (from DB, not token)
+else:
+    print("Token is not active")`;
+
+export const cacheExample = `service = ServiceAuth(
+    # ...
+    introspect_cache_ttl=30.0,  # Cache results for 30 seconds
+)`;
+
+Introspection calls the auth server to check a token's validity in real-time. Unlike JWKS-only verification (which checks signature and expiry), introspection also checks ban status, token version, and session validity.
+
+## When to Use
+
+- **JWKS only** — sufficient for most endpoints. Tokens are valid until they expire (default: 15 minutes).
+- **JWKS + Introspection** — when you need immediate revocation detection (e.g., before processing a payment, deleting data, or accessing sensitive resources).
+
+## Setup
+
+<CodeBlock code={setupExample} />
+
+The `introspect_secret` must match the one configured on the auth server.
+
+## Using Introspection
+
+<CodeBlock code={introspectExample} />
+
+## IntrospectionResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `active` | `bool` | Whether the token is currently valid |
+| `sub` | `str \| None` | User ID (None if inactive) |
+| `email` | `str \| None` | User email |
+| `name` | `str \| None` | Display name |
+| `roles` | `list[str] \| None` | Current roles from database |
+| `token_version` | `int \| None` | Current token version |
+| `exp` | `int \| None` | Expiration timestamp |
+| `iat` | `int \| None` | Issued-at timestamp |
+| `iss` | `str \| None` | Issuer |
+
+Key difference from JWKS: the `roles` in an introspection result come from the database, not the token. If a role was added after the token was issued, introspection returns the updated roles.
+
+## Reasons a Token is Inactive
+
+Introspection returns `active: false` when:
+
+- The token has expired
+- The token signature is invalid
+- The user is banned
+- The token version doesn't match (password changed, roles bumped)
+- The session has been revoked
+
+## Caching
+
+By default, every introspection call hits the auth server (`introspect_cache_ttl=0.0`). To reduce load:
+
+<CodeBlock code={cacheExample} />
+
+This means a revocation takes up to 30 seconds to propagate. Use `0.0` for sensitive operations, and a positive value for high-traffic endpoints where slight delay is acceptable.
+
+Cache keys are hashed — raw tokens are never stored in the cache.

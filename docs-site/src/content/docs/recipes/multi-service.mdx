@@ -1,0 +1,138 @@
+---
+title: Multi-Service Architecture
+description: Auth server with multiple microservices.
+sidebar:
+  order: 3
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const authServer = `from contextlib import asynccontextmanager
+from authfort import AuthFort, CookieConfig
+from fastapi import FastAPI
+
+auth = AuthFort(
+    database_url="postgresql+asyncpg://user:pass@localhost/auth_db",
+    cookie=CookieConfig(domain=".example.com"),
+    introspect_secret="shared-secret-123",
+)
+
+@asynccontextmanager
+async def lifespan(app):
+    await auth.migrate()
+    yield
+
+app = FastAPI(lifespan=lifespan)
+app.include_router(auth.fastapi_router(), prefix="/auth")
+app.include_router(auth.jwks_router())`;
+
+export const microservice = `from authfort_service import ServiceAuth
+from fastapi import FastAPI, Depends
+
+service = ServiceAuth(
+    jwks_url="http://auth-server:8000/.well-known/jwks.json",
+    issuer="authfort",
+    cookie_name="access_token",
+)
+
+app = FastAPI()
+
+@app.get("/api/orders")
+async def list_orders(user=Depends(service.current_user)):
+    return await get_orders_for_user(user.sub)
+
+@app.delete("/api/orders/{id}")
+async def delete_order(
+    id: str,
+    user=Depends(service.require_role("admin")),
+):
+    await delete_order_by_id(id)`;
+
+export const introspection = `service = ServiceAuth(
+    jwks_url="http://auth-server:8000/.well-known/jwks.json",
+    issuer="authfort",
+    cookie_name="access_token",
+    introspect_url="http://auth-server:8000/introspect",
+    introspect_secret="shared-secret-123",
+)
+
+@app.post("/api/orders/{id}/refund")
+async def refund_order(id: str, user=Depends(service.current_user)):
+    # Extra real-time check before processing refund
+    token = request.headers["authorization"].split(" ")[1]
+    result = await service.introspect(token)
+    if not result.active:
+        raise HTTPException(401, "Token revoked")
+    await process_refund(id)`;
+
+export const frontend = `import { createAuthClient } from 'authfort-client';
+
+const auth = createAuthClient({
+  baseUrl: 'https://auth.example.com/auth',
+  tokenMode: 'cookie',
+});
+
+// Requests to any subdomain include the auth cookie
+await auth.fetch('https://orders.example.com/api/orders');
+await auth.fetch('https://notifications.example.com/api/unread');`;
+
+export const dockerCompose = `services:
+  auth:
+    build: ./auth_server
+    ports: ["8000:8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:pass@db/auth
+      INTROSPECT_SECRET: shared-secret-123
+
+  orders:
+    build: ./orders_service
+    ports: ["8001:8001"]
+    environment:
+      JWKS_URL: http://auth:8000/.well-known/jwks.json
+
+  notifications:
+    build: ./notifications_service
+    ports: ["8002:8002"]
+    environment:
+      JWKS_URL: http://auth:8000/.well-known/jwks.json
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: auth`;
+
+A common architecture: one auth server issues tokens, and multiple microservices verify them.
+
+## Auth Server
+
+<CodeBlock title="auth_server/main.py" code={authServer} lang="python" />
+
+Key points:
+- `domain=".example.com"` allows subdomains to read cookies
+- `jwks_router()` exposes the `/.well-known/jwks.json` endpoint that microservices fetch public keys from
+- `introspect_secret` enables the introspection endpoint
+
+## Microservice
+
+<CodeBlock title="orders_service/main.py" code={microservice} lang="python" />
+
+Key points:
+- `cookie_name="access_token"` reads auth cookies set by the auth server
+- `current_user` verifies JWTs using cached JWKS keys — no database needed
+- `require_role("admin")` checks the role claim in the JWT
+
+## Adding Introspection for Sensitive Operations
+
+For operations where you need real-time revocation checks:
+
+<CodeBlock code={introspection} lang="python" />
+
+## Frontend
+
+<CodeBlock title="src/auth.ts" code={frontend} lang="typescript" />
+
+## Docker Compose Example
+
+<CodeBlock title="docker-compose.yml" code={dockerCompose} lang="yaml" />

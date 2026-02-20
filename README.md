@@ -19,7 +19,7 @@ Drop-in auth for FastAPI — JWT, OAuth, roles, sessions, and a TypeScript clien
 
 ## Packages
 
-This is a monorepo with three packages that work together:
+AuthFort consists of three packages that work together:
 
 | Package | Language | Install | Description |
 |---------|----------|---------|-------------|

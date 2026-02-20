@@ -1,0 +1,54 @@
+---
+title: Overview
+description: What authfort-service is and when to use it.
+sidebar:
+  order: 1
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+import ServiceDiagram from '../../../components/ServiceDiagram.astro';
+
+export const quickStart = `from authfort_service import ServiceAuth
+
+service = ServiceAuth(
+    jwks_url="https://auth.example.com/.well-known/jwks.json",
+    issuer="authfort",
+)
+
+payload = await service.verify_token(token)
+print(payload.sub)    # user ID
+print(payload.roles)  # ["admin", "editor"]`;
+
+`authfort-service` is a lightweight JWT verifier for microservices. It validates tokens issued by an AuthFort server without needing database access.
+
+## When to Use It
+
+Use `authfort-service` when you have a **separate service** that needs to verify users but doesn't manage authentication itself. For example:
+
+- An orders service that needs to know who the user is
+- An analytics API that requires admin access
+- A notifications service that processes user-specific data
+
+These services don't need to know about passwords, sessions, or OAuth — they just need to verify that a request comes from an authenticated user.
+
+## How It Works
+
+1. Your auth server (running `authfort`) issues JWTs and publishes public keys at `/.well-known/jwks.json`
+2. Your microservice (running `authfort-service`) fetches the public keys from JWKS
+3. When a request comes in, it verifies the JWT signature using the cached public key
+4. No database or network call needed for verification (keys are cached)
+
+<ServiceDiagram />
+
+## Quick Start
+
+<CodeBlock code={quickStart} />
+
+## Verification Modes
+
+| Mode | How | Latency | Real-time Revocation |
+|------|-----|---------|---------------------|
+| **JWKS only** | Verify signature locally | None (cached keys) | No — tokens valid until expiry |
+| **JWKS + Introspection** | Verify signature, then check auth server | 1 network call | Yes — checks ban, session, version |
+
+JWKS-only is the default. Add introspection when you need real-time revocation checks (e.g., for sensitive operations).

@@ -1,0 +1,69 @@
+---
+title: Configuration
+description: All ServiceAuth constructor options.
+sidebar:
+  order: 2
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const configExample = `from authfort_service import ServiceAuth
+
+service = ServiceAuth(
+    jwks_url="https://auth.example.com/.well-known/jwks.json",
+    issuer="authfort",
+    algorithms=["RS256"],
+    jwks_cache_ttl=3600.0,
+    introspect_url="https://auth.example.com/introspect",
+    introspect_secret="shared-secret",
+    introspect_cache_ttl=0.0,
+    cookie_name="access_token",
+)`;
+
+<CodeBlock code={configExample} />
+
+## Parameters
+
+### `jwks_url` (required)
+
+URL of the auth server's JWKS endpoint. Usually `https://your-auth-server/.well-known/jwks.json`.
+
+### `issuer`
+
+Expected `iss` claim in JWTs. Default: `"authfort"`.
+
+Must match the `jwt_issuer` configured on the auth server.
+
+### `algorithms`
+
+List of allowed signing algorithms. Default: `["RS256"]`.
+
+### `jwks_cache_ttl`
+
+How long to cache JWKS keys, in seconds. Default: `3600.0` (1 hour).
+
+After this time, the next verification request triggers a background key refresh.
+
+### `introspect_url`
+
+URL of the auth server's introspection endpoint. Default: `None` (introspection disabled).
+
+Set this to enable real-time token validation. Usually `https://your-auth-server/introspect`.
+
+### `introspect_secret`
+
+Shared secret for introspection authentication. Default: `None`.
+
+Must match the `introspect_secret` configured on the auth server.
+
+### `introspect_cache_ttl`
+
+How long to cache introspection results, in seconds. Default: `0.0` (no caching).
+
+Set to a positive value to reduce introspection calls at the cost of slightly delayed revocation detection.
+
+### `cookie_name`
+
+Cookie name to read the access token from, as a fallback when no `Authorization` header is present. Default: `None` (cookies not read).
+
+Set this to the same value as `CookieConfig.access_cookie_name` on the auth server (default: `"access_token"`).

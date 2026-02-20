@@ -1,0 +1,109 @@
+---
+title: Configuration
+description: All AuthFort constructor options explained.
+sidebar:
+  order: 1
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const configExample = `from authfort import AuthFort, CookieConfig, GoogleProvider
+
+auth = AuthFort(
+    database_url="postgresql+asyncpg://user:pass@localhost/mydb",
+    access_token_ttl=900,
+    refresh_token_ttl=2592000,
+    jwt_issuer="authfort",
+    jwt_algorithm="RS256",
+    cookie=CookieConfig(),
+    providers=[GoogleProvider(client_id="...", client_secret="...")],
+    key_rotation_ttl=172800,
+    introspect_secret="shared-secret-with-services",
+    allow_signup=True,
+    password_reset_ttl=3600,
+)`;
+
+export const providersExample = `from authfort import GoogleProvider, GitHubProvider
+
+providers=[
+    GoogleProvider(client_id="...", client_secret="..."),
+    GitHubProvider(client_id="...", client_secret="..."),
+]`;
+
+The `AuthFort` constructor accepts the following parameters:
+
+<CodeBlock title="Example" code={configExample} />
+
+## Parameters
+
+### `database_url` (required)
+
+SQLAlchemy-compatible async database URL.
+
+| Database | URL Format |
+|----------|-----------|
+| PostgreSQL | `postgresql+asyncpg://user:pass@host/dbname` |
+| SQLite | `sqlite+aiosqlite:///path/to/db.sqlite` |
+| MySQL | `mysql+aiomysql://user:pass@host/dbname` |
+
+### `access_token_ttl`
+
+Access token lifetime in seconds. Default: `900` (15 minutes).
+
+Short-lived tokens limit the window of exposure if a token is leaked. The client SDK handles automatic refresh before expiry.
+
+### `refresh_token_ttl`
+
+Refresh token lifetime in seconds. Default: `2592000` (30 days).
+
+This is effectively the "remember me" duration. Each time the token is refreshed, the expiry resets — so the user only has to log in again after 30 days of **inactivity**.
+
+### `jwt_issuer`
+
+The `iss` claim in issued JWTs. Default: `"authfort"`.
+
+Microservices using `authfort-service` must configure the same issuer value.
+
+### `jwt_algorithm`
+
+JWT signing algorithm. Default: `"RS256"`.
+
+RS256 (RSA + SHA-256) is the only supported algorithm. It uses asymmetric keys — the auth server signs with a private key, and microservices verify with the public key from JWKS.
+
+### `cookie`
+
+Cookie configuration. Default: `None` (bearer-only mode).
+
+Pass `CookieConfig()` to enable cookie-based token delivery. See [Cookies & Bearer](/authfort/server/cookies-and-bearer/) for all cookie options.
+
+### `providers`
+
+List of OAuth providers. Default: `None`.
+
+<CodeBlock code={providersExample} />
+
+See [OAuth Providers](/authfort/server/oauth/) for setup details.
+
+### `key_rotation_ttl`
+
+How long a retired signing key stays valid after rotation, in seconds. Default: `172800` (48 hours).
+
+When you call `rotate_key()`, the old key's expiry is set to `now + key_rotation_ttl`. It stays in JWKS until then, so tokens signed with the old key remain valid during the transition.
+
+### `introspect_secret`
+
+Shared secret for the token introspection endpoint. Default: `None` (introspection disabled).
+
+Set this to a strong random string. Microservices using `authfort-service` must know this secret to call the introspection endpoint.
+
+### `allow_signup`
+
+Whether to allow public user registration via the `/auth/signup` endpoint. Default: `True`.
+
+Set to `False` to disable public signup. You can still create users programmatically via `auth.create_user()`.
+
+### `password_reset_ttl`
+
+Password reset token lifetime in seconds. Default: `3600` (1 hour).
+
+After this time, the reset token expires and the user must request a new one.

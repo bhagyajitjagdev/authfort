@@ -1,0 +1,129 @@
+---
+title: React
+description: React integration with AuthProvider and useAuth hook.
+sidebar:
+  order: 6
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const authFile = `import { createAuthClient } from 'authfort-client';
+
+export const auth = createAuthClient({
+  baseUrl: '/auth',
+  tokenMode: 'cookie',
+});`;
+
+export const appFile = `import { AuthProvider } from 'authfort-client/react';
+import { auth } from './auth';
+
+function App() {
+  return (
+    <AuthProvider client={auth}>
+      <YourApp />
+    </AuthProvider>
+  );
+}`;
+
+export const useAuthExample = `import { useAuth } from 'authfort-client/react';
+
+function Profile() {
+  const { state, user, isAuthenticated, isLoading, client } = useAuth();
+
+  if (isLoading) return <p>Loading...</p>;
+  if (!isAuthenticated) return <p>Not signed in</p>;
+
+  return (
+    <div>
+      <p>Hello {user.email}</p>
+      <p>Roles: {user.roles.join(', ')}</p>
+      <button onClick={() => client.signOut()}>Sign Out</button>
+    </div>
+  );
+}`;
+
+export const loginExample = `function LoginPage() {
+  const { client } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await client.signIn({ email, password });
+      // State updates automatically via AuthProvider
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
+      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
+      <button type="submit">Sign In</button>
+      {error && <p>{error}</p>}
+    </form>
+  );
+}`;
+
+export const protectedRoute = `function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <p>Loading...</p>;
+  if (!isAuthenticated) return <Navigate to="/login" />;
+
+  return children;
+}`;
+
+export const fetchExample = `function Orders() {
+  const { client } = useAuth();
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    client.fetch('/api/orders')
+      .then(res => res.json())
+      .then(setOrders);
+  }, [client]);
+
+  return <ul>{orders.map(o => <li key={o.id}>{o.name}</li>)}</ul>;
+}`;
+
+Wrap your app with `AuthProvider` and use the `useAuth` hook to access auth state in any component.
+
+## Setup
+
+<CodeBlock title="src/auth.ts" code={authFile} lang="typescript" />
+
+<CodeBlock title="src/App.tsx" code={appFile} lang="tsx" />
+
+`AuthProvider` provides the client to all child components. Call `auth.initialize()` at app startup (e.g., in `main.ts`) to check for an existing session.
+
+## useAuth Hook
+
+<CodeBlock code={useAuthExample} lang="tsx" />
+
+## Return Values
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | `AuthState` | `'loading'`, `'authenticated'`, or `'unauthenticated'` |
+| `user` | `AuthUser \| null` | Current user (null if not authenticated) |
+| `isAuthenticated` | `boolean` | Whether the user is signed in |
+| `isLoading` | `boolean` | Whether `initialize()` is still running |
+| `client` | `AuthClient` | The auth client instance |
+
+## Login Form Example
+
+<CodeBlock code={loginExample} lang="tsx" />
+
+## Protected Routes
+
+<CodeBlock code={protectedRoute} lang="tsx" />
+
+## Fetching Data
+
+Use `client.fetch()` for authenticated API calls:
+
+<CodeBlock code={fetchExample} lang="tsx" />

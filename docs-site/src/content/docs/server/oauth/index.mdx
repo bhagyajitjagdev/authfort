@@ -1,0 +1,73 @@
+---
+title: OAuth Overview
+description: How OAuth works in AuthFort — flow, account linking, and events.
+sidebar:
+  order: 1
+---
+
+import CodeBlock from '../../../../components/CodeBlock.astro';
+
+export const configExample = `from authfort import AuthFort, CookieConfig, GoogleProvider, GitHubProvider
+
+auth = AuthFort(
+    database_url="postgresql+asyncpg://user:pass@localhost/mydb",
+    cookie=CookieConfig(),
+    providers=[
+        GoogleProvider(client_id="...", client_secret="..."),
+        GitHubProvider(client_id="...", client_secret="..."),
+    ],
+)`;
+
+export const clientExample = `auth.signInWithProvider('google');
+// Redirects to /auth/oauth/google/authorize`;
+
+AuthFort supports OAuth 2.1 with PKCE. Users can sign in with their existing accounts, and AuthFort handles the full flow — authorization URL, code exchange, user info fetching, and account linking.
+
+## How It Works
+
+1. User clicks "Sign in with Google" in your frontend
+2. Your app redirects to `/auth/oauth/google/authorize`
+3. AuthFort redirects to Google's consent screen
+4. Google redirects back to `/auth/oauth/google/callback` with an auth code
+5. AuthFort exchanges the code for user info and creates/links the account
+6. User is redirected to your app with tokens set
+
+## Configuration
+
+<CodeBlock code={configExample} />
+
+See the individual provider pages for setup instructions:
+- [Google](/authfort/server/oauth/google/)
+- [GitHub](/authfort/server/oauth/github/)
+
+## Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/auth/oauth/{provider}/authorize` | Start OAuth flow (redirects to provider) |
+| GET | `/auth/oauth/{provider}/callback` | Handle provider callback |
+
+Replace `{provider}` with `google` or `github`.
+
+The state, PKCE code challenge, and redirect URI are all handled internally by the server — the client just hits the authorize URL and gets redirected.
+
+## Account Linking
+
+When a user signs in with OAuth, AuthFort checks if the provider email matches an existing user:
+
+- **Email match found** — the OAuth account is linked to the existing user. An `oauth_link` event is emitted.
+- **No match** — a new user is created with the provider's email, name, and avatar. A `user_created` event is emitted.
+
+This means a user who signed up with email/password can later sign in with Google (if the emails match) without creating a duplicate account.
+
+## Events
+
+OAuth emits `user_created`, `login`, `login_failed`, and `oauth_link` events. See [Events & Hooks](/authfort/server/events/) for all events and their payloads.
+
+## Client SDK
+
+In the browser, use `signInWithProvider()` to start the OAuth flow:
+
+<CodeBlock code={clientExample} lang="typescript" />
+
+After the callback, the user is redirected to your app with tokens set. The client SDK picks up the auth state automatically via `auth.initialize()`.

@@ -1,0 +1,151 @@
+---
+import { Code } from 'astro:components';
+
+interface Props {
+  title?: string;
+  code: string;
+  lang?: string;
+}
+
+const { title, code, lang = 'python' } = Astro.props;
+---
+
+<div class="not-content code-block">
+  {title ? (
+    <div class="cb-header">
+      <span class="cb-title">{title}</span>
+      <button class="cb-copy" title="Copy to clipboard">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </button>
+    </div>
+  ) : (
+    <button class="cb-copy cb-copy-float" title="Copy to clipboard">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    </button>
+  )}
+  <div class="cb-body">
+    <div class="code-dark">
+      <Code code={code} lang={lang} theme="github-dark" />
+    </div>
+    <div class="code-light">
+      <Code code={code} lang={lang} theme="github-light" />
+    </div>
+  </div>
+</div>
+
+<style>
+  .code-block {
+    border-radius: 0.75rem;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+
+  :global([data-theme='dark']) .code-block {
+    background: #0a0a0a;
+    border: 1px solid #1f1f1f;
+  }
+
+  :global([data-theme='light']) .code-block {
+    background: #fafafa;
+    border: 1px solid #eaeaea;
+  }
+
+  .cb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+  }
+
+  :global([data-theme='dark']) .cb-header {
+    border-bottom: 1px solid #1f1f1f;
+  }
+
+  :global([data-theme='light']) .cb-header {
+    border-bottom: 1px solid #eaeaea;
+  }
+
+  .cb-title {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  }
+
+  :global([data-theme='dark']) .cb-title { color: #a3a3a3; }
+  :global([data-theme='light']) .cb-title { color: #666; }
+
+  .cb-copy {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.375rem;
+    border-radius: 0.375rem;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s;
+  }
+
+  :global([data-theme='dark']) .cb-copy { color: #525252; }
+  :global([data-theme='dark']) .cb-copy:hover { color: #a3a3a3; }
+  :global([data-theme='light']) .cb-copy { color: #a3a3a3; }
+  :global([data-theme='light']) .cb-copy:hover { color: #525252; }
+
+  .cb-copy-float {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+
+  .code-block {
+    position: relative;
+  }
+
+  .cb-body {
+    padding: 0;
+  }
+
+  :global([data-theme='dark']) .code-light { display: none; }
+  :global([data-theme='light']) .code-dark { display: none; }
+
+  .cb-body :global(pre) {
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0.875rem 1rem !important;
+    font-size: 0.875rem !important;
+  }
+
+  .cb-body :global(code) {
+    background: transparent !important;
+    padding: 0 !important;
+    font-size: inherit !important;
+  }
+</style>
+
+<script>
+  function initCodeBlocks() {
+    document.querySelectorAll<HTMLElement>('.code-block').forEach((block) => {
+      const copyBtn = block.querySelector<HTMLButtonElement>('.cb-copy');
+
+      copyBtn?.addEventListener('click', () => {
+        const theme = document.documentElement.dataset.theme || 'dark';
+        const codeEl = block.querySelector<HTMLElement>(`.code-${theme} code`);
+        navigator.clipboard.writeText(codeEl?.textContent?.trim() || '');
+        copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        setTimeout(() => {
+          copyBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+        }, 1500);
+      });
+    });
+  }
+
+  initCodeBlocks();
+  document.addEventListener('astro:after-swap', initCodeBlocks);
+</script>
