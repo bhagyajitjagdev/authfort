@@ -1,5 +1,11 @@
 <div align="center">
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/logo-dark.svg" width="80">
+  <source media="(prefers-color-scheme: light)" srcset=".github/logo-light.svg" width="80">
+  <img alt="AuthFort" src=".github/logo-light.svg" width="80">
+</picture>
+
 # AuthFort
 
 Complete authentication and authorization system for Python applications.
@@ -12,6 +18,7 @@ Drop-in auth for FastAPI — JWT, OAuth, roles, sessions, and a TypeScript clien
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Docs](https://img.shields.io/badge/Docs-blue?logo=readthedocs&logoColor=white)](https://bhagyajitjagdev.github.io/authfort/)
 
 </div>
 
@@ -288,7 +295,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 **If you found this useful, give it a** :star:
 
-[Report Bug](https://github.com/bhagyajitjagdev/authfort/issues/new?template=bug_report.md) · [Request Feature](https://github.com/bhagyajitjagdev/authfort/issues/new?template=feature_request.md) · [Contributing Guide](CONTRIBUTING.md)
+[Documentation](https://bhagyajitjagdev.github.io/authfort/) · [Report Bug](https://github.com/bhagyajitjagdev/authfort/issues/new?template=bug_report.md) · [Request Feature](https://github.com/bhagyajitjagdev/authfort/issues/new?template=feature_request.md) · [Contributing Guide](CONTRIBUTING.md)
 
 Made by [Bhagyajit Jagdev](https://github.com/bhagyajitjagdev)
 

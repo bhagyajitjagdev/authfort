@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -3 56 66" fill="none">
+  <defs>
+    <clipPath id="shield-clip">
+      <path d="M4 2 H14 V10 H19 V2 H29 V10 H34 V2 H44 V40 Q44 54 24 56 Q4 54 4 40 Z"/>
+    </clipPath>
+    <pattern id="bricks" width="40" height="28" patternUnits="userSpaceOnUse" patternTransform="translate(0,7)">
+      <line x1="0" y1="0" x2="40" y2="0" stroke="currentColor" stroke-width="2"/>
+      <line x1="0" y1="14" x2="40" y2="14" stroke="currentColor" stroke-width="1"/>
+      <line x1="0" y1="0" x2="0" y2="14" stroke="currentColor" stroke-width="2"/>
+      <line x1="19" y1="0" x2="19" y2="14" stroke="currentColor" stroke-width="1"/>
+      <line x1="10" y1="14" x2="10" y2="28" stroke="currentColor" stroke-width="1"/>
+      <line x1="31" y1="14" x2="31" y2="28" stroke="currentColor" stroke-width="1.2"/>
+    </pattern>
+    <mask id="keyhole-mask">
+      <rect x="-4" y="-3" width="56" height="66" fill="white"/>
+      <circle cx="24" cy="28" r="7.5" fill="black"/>
+      <path d="M18 31 L18 45 Q24 49 30 45 L30 31 Z" fill="black"/>
+    </mask>
+  </defs>
+  <rect x="5" y="3" width="38" height="52" fill="url(#bricks)" clip-path="url(#shield-clip)" mask="url(#keyhole-mask)"/>
+  <path d="M4 2 H14 V10 H19 V2 H29 V10 H34 V2 H44 V40 Q44 54 24 56 Q4 54 4 40 Z"
+        stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>
+  <circle cx="24" cy="28" r="6" stroke="currentColor" stroke-width="1" fill="none"/>
+  <path d="M19.5 32 L19.5 44 Q24 48 28.5 44 L28.5 32" stroke="currentColor" stroke-width="1" stroke-linejoin="round" fill="none"/>
+</svg>
