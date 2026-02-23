@@ -20,7 +20,7 @@ export const tokenStorageInterface = `interface TokenStorage {
   clear(): Promise<void>;
 }`;
 
-export const oauthProviderType = `type OAuthProvider = 'google' | 'github';`;
+export const oauthProviderType = `type OAuthProvider = 'google' | 'github' | (string & {});`;
 
 export const oauthSignInOptionsType = `interface OAuthSignInOptions {
   /** OAuth flow mode. 'redirect' (default) or 'popup'. */
@@ -116,7 +116,7 @@ Start OAuth flow. In redirect mode (default), navigates the browser. In popup mo
 
 | Param | Type | Description |
 |-------|------|-------------|
-| `provider` | `OAuthProvider` | `'google'` or `'github'` |
+| `provider` | `OAuthProvider` | Provider name — built-in (`'google'`, `'github'`) or any generic provider string |
 | `options` | `OAuthSignInOptions?` | OAuth flow options |
 
 **Returns:** `void` (redirect mode) or `Promise<AuthUser>` (popup mode)
@@ -160,6 +160,62 @@ Listen for auth state changes.
 | `callback` | `(state: AuthState, user: AuthUser \| null) => void` | State change handler |
 
 **Returns:** `() => void` — unsubscribe function
+
+### `requestMagicLink(email)`
+
+Request a magic link for passwordless login.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `email` | `string` | User email |
+
+**Returns:** `Promise<void>`
+**Throws:** `AuthClientError`
+
+### `verifyMagicLink(token)`
+
+Verify a magic link token and log in.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `token` | `string` | Magic link token |
+
+**Returns:** `Promise<AuthUser>`
+**Throws:** `AuthClientError`
+
+### `requestOTP(email)`
+
+Request an email OTP code for passwordless login.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `email` | `string` | User email |
+
+**Returns:** `Promise<void>`
+**Throws:** `AuthClientError`
+
+### `verifyOTP(email, code)`
+
+Verify an email OTP code and log in.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `email` | `string` | User email |
+| `code` | `string` | 6-digit OTP code |
+
+**Returns:** `Promise<AuthUser>`
+**Throws:** `AuthClientError`
+
+### `verifyEmail(token)`
+
+Verify email address with a verification token.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `token` | `string` | Verification token |
+
+**Returns:** `Promise<void>`
+**Throws:** `AuthClientError`
 
 ---
 

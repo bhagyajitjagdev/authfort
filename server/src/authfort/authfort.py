@@ -12,9 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from authfort.config import JWT_ALGORITHM, AuthFortConfig, CookieConfig
 from authfort.db import create_engine, create_session_factory, get_session
 from authfort.events import (
+    EmailOTPLogin,
+    EmailOTPRequested,
+    EmailVerificationRequested,
+    EmailVerified,
     EventCollector,
     HookRegistry,
     KeyRotated,
+    MagicLinkLogin,
+    MagicLinkRequested,
     PasswordChanged,
     PasswordReset,
     PasswordResetRequested,
@@ -50,6 +56,11 @@ class AuthFort:
         frontend_url: Frontend origin URL for cross-origin OAuth redirects
             (e.g. "https://app.example.com"). When set, OAuth redirect_to paths
             are prefixed with this URL. When None, redirects are relative to the server.
+        email_verify_ttl: Email verification token lifetime in seconds (default 86400 = 24h).
+        magic_link_ttl: Magic link token lifetime in seconds (default 600 = 10 min).
+        email_otp_ttl: Email OTP code lifetime in seconds (default 300 = 5 min).
+        allow_passwordless_signup: If True, magic links and OTP auto-create users
+            for unknown emails (password_hash=None). Default False.
     """
 
     def __init__(
@@ -67,6 +78,10 @@ class AuthFort:
         password_reset_ttl: int = 3600,
         rsa_key_size: int = 2048,
         frontend_url: str | None = None,
+        email_verify_ttl: int = 86400,
+        magic_link_ttl: int = 600,
+        email_otp_ttl: int = 300,
+        allow_passwordless_signup: bool = False,
     ) -> None:
         if rsa_key_size < 2048:
             raise ValueError("rsa_key_size must be >= 2048")
@@ -82,6 +97,10 @@ class AuthFort:
             password_reset_ttl_seconds=password_reset_ttl,
             rsa_key_size=rsa_key_size,
             frontend_url=frontend_url.rstrip("/") if frontend_url else None,
+            email_verify_ttl_seconds=email_verify_ttl,
+            magic_link_ttl_seconds=magic_link_ttl,
+            email_otp_ttl_seconds=email_otp_ttl,
+            allow_passwordless_signup=allow_passwordless_signup,
         )
         self._engine = create_engine(database_url)
         self._session_factory = create_session_factory(self._engine)
@@ -351,6 +370,117 @@ class AuthFort:
                 new_password=new_password, events=collector,
             )
         await collector.flush()
+
+    # ------ Email verification ------
+
+    async def create_email_verification_token(self, user_id: uuid.UUID) -> str | None:
+        """Create an email verification token for a user.
+
+        Returns the raw token string if the user exists and is not yet verified,
+        or None if not found / already verified. The caller handles delivery.
+        """
+        from authfort.core.auth import create_email_verification_token
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await create_email_verification_token(
+                session, config=self._config, user_id=user_id, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    async def verify_email(self, token: str) -> bool:
+        """Verify a user's email using a verification token.
+
+        Returns True on success.
+
+        Raises:
+            AuthError: If the token is invalid or expired.
+        """
+        from authfort.core.auth import verify_email
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await verify_email(
+                session, token=token, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    # ------ Passwordless login ------
+
+    async def create_magic_link_token(self, email: str) -> str | None:
+        """Create a magic link token for passwordless login.
+
+        Returns the raw token string if the user exists (or was auto-created),
+        or None if not found and passwordless signup is disabled.
+        The caller handles delivery.
+        """
+        from authfort.core.auth import create_magic_link_token
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await create_magic_link_token(
+                session, config=self._config, email=email, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    async def verify_magic_link(self, token: str) -> AuthResponse:
+        """Verify a magic link token and log the user in.
+
+        Returns:
+            AuthResponse with user info and tokens.
+
+        Raises:
+            AuthError: If the token is invalid, expired, or user is banned.
+        """
+        from authfort.core.auth import verify_magic_link
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await verify_magic_link(
+                session, config=self._config, token=token, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    async def create_email_otp(self, email: str) -> str | None:
+        """Create an email OTP code for passwordless login.
+
+        Returns the raw 6-digit code if the user exists (or was auto-created),
+        or None if not found and passwordless signup is disabled.
+        The caller handles delivery.
+        """
+        from authfort.core.auth import create_email_otp
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await create_email_otp(
+                session, config=self._config, email=email, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    async def verify_email_otp(self, email: str, code: str) -> AuthResponse:
+        """Verify an email OTP code and log the user in.
+
+        Returns:
+            AuthResponse with user info and tokens.
+
+        Raises:
+            AuthError: If the code is invalid, expired, or user is banned.
+        """
+        from authfort.core.auth import verify_email_otp
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await verify_email_otp(
+                session, config=self._config, email=email, code=code,
+                events=collector,
+            )
+        await collector.flush()
+        return result
 
     # ------ User management ------
 

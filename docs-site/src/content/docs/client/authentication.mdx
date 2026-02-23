@@ -36,6 +36,21 @@ console.log(user.email);`;
 export const oauthRedirectToExample = `// Redirect to a specific page after OAuth
 auth.signInWithProvider('google', { redirectTo: '/dashboard' });`;
 
+export const magicLinkExample = `// Request magic link
+await auth.requestMagicLink('user@example.com');
+
+// After user clicks the link in their email, extract the token and verify
+const user = await auth.verifyMagicLink(token);`;
+
+export const otpExample = `// Request OTP code
+await auth.requestOTP('user@example.com');
+
+// After user enters the code
+const user = await auth.verifyOTP('user@example.com', '847291');`;
+
+export const verifyEmailExample = `// Verify email with token from verification email
+await auth.verifyEmail(token);`;
+
 export const getUserExample = `const user = await auth.getUser();`;
 
 export const errorExample = `import { AuthClientError } from 'authfort-client';
@@ -74,7 +89,7 @@ Redirect the user to the OAuth provider:
 
 <CodeBlock code={oauthExample} lang="typescript" />
 
-This navigates the browser to `/auth/oauth/google/authorize` (or `github`). After the OAuth flow completes, the user is redirected back to your app with auth cookies set.
+This navigates the browser to `/auth/oauth/{provider}/authorize`. After the OAuth flow completes, the user is redirected back to your app with auth cookies set.
 
 ### Popup Mode
 
@@ -89,6 +104,30 @@ Specify where to land after OAuth completes:
 <CodeBlock code={oauthRedirectToExample} lang="typescript" />
 
 The `redirectTo` path must be relative (start with `/`). Framework integrations (React, Vue, Svelte) call `initialize()` automatically, so there's no need to call it manually on the landing page.
+
+## Passwordless
+
+### Magic Link
+
+Request a magic link and verify when the user clicks the link in their email:
+
+<CodeBlock code={magicLinkExample} lang="typescript" />
+
+The server always returns success for `requestMagicLink()` even if the email doesn't exist, to prevent user enumeration.
+
+### Email OTP
+
+Request a 6-digit code and verify when the user enters it:
+
+<CodeBlock code={otpExample} lang="typescript" />
+
+### Email Verification
+
+Verify a user's email address using a verification token:
+
+<CodeBlock code={verifyEmailExample} lang="typescript" />
+
+After calling `verifyEmail()`, the client automatically updates the local user state to reflect `emailVerified: true`.
 
 ## Get Current User
 

@@ -40,13 +40,16 @@ AuthFort consists of three packages that work together:
 - **Email/Password Auth** — Signup, login, argon2 password hashing, email format validation
 - **JWT RS256** — Stateless access tokens with automatic key management
 - **Refresh Token Rotation** — Secure rotation with theft detection
-- **OAuth 2.1 + PKCE** — Google and GitHub providers, auto account linking
+- **OAuth 2.1 + PKCE** — Built-in providers + generic OAuth/OIDC for any provider
+- **Email Verification** — Token-based email confirmation flow
+- **Magic Links** — Passwordless login via emailed link
+- **Email OTP** — Passwordless login via 6-digit code
 - **Role-Based Access Control** — Add/remove roles, `require_role` dependency
 - **Password Reset** — Programmatic token generation (you control delivery — email, SMS, etc.)
 - **Change Password** — Old password verification, automatic token invalidation
 - **Session Management** — List, revoke individual, revoke all (with `exclude` for "sign out other devices")
 - **Ban/Unban** — Instant invalidation (bumps token version, revokes all tokens)
-- **Event Hooks** — 15 event types (user_created, login, password_reset, role_added, etc.)
+- **Event Hooks** — 22 event types (user_created, login, magic_link_requested, email_otp_requested, etc.)
 - **JWKS Endpoint** — `/.well-known/jwks.json` with automatic key rotation
 - **Token Introspection** — RFC 7662 for microservice architectures
 - **Multi-Database** — PostgreSQL (primary), SQLite, MySQL via SQLAlchemy
@@ -90,6 +93,11 @@ This gives you these endpoints out of the box:
 | POST | `/auth/refresh` | Refresh access token |
 | POST | `/auth/logout` | Revoke refresh token |
 | GET | `/auth/me` | Get current user info |
+| POST | `/auth/magic-link` | Request magic link |
+| POST | `/auth/magic-link/verify` | Verify magic link token |
+| POST | `/auth/otp` | Request email OTP |
+| POST | `/auth/otp/verify` | Verify email OTP |
+| POST | `/auth/verify-email` | Verify email address |
 | GET | `/auth/oauth/{provider}/authorize` | Start OAuth flow |
 | GET | `/auth/oauth/{provider}/callback` | OAuth callback |
 | GET | `/.well-known/jwks.json` | Public keys (JWKS) |
@@ -265,7 +273,7 @@ const { state, user, isAuthenticated } = createAuthStore(auth);
 ### Running Tests
 
 ```bash
-# Server (290 tests)
+# Server (349 tests)
 cd server
 uv sync --extra sqlite --extra fastapi
 uv run pytest tests/ -v
@@ -275,7 +283,7 @@ cd service
 uv sync --extra fastapi
 uv run pytest tests/ -v
 
-# Client (78 tests)
+# Client (92 tests)
 cd client
 npm ci
 npx vitest run
@@ -333,14 +341,13 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.9
+### Latest — v0.0.10
 
-- User profile APIs — `update_user()`, `phone` field, `avatar_url`/`phone` on signup
-- OAuth popup mode, `redirect_to` redirects, `frontend_url` for cross-origin setups
-- Provider token storage — access + refresh tokens saved from OAuth providers
-- `has_role()`, `get_jwks()`, `cleanup_expired_sessions()` convenience methods
-- Configurable RSA key size, all 16 event classes exported
-- Client SDK: typed `OAuthProvider`, popup flow, auto-initialize in framework integrations
+- Email verification, magic links, email OTP — passwordless authentication
+- `GenericOAuthProvider` and `GenericOIDCProvider` — connect any OAuth/OIDC provider
+- `allow_passwordless_signup` — auto-create users for unknown emails
+- 5 new endpoints, 6 new events, client SDK passwordless methods
+- 469 total tests across all packages
 
 ## License
 

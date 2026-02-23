@@ -35,7 +35,7 @@ An optional endpoint (`/introspect`) that checks a token's validity in real-time
 
 ## Providers
 
-Authentication methods. AuthFort ships with email/password (default), Google OAuth, and GitHub OAuth. Providers handle the full OAuth 2.1 + PKCE flow. Multiple providers can be linked to the same user account via email matching.
+Authentication methods. AuthFort ships with email/password (default) and OAuth providers (Google, GitHub built-in — plus any provider via `GenericOAuthProvider` / `GenericOIDCProvider`). Providers handle the full OAuth 2.1 + PKCE flow. Multiple providers can be linked to the same user account via email matching.
 
 ## Cookie Mode vs Bearer Mode
 

@@ -21,6 +21,10 @@ export const constructor = `AuthFort(
     password_reset_ttl: int = 3600,
     rsa_key_size: int = 2048,
     frontend_url: str | None = None,
+    email_verify_ttl: int = 86400,
+    magic_link_ttl: int = 600,
+    email_otp_ttl: int = 300,
+    allow_passwordless_signup: bool = False,
 )`;
 
 export const hookDecorator = `@auth.on("login")
@@ -97,6 +101,62 @@ Change password for an authenticated user. Bumps token version and revokes all r
 
 **Returns:** `None`
 **Raises:** `AuthError` if old password is wrong
+
+---
+
+## Email Verification
+
+### `create_email_verification_token(user_id)`
+
+Generate an email verification token.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `user_id` | `UUID` | User ID |
+
+**Returns:** `str | None` — token string, or `None` if already verified or user not found
+
+### `verify_email(token)`
+
+Verify a user's email using a verification token.
+
+**Returns:** `bool` — `True` if successful
+**Raises:** `AuthError` if token invalid or expired
+
+---
+
+## Passwordless Login
+
+### `create_magic_link_token(email)`
+
+Generate a magic link token for passwordless login.
+
+**Returns:** `str | None` — token string, or `None` if email not found (and passwordless signup disabled) or user banned
+
+### `verify_magic_link(token)`
+
+Verify a magic link token and log the user in. Also sets `email_verified=True`.
+
+**Returns:** `AuthResponse`
+**Raises:** `AuthError` if token invalid/expired or user banned
+
+### `create_email_otp(email)`
+
+Generate a 6-digit OTP code for passwordless login.
+
+**Returns:** `str | None` — 6-digit code, or `None` if email not found (and passwordless signup disabled) or user banned
+
+### `verify_email_otp(email, code)`
+
+Verify an OTP code and log the user in. Also sets `email_verified=True`.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `email` | `str` | User email (must match the OTP request) |
+| `code` | `str` | 6-digit OTP code |
+
+**Returns:** `AuthResponse`
+**Raises:** `AuthError` if code invalid/expired or user banned
 
 ---
 
@@ -217,7 +277,7 @@ Delete expired signing keys from the database.
 
 ### `cleanup_expired_tokens()`
 
-Delete expired verification tokens (password reset tokens).
+Delete expired verification tokens (password reset, email verify, magic link, OTP).
 
 **Returns:** `int` — number of tokens deleted
 
@@ -244,7 +304,7 @@ Get the stored OAuth tokens for a provider account.
 | Param | Type | Description |
 |-------|------|-------------|
 | `user_id` | `UUID` | User ID |
-| `provider` | `str` | Provider name (`"google"` or `"github"`) |
+| `provider` | `str` | Provider name (e.g., `"google"`, `"github"`, or any generic provider name) |
 
 **Returns:** `dict | None` — dict with `access_token`, `refresh_token`, and `expires_at` keys, or `None` if no account exists for this provider
 

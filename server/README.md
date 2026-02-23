@@ -53,6 +53,11 @@ async def profile(user=Depends(auth.current_user)):
 | POST | /auth/refresh | Refresh access token |
 | POST | /auth/logout | Sign out |
 | GET | /auth/me | Get current user |
+| POST | /auth/magic-link | Request magic link |
+| POST | /auth/magic-link/verify | Verify magic link |
+| POST | /auth/otp | Request email OTP |
+| POST | /auth/otp/verify | Verify email OTP |
+| POST | /auth/verify-email | Verify email address |
 | GET | /auth/oauth/{provider}/authorize | Start OAuth flow |
 | GET | /auth/oauth/{provider}/callback | OAuth callback |
 | POST | /auth/introspect | Token introspection |
@@ -63,13 +68,14 @@ async def profile(user=Depends(auth.current_user)):
 - Email/password auth with argon2 hashing
 - JWT RS256 with automatic key management
 - Refresh token rotation with theft detection
-- OAuth 2.1 with PKCE (Google, GitHub)
+- OAuth 2.1 with PKCE (Google, GitHub, or any provider via GenericOAuthProvider/GenericOIDCProvider)
+- Email verification, magic links, email OTP (passwordless)
 - Role-based access control
 - Password reset (programmatic — you control delivery)
 - Change password (with old password verification)
 - Session management (list, revoke, revoke all except current)
 - Ban/unban users
-- Event hooks (15 event types)
+- Event hooks (22 event types)
 - JWKS + key rotation
 - Cookie and bearer token modes
 - Multi-database: PostgreSQL (default), SQLite, MySQL via SQLAlchemy
@@ -77,13 +83,19 @@ async def profile(user=Depends(auth.current_user)):
 ## OAuth
 
 ```python
-from authfort import AuthFort, GoogleProvider, GitHubProvider
+from authfort import AuthFort, GoogleProvider, GitHubProvider, GenericOIDCProvider
 
 auth = AuthFort(
     database_url="...",
     providers=[
         GoogleProvider(client_id="...", client_secret="..."),
         GitHubProvider(client_id="...", client_secret="..."),
+        GenericOIDCProvider(
+            "keycloak",
+            client_id="...",
+            client_secret="...",
+            discovery_url="https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration",
+        ),
     ],
 )
 ```

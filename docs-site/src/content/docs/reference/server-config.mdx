@@ -92,6 +92,49 @@ export const githubImport = `from authfort import GitHubProvider`;
 
 ---
 
+## GenericOAuthProvider
+
+```python
+from authfort import GenericOAuthProvider
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | `str` | — (required, positional) | Provider name |
+| `client_id` | `str` | — (required) | OAuth client ID |
+| `client_secret` | `str` | — (required) | OAuth client secret |
+| `authorize_url` | `str` | — (required) | Authorization endpoint URL |
+| `token_url` | `str` | — (required) | Token endpoint URL |
+| `userinfo_url` | `str` | — (required) | Userinfo endpoint URL |
+| `scopes` | `tuple[str, ...]` | `()` | OAuth scopes |
+| `extra_scopes` | `tuple[str, ...]` | `()` | Additional OAuth scopes |
+| `map_user_info` | `callable \| None` | `None` | Custom function to map userinfo response |
+| `redirect_uri` | `str \| None` | `None` | Custom redirect URI |
+
+---
+
+## GenericOIDCProvider
+
+```python
+from authfort import GenericOIDCProvider
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | `str` | — (required, positional) | Provider name |
+| `client_id` | `str` | — (required) | OAuth client ID |
+| `client_secret` | `str` | — (required) | OAuth client secret |
+| `discovery_url` | `str` | — (required) | OpenID Connect discovery URL |
+| `scopes` | `tuple[str, ...]` | `("openid", "email", "profile")` | OAuth scopes |
+| `extra_scopes` | `tuple[str, ...]` | `()` | Additional OAuth scopes |
+| `map_user_info` | `callable \| None` | `None` | Custom function to map userinfo response |
+| `discovery_ttl` | `float` | `3600` | Discovery document cache TTL in seconds |
+| `redirect_uri` | `str \| None` | `None` | Custom redirect URI |
+
+Endpoints are auto-discovered from the `.well-known/openid-configuration` URL.
+
+---
+
 ## AuthFortConfig
 
 Internal configuration object, accessible via `auth.config`. Read-only.
@@ -109,3 +152,7 @@ Internal configuration object, accessible via `auth.config`. Read-only.
 | `password_reset_ttl_seconds` | `int` | Reset token TTL |
 | `rsa_key_size` | `int` | RSA key size in bits (default 2048) |
 | `frontend_url` | `str \| None` | Frontend origin for cross-origin OAuth redirects |
+| `email_verify_ttl_seconds` | `int` | Email verification token TTL |
+| `magic_link_ttl_seconds` | `int` | Magic link token TTL |
+| `email_otp_ttl_seconds` | `int` | Email OTP code TTL |
+| `allow_passwordless_signup` | `bool` | Auto-create users via magic link/OTP |

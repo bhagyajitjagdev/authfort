@@ -34,3 +34,7 @@ class AuthFortConfig:
     password_reset_ttl_seconds: int = 3600  # 1 hour
     rsa_key_size: int = 2048
     frontend_url: str | None = None
+    email_verify_ttl_seconds: int = 86400  # 24 hours
+    magic_link_ttl_seconds: int = 600  # 10 minutes
+    email_otp_ttl_seconds: int = 300  # 5 minutes
+    allow_passwordless_signup: bool = False

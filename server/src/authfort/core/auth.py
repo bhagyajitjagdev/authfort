@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.config import JWT_ALGORITHM, AuthFortConfig
 from authfort.core.keys import generate_key_pair, generate_kid
-from authfort.core.refresh import generate_refresh_token, hash_refresh_token
+from authfort.core.refresh import generate_otp, generate_refresh_token, hash_refresh_token
 from authfort.core.schemas import AuthResponse, AuthTokens, UserResponse
 from authfort.core.tokens import create_access_token
 from authfort.repositories import account as account_repo
@@ -379,6 +379,367 @@ async def change_password(
         from authfort.events import PasswordChanged
 
         events.collect("password_changed", PasswordChanged(user_id=user.id))
+
+
+async def create_email_verification_token(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    user_id: uuid.UUID,
+    events: EventCollector | None = None,
+) -> str | None:
+    """Create an email verification token for a user.
+
+    Returns the raw token string if the user exists and is not yet verified,
+    or None if the user is not found or already verified.
+
+    The caller is responsible for delivering the token (email, etc.).
+    """
+    user = await user_repo.get_user_by_id(session, user_id)
+    if user is None or user.email_verified:
+        return None
+
+    # Delete any existing email_verify tokens for this user
+    await verification_token_repo.delete_verification_tokens_by_user_and_type(
+        session, user.id, "email_verify",
+    )
+
+    raw_token, token_hash = generate_refresh_token()
+    expires_at = datetime.now(UTC) + timedelta(seconds=config.email_verify_ttl_seconds)
+    await verification_token_repo.create_verification_token(
+        session,
+        user_id=user.id,
+        token_hash=token_hash,
+        type="email_verify",
+        expires_at=expires_at,
+    )
+
+    if events is not None:
+        from authfort.events import EmailVerificationRequested
+
+        events.collect("email_verification_requested", EmailVerificationRequested(
+            user_id=user.id, email=user.email, token=raw_token,
+        ))
+
+    return raw_token
+
+
+async def verify_email(
+    session: AsyncSession,
+    *,
+    token: str,
+    events: EventCollector | None = None,
+) -> bool:
+    """Verify a user's email using a verification token.
+
+    Validates the token, sets email_verified=True, and deletes the token.
+
+    Raises:
+        AuthError: If the token is invalid or expired (code: invalid_verification_token).
+    """
+    token_hash = hash_refresh_token(token)
+    stored = await verification_token_repo.get_verification_token_by_hash(session, token_hash)
+
+    if stored is None or stored.type != "email_verify":
+        raise AuthError(
+            "Invalid or expired verification token",
+            code="invalid_verification_token",
+            status_code=400,
+        )
+
+    if stored.expires_at < datetime.now(UTC):
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "Invalid or expired verification token",
+            code="invalid_verification_token",
+            status_code=400,
+        )
+
+    user = await user_repo.get_user_by_id(session, stored.user_id)
+    if user is None:
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "Invalid or expired verification token",
+            code="invalid_verification_token",
+            status_code=400,
+        )
+
+    await user_repo.update_user(session, user, email_verified=True)
+    await verification_token_repo.delete_verification_token(session, stored.id)
+
+    if events is not None:
+        from authfort.events import EmailVerified
+
+        events.collect("email_verified", EmailVerified(
+            user_id=user.id, email=user.email,
+        ))
+
+    return True
+
+
+async def create_magic_link_token(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    email: str,
+    events: EventCollector | None = None,
+) -> str | None:
+    """Create a magic link token for passwordless login.
+
+    Returns the raw token string if the user exists (or was created via
+    passwordless signup), or None if the user is not found and signup
+    is not allowed, or the user is banned.
+
+    The caller is responsible for delivering the token (email, etc.).
+    """
+    email = email.strip().lower()
+    user = await user_repo.get_user_by_email(session, email)
+
+    if user is None and config.allow_passwordless_signup:
+        user = await user_repo.create_user(session, email=email)
+        if events is not None:
+            from authfort.events import UserCreated
+
+            events.collect("user_created", UserCreated(
+                provider="magic_link", email=email, user_id=user.id,
+            ))
+
+    if user is None:
+        return None
+
+    if user.banned:
+        return None
+
+    # Delete any existing magic_link tokens for this user
+    await verification_token_repo.delete_verification_tokens_by_user_and_type(
+        session, user.id, "magic_link",
+    )
+
+    raw_token, token_hash = generate_refresh_token()
+    expires_at = datetime.now(UTC) + timedelta(seconds=config.magic_link_ttl_seconds)
+    await verification_token_repo.create_verification_token(
+        session,
+        user_id=user.id,
+        token_hash=token_hash,
+        type="magic_link",
+        expires_at=expires_at,
+    )
+
+    if events is not None:
+        from authfort.events import MagicLinkRequested
+
+        events.collect("magic_link_requested", MagicLinkRequested(
+            user_id=user.id, email=user.email, token=raw_token,
+        ))
+
+    return raw_token
+
+
+async def verify_magic_link(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    token: str,
+    user_agent: str | None = None,
+    ip_address: str | None = None,
+    events: EventCollector | None = None,
+) -> AuthResponse:
+    """Verify a magic link token and log the user in.
+
+    Validates the token, marks email as verified, deletes the token,
+    and issues access + refresh tokens.
+
+    Raises:
+        AuthError: If the token is invalid or expired (code: invalid_magic_link).
+        AuthError: If the user is banned (code: user_banned, status: 403).
+    """
+    token_hash = hash_refresh_token(token)
+    stored = await verification_token_repo.get_verification_token_by_hash(session, token_hash)
+
+    if stored is None or stored.type != "magic_link":
+        raise AuthError(
+            "Invalid or expired magic link",
+            code="invalid_magic_link",
+            status_code=400,
+        )
+
+    if stored.expires_at < datetime.now(UTC):
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "Invalid or expired magic link",
+            code="invalid_magic_link",
+            status_code=400,
+        )
+
+    user = await user_repo.get_user_by_id(session, stored.user_id)
+    if user is None:
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "Invalid or expired magic link",
+            code="invalid_magic_link",
+            status_code=400,
+        )
+
+    if user.banned:
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "This account has been banned",
+            code="user_banned",
+            status_code=403,
+        )
+
+    if not user.email_verified:
+        await user_repo.update_user(session, user, email_verified=True)
+
+    await verification_token_repo.delete_verification_token(session, stored.id)
+
+    if events is not None:
+        from authfort.events import MagicLinkLogin
+
+        events.collect("magic_link_login", MagicLinkLogin(
+            user_id=user.id, email=user.email,
+        ))
+
+    return await _issue_tokens(
+        session, config=config, user=user, user_agent=user_agent, ip_address=ip_address,
+    )
+
+
+async def create_email_otp(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    email: str,
+    events: EventCollector | None = None,
+) -> str | None:
+    """Create an email OTP code for passwordless login.
+
+    Returns the raw OTP code if the user exists (or was created via
+    passwordless signup), or None if the user is not found and signup
+    is not allowed, or the user is banned.
+
+    The caller is responsible for delivering the code (email, etc.).
+    """
+    email = email.strip().lower()
+    user = await user_repo.get_user_by_email(session, email)
+
+    if user is None and config.allow_passwordless_signup:
+        user = await user_repo.create_user(session, email=email)
+        if events is not None:
+            from authfort.events import UserCreated
+
+            events.collect("user_created", UserCreated(
+                provider="email_otp", email=email, user_id=user.id,
+            ))
+
+    if user is None:
+        return None
+
+    if user.banned:
+        return None
+
+    # Delete any existing email_otp tokens for this user
+    await verification_token_repo.delete_verification_tokens_by_user_and_type(
+        session, user.id, "email_otp",
+    )
+
+    raw_code, code_hash = generate_otp()
+    expires_at = datetime.now(UTC) + timedelta(seconds=config.email_otp_ttl_seconds)
+    await verification_token_repo.create_verification_token(
+        session,
+        user_id=user.id,
+        token_hash=code_hash,
+        type="email_otp",
+        expires_at=expires_at,
+    )
+
+    if events is not None:
+        from authfort.events import EmailOTPRequested
+
+        events.collect("email_otp_requested", EmailOTPRequested(
+            user_id=user.id, email=user.email, code=raw_code,
+        ))
+
+    return raw_code
+
+
+async def verify_email_otp(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    email: str,
+    code: str,
+    user_agent: str | None = None,
+    ip_address: str | None = None,
+    events: EventCollector | None = None,
+) -> AuthResponse:
+    """Verify an email OTP code and log the user in.
+
+    Validates the code, marks email as verified, deletes the token,
+    and issues access + refresh tokens.
+
+    Raises:
+        AuthError: If the code is invalid or expired (code: invalid_otp).
+        AuthError: If the user is banned (code: user_banned, status: 403).
+    """
+    email = email.strip().lower()
+    token_hash = hash_refresh_token(code)
+    stored = await verification_token_repo.get_verification_token_by_hash(session, token_hash)
+
+    if stored is None or stored.type != "email_otp":
+        raise AuthError(
+            "Invalid or expired OTP code",
+            code="invalid_otp",
+            status_code=400,
+        )
+
+    if stored.expires_at < datetime.now(UTC):
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "Invalid or expired OTP code",
+            code="invalid_otp",
+            status_code=400,
+        )
+
+    user = await user_repo.get_user_by_id(session, stored.user_id)
+    if user is None:
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "Invalid or expired OTP code",
+            code="invalid_otp",
+            status_code=400,
+        )
+
+    if user.email != email:
+        raise AuthError(
+            "Invalid or expired OTP code",
+            code="invalid_otp",
+            status_code=400,
+        )
+
+    if user.banned:
+        await verification_token_repo.delete_verification_token(session, stored.id)
+        raise AuthError(
+            "This account has been banned",
+            code="user_banned",
+            status_code=403,
+        )
+
+    if not user.email_verified:
+        await user_repo.update_user(session, user, email_verified=True)
+
+    await verification_token_repo.delete_verification_token(session, stored.id)
+
+    if events is not None:
+        from authfort.events import EmailOTPLogin
+
+        events.collect("email_otp_login", EmailOTPLogin(
+            user_id=user.id, email=user.email,
+        ))
+
+    return await _issue_tokens(
+        session, config=config, user=user, user_agent=user_agent, ip_address=ip_address,
+    )
 
 
 # ---------------------------------------------------------------------------

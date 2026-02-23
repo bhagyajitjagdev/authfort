@@ -18,7 +18,7 @@ Fired when a new user is created (via signup, OAuth, or `create_user()`).
 | `user_id` | `UUID` |
 | `email` | `str` |
 | `name` | `str \| None` |
-| `provider` | `str` — `"email"`, `"google"`, or `"github"` |
+| `provider` | `str` — `"email"`, `"google"`, `"github"`, `"magic_link"`, `"email_otp"`, or any generic provider name |
 | `timestamp` | `datetime` |
 
 ## login
@@ -172,4 +172,67 @@ Fired when a password is changed via `change_password()`.
 | Field | Type |
 |-------|------|
 | `user_id` | `UUID` |
+| `timestamp` | `datetime` |
+
+## email_verification_requested
+
+Fired when `create_email_verification_token()` is called for a valid user.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `token` | `str` — raw token for delivery |
+| `timestamp` | `datetime` |
+
+## email_verified
+
+Fired when a user's email is successfully verified.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `timestamp` | `datetime` |
+
+## magic_link_requested
+
+Fired when `create_magic_link_token()` is called for a valid user.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `token` | `str` — raw token for delivery |
+| `timestamp` | `datetime` |
+
+## magic_link_login
+
+Fired when a user logs in via magic link.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `timestamp` | `datetime` |
+
+## email_otp_requested
+
+Fired when `create_email_otp()` is called for a valid user.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `code` | `str` — raw 6-digit code for delivery |
+| `timestamp` | `datetime` |
+
+## email_otp_login
+
+Fired when a user logs in via email OTP.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
 | `timestamp` | `datetime` |

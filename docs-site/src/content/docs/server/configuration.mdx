@@ -22,13 +22,19 @@ auth = AuthFort(
     password_reset_ttl=3600,
     rsa_key_size=2048,
     frontend_url="https://app.example.com",
+    email_verify_ttl=86400,
+    magic_link_ttl=600,
+    email_otp_ttl=300,
+    allow_passwordless_signup=False,
 )`;
 
-export const providersExample = `from authfort import GoogleProvider, GitHubProvider
+export const providersExample = `from authfort import GoogleProvider, GitHubProvider, GenericOIDCProvider
 
 providers=[
     GoogleProvider(client_id="...", client_secret="..."),
     GitHubProvider(client_id="...", client_secret="..."),
+    GenericOIDCProvider("keycloak", client_id="...", client_secret="...",
+        discovery_url="https://keycloak.example.com/.well-known/openid-configuration"),
 ]`;
 
 The `AuthFort` constructor accepts the following parameters:
@@ -126,3 +132,27 @@ auth = AuthFort(
 Without `frontend_url`, a `redirect_to=/dashboard` will redirect to `api.example.com/dashboard` (the API server). With `frontend_url="https://app.example.com"`, it redirects to `https://app.example.com/dashboard`.
 
 If your frontend and API share the same origin, you don't need this.
+
+### `email_verify_ttl`
+
+Email verification token lifetime in seconds. Default: `86400` (24 hours).
+
+### `magic_link_ttl`
+
+Magic link token lifetime in seconds. Default: `600` (10 minutes).
+
+Short-lived for security — magic links are sensitive since they grant full login access.
+
+### `email_otp_ttl`
+
+Email OTP code lifetime in seconds. Default: `300` (5 minutes).
+
+Short-lived since OTP codes are easier to guess (6 digits = 1,000,000 combinations).
+
+### `allow_passwordless_signup`
+
+Whether magic links and email OTP auto-create users for unknown emails. Default: `False`.
+
+When `True`, requesting a magic link or OTP for a non-existent email creates a new user with no password. The user can only log in via passwordless methods until they set a password via the password reset flow.
+
+This is independent of `allow_signup` — you can disable password-based signup but allow passwordless signup.

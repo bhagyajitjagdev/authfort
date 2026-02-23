@@ -1,0 +1,113 @@
+---
+title: Email OTP
+description: Passwordless login via 6-digit email codes.
+sidebar:
+  order: 17
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const requestEndpoint = `POST /auth/otp
+Content-Type: application/json
+
+{"email": "user@example.com"}`;
+
+export const requestProgrammatic = `code = await auth.create_email_otp(email)
+# Returns 6-digit string, or None if user not found`;
+
+export const deliverHook = `@auth.on("email_otp_requested")
+async def send_otp(event):
+    await send_email(
+        to=event.email,
+        body=f"Your code: {event.code}",
+    )`;
+
+export const verifyEndpoint = `POST /auth/otp/verify
+Content-Type: application/json
+
+{"email": "user@example.com", "code": "847291"}`;
+
+export const verifyProgrammatic = `result = await auth.verify_email_otp(email, code)
+# Returns AuthResponse with tokens and user`;
+
+export const autoSignupConfig = `auth = AuthFort(
+    database_url="...",
+    allow_passwordless_signup=True,
+)`;
+
+export const clientExample = `await auth.requestOTP('user@example.com');
+
+// User enters the 6-digit code
+const user = await auth.verifyOTP('user@example.com', '847291');`;
+
+Email OTP (One-Time Password) provides passwordless authentication using 6-digit numeric codes. Better for mobile where clicking links is less convenient.
+
+## How It Works
+
+<Steps>
+
+1. **Request an OTP**
+
+   Via the built-in endpoint:
+
+   <CodeBlock code={requestEndpoint} lang="http" />
+
+   Always returns 200 regardless of whether the email exists (prevents enumeration).
+
+   Or programmatically:
+
+   <CodeBlock code={requestProgrammatic} lang="python" />
+
+2. **Deliver the code**
+
+   Use the `email_otp_requested` event hook:
+
+   <CodeBlock code={deliverHook} lang="python" />
+
+3. **Verify and login**
+
+   Via the built-in endpoint:
+
+   <CodeBlock code={verifyEndpoint} lang="http" />
+
+   Returns an `AuthResponse` with tokens and user data. Sets cookies automatically if cookie mode is enabled.
+
+   Or programmatically:
+
+   <CodeBlock code={verifyProgrammatic} lang="python" />
+
+</Steps>
+
+## Auto-Signup
+
+By default, OTP only works for existing users. Set `allow_passwordless_signup=True` to auto-create accounts:
+
+<CodeBlock code={autoSignupConfig} lang="python" />
+
+:::note
+Auto-created users have no password and cannot use email/password login. They can set a password later via the password reset flow. This flag is independent of `allow_signup` — you can set `allow_signup=False` to block email/password registration while still allowing passwordless sign-up.
+:::
+
+## Email Verification
+
+OTP login automatically sets `email_verified=True` — no separate verification step needed.
+
+## Security
+
+| Property | Detail |
+|----------|--------|
+| Code format | 6-digit numeric (1,000,000 combinations) |
+| Code lifetime | Single-use, expires after `email_otp_ttl` (default: 5 minutes) |
+| Cross-user protection | The email in the verify request must match the user who requested the OTP |
+| Ban enforcement | Banned users cannot use OTP |
+
+## Events
+
+Emits `email_otp_requested` (includes `code` for delivery), `email_otp_login`, and optionally `user_created` (if auto-signup creates a new account).
+
+See [Events & Hooks](/authfort/server/events/) for all events and their payloads.
+
+## Client SDK
+
+<CodeBlock code={clientExample} lang="typescript" />

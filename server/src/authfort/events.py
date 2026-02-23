@@ -146,6 +146,51 @@ class UserUpdated(Event):
     fields: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True, slots=True)
+class EmailVerificationRequested(Event):
+    """Fired when an email verification token is created."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+    token: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class EmailVerified(Event):
+    """Fired when a user's email is successfully verified."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class MagicLinkRequested(Event):
+    """Fired when a magic link token is created."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+    token: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class MagicLinkLogin(Event):
+    """Fired when a user logs in via magic link."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class EmailOTPRequested(Event):
+    """Fired when an email OTP code is created."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+    code: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class EmailOTPLogin(Event):
+    """Fired when a user logs in via email OTP."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Event name mapping
 # ---------------------------------------------------------------------------
@@ -167,6 +212,12 @@ EVENT_MAP: dict[str, type[Event]] = {
     "password_reset": PasswordReset,
     "password_changed": PasswordChanged,
     "user_updated": UserUpdated,
+    "email_verification_requested": EmailVerificationRequested,
+    "email_verified": EmailVerified,
+    "magic_link_requested": MagicLinkRequested,
+    "magic_link_login": MagicLinkLogin,
+    "email_otp_requested": EmailOTPRequested,
+    "email_otp_login": EmailOTPLogin,
 }
 
 

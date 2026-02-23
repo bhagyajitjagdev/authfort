@@ -64,6 +64,10 @@ def create_oauth_router(
         if redirect_uri is None:
             redirect_uri = str(request.url_for("oauth_callback", provider_name=provider_name))
 
+        # Pre-fetch OIDC discovery if needed (GenericOIDCProvider)
+        if hasattr(provider, '_ensure_discovered'):
+            await provider._ensure_discovered()
+
         auth_url = provider.get_authorization_url(
             redirect_uri=redirect_uri,
             state=oauth_state.state,
