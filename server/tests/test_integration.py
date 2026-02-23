@@ -557,3 +557,148 @@ class TestSignupDisabled:
 
         assert response.status_code == 200
         assert response.json()["user"]["email"] == email
+
+
+# ---------------------------------------------------------------------------
+# Passwordless Endpoints
+# ---------------------------------------------------------------------------
+
+
+class TestMagicLinkEndpoints:
+    async def test_request_magic_link_returns_200(self, client: AsyncClient):
+        """POST /magic-link always returns 200 (enumeration-safe)."""
+        response = await client.post("/auth/magic-link", json={
+            "email": "nonexistent@example.com",
+        })
+
+        assert response.status_code == 200
+        assert "message" in response.json()
+
+    async def test_request_magic_link_for_existing_user(self, auth: AuthFort, client: AsyncClient):
+        """POST /magic-link returns 200 for existing user."""
+        email = unique_email()
+        await auth.create_user(email, "password123")
+
+        response = await client.post("/auth/magic-link", json={"email": email})
+
+        assert response.status_code == 200
+
+    async def test_verify_magic_link_success(self, auth: AuthFort, client: AsyncClient):
+        """POST /magic-link/verify returns AuthResponse with tokens."""
+        email = unique_email()
+        await auth.create_user(email, "password123")
+        token = await auth.create_magic_link_token(email)
+        assert token is not None
+
+        response = await client.post("/auth/magic-link/verify", json={"token": token})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user"]["email"] == email
+        assert "access_token" in data["tokens"]
+        assert "refresh_token" in data["tokens"]
+
+    async def test_verify_magic_link_sets_cookies(self, auth: AuthFort, client: AsyncClient):
+        """POST /magic-link/verify sets auth cookies."""
+        email = unique_email()
+        await auth.create_user(email, "password123")
+        token = await auth.create_magic_link_token(email)
+
+        response = await client.post("/auth/magic-link/verify", json={"token": token})
+
+        assert response.status_code == 200
+        assert "access_token" in response.cookies
+        assert "refresh_token" in response.cookies
+
+    async def test_verify_magic_link_invalid_token(self, client: AsyncClient):
+        """POST /magic-link/verify returns 400 for invalid token."""
+        response = await client.post("/auth/magic-link/verify", json={"token": "bogus"})
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error"] == "invalid_magic_link"
+
+
+class TestOTPEndpoints:
+    async def test_request_otp_returns_200(self, client: AsyncClient):
+        """POST /otp always returns 200 (enumeration-safe)."""
+        response = await client.post("/auth/otp", json={
+            "email": "nonexistent@example.com",
+        })
+
+        assert response.status_code == 200
+        assert "message" in response.json()
+
+    async def test_request_otp_for_existing_user(self, auth: AuthFort, client: AsyncClient):
+        """POST /otp returns 200 for existing user."""
+        email = unique_email()
+        await auth.create_user(email, "password123")
+
+        response = await client.post("/auth/otp", json={"email": email})
+
+        assert response.status_code == 200
+
+    async def test_verify_otp_success(self, auth: AuthFort, client: AsyncClient):
+        """POST /otp/verify returns AuthResponse with tokens."""
+        email = unique_email()
+        await auth.create_user(email, "password123")
+        code = await auth.create_email_otp(email)
+        assert code is not None
+
+        response = await client.post("/auth/otp/verify", json={
+            "email": email,
+            "code": code,
+        })
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["user"]["email"] == email
+        assert "access_token" in data["tokens"]
+
+    async def test_verify_otp_sets_cookies(self, auth: AuthFort, client: AsyncClient):
+        """POST /otp/verify sets auth cookies."""
+        email = unique_email()
+        await auth.create_user(email, "password123")
+        code = await auth.create_email_otp(email)
+
+        response = await client.post("/auth/otp/verify", json={
+            "email": email,
+            "code": code,
+        })
+
+        assert response.status_code == 200
+        assert "access_token" in response.cookies
+
+    async def test_verify_otp_invalid_code(self, auth: AuthFort, client: AsyncClient):
+        """POST /otp/verify returns 400 for wrong code."""
+        email = unique_email()
+        await auth.create_user(email, "password123")
+        await auth.create_email_otp(email)
+
+        response = await client.post("/auth/otp/verify", json={
+            "email": email,
+            "code": "000000",
+        })
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error"] == "invalid_otp"
+
+
+class TestVerifyEmailEndpoint:
+    async def test_verify_email_success(self, auth: AuthFort, client: AsyncClient):
+        """POST /verify-email returns 200 on success."""
+        email = unique_email()
+        result = await auth.create_user(email, "password123")
+        token = await auth.create_email_verification_token(result.user.id)
+        assert token is not None
+
+        response = await client.post("/auth/verify-email", json={"token": token})
+
+        assert response.status_code == 200
+        assert "message" in response.json()
+
+    async def test_verify_email_invalid_token(self, client: AsyncClient):
+        """POST /verify-email returns 400 for invalid token."""
+        response = await client.post("/auth/verify-email", json={"token": "bogus"})
+
+        assert response.status_code == 400
+        assert response.json()["detail"]["error"] == "invalid_verification_token"

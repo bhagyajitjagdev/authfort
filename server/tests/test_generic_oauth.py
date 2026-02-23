@@ -282,3 +282,46 @@ class TestGenericOIDCProvider:
     async def test_default_scopes(self):
         provider = _keycloak_provider()
         assert provider.scopes == ("openid", "email", "profile")
+
+
+# ---------------------------------------------------------------------------
+# OAuth Router — OIDC discovery pre-fetch
+# ---------------------------------------------------------------------------
+
+
+class TestOIDCRouterDiscovery:
+    async def test_authorize_calls_ensure_discovered(self):
+        """The OAuth router pre-fetches OIDC discovery before generating the auth URL."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from authfort import AuthFort, CookieConfig
+        from conftest import TEST_DATABASE_URL
+
+        provider = _keycloak_provider()
+
+        auth = AuthFort(
+            database_url=TEST_DATABASE_URL,
+            cookie=CookieConfig(secure=False),
+            providers=[provider],
+        )
+        await auth.migrate()
+
+        app = FastAPI()
+        app.include_router(auth.fastapi_router(), prefix="/auth")
+
+        mock_client = _make_mock_client(
+            get_response=_mock_response(MOCK_DISCOVERY),
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+            follow_redirects=False,
+        ) as client:
+            with patch("authfort.providers.generic.httpx.AsyncClient", return_value=mock_client):
+                response = await client.get("/auth/oauth/keycloak/authorize")
+
+        assert response.status_code == 302
+        assert "keycloak.example.com/auth" in response.headers["location"]
+        await auth.dispose()
