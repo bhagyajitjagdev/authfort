@@ -78,6 +78,7 @@ Providers have `REQUIRED_SCOPES` that are always included (e.g., `openid`, `emai
 See the individual provider pages for setup instructions:
 - [Google](/authfort/server/oauth/google/)
 - [GitHub](/authfort/server/oauth/github/)
+- [Generic Providers](/authfort/server/oauth/generic/) — connect any OAuth 2.0 or OIDC provider
 
 ## Endpoints
 
@@ -86,7 +87,7 @@ See the individual provider pages for setup instructions:
 | GET | `/auth/oauth/{provider}/authorize` | Start OAuth flow (redirects to provider) |
 | GET | `/auth/oauth/{provider}/callback` | Handle provider callback |
 
-Replace `{provider}` with `google` or `github`.
+Replace `{provider}` with `google`, `github`, or any generic provider name (e.g., `gitlab`, `keycloak`).
 
 The state, PKCE code challenge, and redirect URI are all handled internally by the server — the client just hits the authorize URL and gets redirected.
 

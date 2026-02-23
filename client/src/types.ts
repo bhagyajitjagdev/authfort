@@ -40,8 +40,8 @@ export interface AuthClientConfig {
 /** Authentication state */
 export type AuthState = 'authenticated' | 'unauthenticated' | 'loading';
 
-/** Known OAuth provider names */
-export type OAuthProvider = 'google' | 'github';
+/** Known OAuth provider names (accepts any string for generic providers) */
+export type OAuthProvider = 'google' | 'github' | (string & {});
 
 /** Options for OAuth sign-in */
 export interface OAuthSignInOptions {
@@ -90,6 +90,21 @@ export interface AuthClient {
 
   /** Sign in with OAuth provider. Redirect mode (default) navigates the browser. Popup mode opens a window and returns a promise. */
   signInWithProvider(provider: OAuthProvider, options?: OAuthSignInOptions): void | Promise<AuthUser>;
+
+  /** Request a magic link for passwordless login */
+  requestMagicLink(email: string): Promise<void>;
+
+  /** Verify a magic link token and log in */
+  verifyMagicLink(token: string): Promise<AuthUser>;
+
+  /** Request an email OTP code for passwordless login */
+  requestOTP(email: string): Promise<void>;
+
+  /** Verify an email OTP code and log in */
+  verifyOTP(email: string, code: string): Promise<AuthUser>;
+
+  /** Verify email address with a verification token */
+  verifyEmail(token: string): Promise<void>;
 
   /** Sign out */
   signOut(): Promise<void>;

@@ -7,10 +7,26 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.config import AuthFortConfig
-from authfort.core.auth import AuthError, login, logout, refresh, signup
+from authfort.core.auth import (
+    AuthError,
+    create_email_otp,
+    create_magic_link_token,
+    login,
+    logout,
+    refresh,
+    signup,
+    verify_email,
+    verify_email_otp,
+    verify_magic_link,
+)
 from authfort.core.schemas import (
     AuthResponse,
+    EmailVerifyRequest,
     LoginRequest,
+    MagicLinkRequest,
+    MagicLinkVerifyRequest,
+    OTPRequest,
+    OTPVerifyRequest,
     RefreshRequest,
     SignupRequest,
     UserResponse,
@@ -168,5 +184,91 @@ def create_auth_router(
     ):
         """Get the current authenticated user's profile."""
         return user
+
+    # ------ Passwordless endpoints ------
+
+    @router.post("/magic-link")
+    async def magic_link_endpoint(
+        data: MagicLinkRequest,
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ):
+        """Request a magic link for passwordless login."""
+        await create_magic_link_token(
+            session, config=config, email=data.email, events=get_collector(),
+        )
+        return {"message": "If an account exists, a magic link has been sent."}
+
+    @router.post("/magic-link/verify", response_model=AuthResponse)
+    async def magic_link_verify_endpoint(
+        data: MagicLinkVerifyRequest,
+        request: Request,
+        response: Response,
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ):
+        """Verify a magic link token and log in."""
+        try:
+            result = await verify_magic_link(
+                session,
+                config=config,
+                token=data.token,
+                user_agent=request.headers.get("User-Agent"),
+                ip_address=request.client.host if request.client else None,
+                events=get_collector(),
+            )
+        except AuthError as e:
+            raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
+
+        set_auth_cookies(config, response, result)
+        return result
+
+    @router.post("/otp")
+    async def otp_endpoint(
+        data: OTPRequest,
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ):
+        """Request an email OTP code for passwordless login."""
+        await create_email_otp(
+            session, config=config, email=data.email, events=get_collector(),
+        )
+        return {"message": "If an account exists, a verification code has been sent."}
+
+    @router.post("/otp/verify", response_model=AuthResponse)
+    async def otp_verify_endpoint(
+        data: OTPVerifyRequest,
+        request: Request,
+        response: Response,
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ):
+        """Verify an email OTP code and log in."""
+        try:
+            result = await verify_email_otp(
+                session,
+                config=config,
+                email=data.email,
+                code=data.code,
+                user_agent=request.headers.get("User-Agent"),
+                ip_address=request.client.host if request.client else None,
+                events=get_collector(),
+            )
+        except AuthError as e:
+            raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
+
+        set_auth_cookies(config, response, result)
+        return result
+
+    @router.post("/verify-email")
+    async def verify_email_endpoint(
+        data: EmailVerifyRequest,
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ):
+        """Verify email address with a verification token."""
+        try:
+            await verify_email(
+                session, token=data.token, events=get_collector(),
+            )
+        except AuthError as e:
+            raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
+
+        return {"message": "Email verified successfully."}
 
     return router

@@ -35,7 +35,7 @@ except AuthError as e:
 
 ## AuthResponse
 
-Returned by `create_user()`, `login()`, and `refresh()`.
+Returned by `create_user()`, `login()`, `refresh()`, `verify_magic_link()`, and `verify_email_otp()`.
 
 <CodeBlock code={authResponseExample} lang="python" />
 
@@ -122,3 +122,8 @@ Exception raised by all AuthFort methods on failure.
 | `oauth_state_invalid` | 400 | Invalid OAuth state |
 | `oauth_state_expired` | 400 | OAuth state expired |
 | `invalid_email` | 400 | Invalid email address |
+| `invalid_verification_token` | 400 | Email verification token invalid or expired |
+| `invalid_magic_link` | 400 | Magic link token invalid or expired |
+| `invalid_otp` | 400 | OTP code invalid or expired |
+| `oauth_no_email` | 400 | OAuth provider did not return an email |
+| `oauth_no_user_id` | 400 | OAuth provider did not return a user ID |

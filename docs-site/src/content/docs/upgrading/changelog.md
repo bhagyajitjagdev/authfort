@@ -9,6 +9,23 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.10
+
+### Added
+- Email verification flow — `create_email_verification_token()` / `verify_email()`
+- Magic link passwordless login — `create_magic_link_token()` / `verify_magic_link()`
+- Email OTP passwordless login — `create_email_otp()` / `verify_email_otp()`
+- `GenericOAuthProvider` — connect any OAuth 2.0 provider with custom endpoints
+- `GenericOIDCProvider` — connect any OIDC provider via discovery URL
+- `allow_passwordless_signup` config — auto-create users for unknown emails via magic link/OTP
+- `email_verify_ttl`, `magic_link_ttl`, `email_otp_ttl` config params
+- 5 new endpoints: `/magic-link`, `/magic-link/verify`, `/otp`, `/otp/verify`, `/verify-email`
+- 6 new events: `email_verification_requested`, `email_verified`, `magic_link_requested`, `magic_link_login`, `email_otp_requested`, `email_otp_login`
+- **client**: `requestMagicLink()`, `verifyMagicLink()`, `requestOTP()`, `verifyOTP()`, `verifyEmail()` methods
+- **client**: `OAuthProvider` type accepts any string for generic providers
+
+---
+
 ## v0.0.9
 
 ### Added

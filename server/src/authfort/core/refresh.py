@@ -27,3 +27,16 @@ def hash_refresh_token(raw_token: str) -> str:
         Hex-encoded SHA-256 hash.
     """
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def generate_otp(length: int = 6) -> tuple[str, str]:
+    """Generate a random numeric OTP code.
+
+    Returns:
+        Tuple of (raw_code, code_hash).
+        - raw_code: digit string (e.g. "847291") sent to the user
+        - code_hash: SHA-256 hash stored in the database
+    """
+    code = "".join(str(secrets.randbelow(10)) for _ in range(length))
+    code_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
+    return code, code_hash

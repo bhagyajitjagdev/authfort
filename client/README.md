@@ -42,8 +42,16 @@ await auth.signIn({ email: 'user@example.com', password: 'secret' });
 // Authenticated fetch (auto-attaches credentials, retries on 401)
 const res = await auth.fetch('/api/profile');
 
-// OAuth
+// OAuth (built-in or any generic provider)
 auth.signInWithProvider('google');
+auth.signInWithProvider('keycloak'); // generic providers work too
+
+// Passwordless
+await auth.requestMagicLink('user@example.com');
+const user = await auth.verifyMagicLink(token);
+
+await auth.requestOTP('user@example.com');
+const user2 = await auth.verifyOTP('user@example.com', '123456');
 
 // Listen for auth state changes
 auth.onAuthStateChange((state, user) => {

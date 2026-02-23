@@ -324,6 +324,102 @@ class AuthClientImpl implements AuthClient {
     });
   }
 
+  async requestMagicLink(email: string): Promise<void> {
+    const response = await globalThis.fetch(`${this._baseUrl}/magic-link`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      throw await parseErrorResponse(response);
+    }
+  }
+
+  async verifyMagicLink(token: string): Promise<AuthUser> {
+    const response = await globalThis.fetch(`${this._baseUrl}/magic-link/verify`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!response.ok) {
+      throw await parseErrorResponse(response);
+    }
+
+    const result: ServerAuthResponse = await response.json();
+    const user = mapUser(result.user);
+
+    if (this._tokenManager) {
+      await this._tokenManager.setTokens(
+        result.tokens.access_token,
+        result.tokens.refresh_token,
+        result.tokens.expires_in,
+      );
+    }
+    this._setAuthenticated(user);
+    return user;
+  }
+
+  async requestOTP(email: string): Promise<void> {
+    const response = await globalThis.fetch(`${this._baseUrl}/otp`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      throw await parseErrorResponse(response);
+    }
+  }
+
+  async verifyOTP(email: string, code: string): Promise<AuthUser> {
+    const response = await globalThis.fetch(`${this._baseUrl}/otp/verify`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code }),
+    });
+
+    if (!response.ok) {
+      throw await parseErrorResponse(response);
+    }
+
+    const result: ServerAuthResponse = await response.json();
+    const user = mapUser(result.user);
+
+    if (this._tokenManager) {
+      await this._tokenManager.setTokens(
+        result.tokens.access_token,
+        result.tokens.refresh_token,
+        result.tokens.expires_in,
+      );
+    }
+    this._setAuthenticated(user);
+    return user;
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    const response = await globalThis.fetch(`${this._baseUrl}/verify-email`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!response.ok) {
+      throw await parseErrorResponse(response);
+    }
+
+    // Update local user state if authenticated
+    if (this._user) {
+      this._setAuthenticated({ ...this._user, emailVerified: true });
+    }
+  }
+
   async signOut(): Promise<void> {
     try {
       let body: string;

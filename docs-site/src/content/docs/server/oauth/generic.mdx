@@ -1,0 +1,139 @@
+---
+title: Generic Providers
+description: Connect any OAuth 2.0 or OpenID Connect provider.
+sidebar:
+  order: 4
+---
+
+import CodeBlock from '../../../../components/CodeBlock.astro';
+
+export const oauthExample = `from authfort import GenericOAuthProvider
+
+gitlab = GenericOAuthProvider(
+    "gitlab",
+    client_id="...",
+    client_secret="...",
+    authorize_url="https://gitlab.com/oauth/authorize",
+    token_url="https://gitlab.com/oauth/token",
+    userinfo_url="https://gitlab.com/api/v4/user",
+    scopes=("read_user",),
+)`;
+
+export const oidcExample = `from authfort import GenericOIDCProvider
+
+keycloak = GenericOIDCProvider(
+    "keycloak",
+    client_id="...",
+    client_secret="...",
+    discovery_url="https://keycloak.example.com/realms/myrealm/.well-known/openid-configuration",
+)`;
+
+export const customMapper = `from authfort.providers.base import OAuthUserInfo
+
+def map_discord(provider_name, data, access_token):
+    return OAuthUserInfo(
+        provider=provider_name,
+        provider_account_id=str(data["id"]),
+        email=data["email"],
+        email_verified=data.get("verified", False),
+        name=data.get("username"),
+        avatar_url=(
+            f"https://cdn.discordapp.com/avatars/{data['id']}/{data['avatar']}.png"
+            if data.get("avatar")
+            else None
+        ),
+        access_token=access_token,
+    )
+
+discord = GenericOAuthProvider(
+    "discord",
+    client_id="...",
+    client_secret="...",
+    authorize_url="https://discord.com/api/oauth2/authorize",
+    token_url="https://discord.com/api/oauth2/token",
+    userinfo_url="https://discord.com/api/users/@me",
+    scopes=("identify", "email"),
+    map_user_info=map_discord,
+)`;
+
+export const usageExample = `from authfort import AuthFort, GoogleProvider
+
+auth = AuthFort(
+    database_url="...",
+    providers=[
+        GoogleProvider(client_id="...", client_secret="..."),
+        gitlab,
+        keycloak,
+        discord,
+    ],
+)`;
+
+export const clientExample = `auth.signInWithProvider('gitlab');
+auth.signInWithProvider('keycloak', { mode: 'popup' });`;
+
+If your OAuth provider doesn't have a dedicated built-in class, you can connect it using `GenericOAuthProvider` or `GenericOIDCProvider`.
+
+## GenericOAuthProvider
+
+For OAuth 2.0 providers where you know the endpoints:
+
+<CodeBlock code={oauthExample} lang="python" />
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Provider name (positional). Used in URLs: `/auth/oauth/{name}/authorize` |
+| `client_id` | `str` | OAuth client ID |
+| `client_secret` | `str` | OAuth client secret |
+| `authorize_url` | `str` | Authorization endpoint URL |
+| `token_url` | `str` | Token exchange endpoint URL |
+| `userinfo_url` | `str` | User info endpoint URL |
+| `scopes` | `tuple[str, ...]` | Required scopes for this provider |
+| `extra_scopes` | `tuple[str, ...] \| None` | Additional scopes to request |
+| `map_user_info` | `callable \| None` | Custom function to map provider response to user info |
+| `redirect_uri` | `str \| None` | Override the callback URL (auto-detected by default) |
+
+## GenericOIDCProvider
+
+For OpenID Connect providers that support discovery:
+
+<CodeBlock code={oidcExample} lang="python" />
+
+Automatically fetches authorization, token, and userinfo endpoints from the discovery document. The discovery response is cached with a configurable TTL (default: 1 hour). Default scopes: `openid`, `email`, `profile`.
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | Provider name (positional). Used in URLs: `/auth/oauth/{name}/authorize` |
+| `client_id` | `str` | OAuth client ID |
+| `client_secret` | `str` | OAuth client secret |
+| `discovery_url` | `str` | OIDC discovery endpoint (`.well-known/openid-configuration`) |
+| `scopes` | `tuple[str, ...] \| None` | Override default scopes (`openid`, `email`, `profile`) |
+| `extra_scopes` | `tuple[str, ...] \| None` | Additional scopes to request |
+| `map_user_info` | `callable \| None` | Custom function to map provider response to user info |
+| `discovery_ttl` | `int` | Cache TTL for discovery document in seconds (default: 3600) |
+| `redirect_uri` | `str \| None` | Override the callback URL (auto-detected by default) |
+
+## Custom User Mapping
+
+By default, providers map standard OIDC claims (`sub`/`id`, `email`, `name`, `picture`/`avatar_url`). For providers with non-standard responses, pass a custom mapper:
+
+<CodeBlock code={customMapper} lang="python" />
+
+The mapper receives the provider name, the raw JSON response from the userinfo endpoint, and the access token. Return an `OAuthUserInfo` object.
+
+## Usage
+
+Add generic providers to the `providers` list alongside built-in ones:
+
+<CodeBlock code={usageExample} lang="python" />
+
+The provider name becomes the URL path: `/auth/oauth/gitlab/authorize`, `/auth/oauth/keycloak/authorize`, etc.
+
+## Client SDK
+
+The client SDK `signInWithProvider()` accepts any string, so generic providers work out of the box:
+
+<CodeBlock code={clientExample} lang="typescript" />

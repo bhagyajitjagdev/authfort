@@ -16,7 +16,7 @@ async def on_failed_login(event):
     await log_failed_attempt(event.email, event.ip_address, event.reason)`;
 
 export const typedHandlerExample = `from authfort import AuthFort
-from authfort.events import UserCreated, LoginFailed, UserUpdated
+from authfort.events import UserCreated, LoginFailed, UserUpdated, MagicLinkRequested
 
 auth = AuthFort(database_url="...")
 
@@ -61,6 +61,14 @@ export const welcomeExample = `@auth.on("user_created")
 async def welcome(event):
     if event.provider == "email":
         await send_welcome_email(event.email, event.name)`;
+
+export const magicLinkExample = `@auth.on("magic_link_requested")
+async def send_magic_link(event):
+    await send_email(
+        to=event.email,
+        subject="Your login link",
+        body=f"https://myapp.com/auth/magic?token={event.token}",
+    )`;
 
 export const multipleHooksExample = `@auth.on("login")
 async def hook_1(event):
@@ -137,6 +145,22 @@ Event types are importable from `authfort.events` for type-safe handlers:
 | `password_reset` | `user_id`, `timestamp` |
 | `password_changed` | `user_id`, `timestamp` |
 
+### Email Verification
+
+| Event | Payload Fields |
+|-------|---------------|
+| `email_verification_requested` | `user_id`, `email`, `token`, `timestamp` |
+| `email_verified` | `user_id`, `email`, `timestamp` |
+
+### Passwordless
+
+| Event | Payload Fields |
+|-------|---------------|
+| `magic_link_requested` | `user_id`, `email`, `token`, `timestamp` |
+| `magic_link_login` | `user_id`, `email`, `timestamp` |
+| `email_otp_requested` | `user_id`, `email`, `code`, `timestamp` |
+| `email_otp_login` | `user_id`, `email`, `timestamp` |
+
 ### Keys
 
 | Event | Payload Fields |
@@ -156,6 +180,10 @@ Event types are importable from `authfort.events` for type-safe handlers:
 ### Welcome Email
 
 <CodeBlock code={welcomeExample} />
+
+### Magic Link Delivery
+
+<CodeBlock code={magicLinkExample} />
 
 ## Multiple Hooks
 

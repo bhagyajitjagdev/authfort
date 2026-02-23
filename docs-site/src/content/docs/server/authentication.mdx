@@ -142,3 +142,12 @@ The `/auth/me` endpoint returns the authenticated user's info:
 In cookie mode, the access token is read from the cookie automatically — no `Authorization` header needed.
 
 Returns a `UserResponse` with: `id`, `email`, `name`, `email_verified`, `avatar_url`, `phone`, `roles`, `created_at`, and `session_id`.
+
+## Passwordless Login
+
+AuthFort also supports passwordless authentication via magic links and email OTP. These methods don't require a password — users authenticate by clicking a link or entering a code sent to their email.
+
+- [Magic Links](/authfort/server/magic-links/) — login via emailed link
+- [Email OTP](/authfort/server/otp/) — login via 6-digit code
+
+Both methods automatically verify the user's email address.

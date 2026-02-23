@@ -62,5 +62,31 @@ class RefreshRequest(BaseModel):
     refresh_token: str | None = None
 
 
+class MagicLinkRequest(BaseModel):
+    """Magic link request input."""
+    email: str
+
+
+class MagicLinkVerifyRequest(BaseModel):
+    """Magic link verification input."""
+    token: str
+
+
+class OTPRequest(BaseModel):
+    """Email OTP request input."""
+    email: str
+
+
+class OTPVerifyRequest(BaseModel):
+    """Email OTP verification input."""
+    email: str
+    code: str
+
+
+class EmailVerifyRequest(BaseModel):
+    """Email verification input."""
+    token: str
+
+
 # Rebuild forward refs
 AuthResponse.model_rebuild()

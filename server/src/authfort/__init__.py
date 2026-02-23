@@ -8,10 +8,16 @@ from authfort.config import CookieConfig
 from authfort.core.auth import AuthError
 from authfort.core.schemas import AuthResponse, AuthTokens, SessionResponse, UserResponse
 from authfort.events import (
+    EmailOTPLogin,
+    EmailOTPRequested,
+    EmailVerificationRequested,
+    EmailVerified,
     KeyRotated,
     Login,
     LoginFailed,
     Logout,
+    MagicLinkLogin,
+    MagicLinkRequested,
     OAuthLink,
     PasswordChanged,
     PasswordReset,
@@ -25,6 +31,7 @@ from authfort.events import (
     UserUnbanned,
     UserUpdated,
 )
+from authfort.providers.generic import GenericOAuthProvider, GenericOIDCProvider
 from authfort.providers.github import GitHubProvider
 from authfort.providers.google import GoogleProvider
 
@@ -34,12 +41,20 @@ __all__ = [
     "AuthResponse",
     "AuthTokens",
     "CookieConfig",
+    "EmailOTPLogin",
+    "EmailOTPRequested",
+    "EmailVerificationRequested",
+    "EmailVerified",
+    "GenericOAuthProvider",
+    "GenericOIDCProvider",
     "GoogleProvider",
     "GitHubProvider",
     "KeyRotated",
     "Login",
     "LoginFailed",
     "Logout",
+    "MagicLinkLogin",
+    "MagicLinkRequested",
     "OAuthLink",
     "PasswordChanged",
     "PasswordReset",
