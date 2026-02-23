@@ -1,14 +1,15 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../.github/logo-dark.svg" width="60">
-  <source media="(prefers-color-scheme: light)" srcset="../.github/logo-light.svg" width="60">
-  <img alt="AuthFort" src="../.github/logo-light.svg" width="60">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/bhagyajitjagdev/authfort/main/.github/logo-dark.svg" width="60">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/bhagyajitjagdev/authfort/main/.github/logo-light.svg" width="60">
+  <img alt="AuthFort" src="https://raw.githubusercontent.com/bhagyajitjagdev/authfort/main/.github/logo-light.svg" width="60">
 </picture>
 
 # authfort-client
 
 [![npm](https://img.shields.io/npm/v/authfort-client)](https://www.npmjs.com/package/authfort-client)
+[![Coverage](https://codecov.io/gh/bhagyajitjagdev/authfort/branch/main/graph/badge.svg?flag=client)](https://codecov.io/gh/bhagyajitjagdev/authfort)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docs](https://img.shields.io/badge/Docs-blue?logo=readthedocs&logoColor=white)](https://bhagyajitjagdev.github.io/authfort/client/)

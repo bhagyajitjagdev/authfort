@@ -1,9 +1,9 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/logo-dark.svg" width="80">
-  <source media="(prefers-color-scheme: light)" srcset=".github/logo-light.svg" width="80">
-  <img alt="AuthFort" src=".github/logo-light.svg" width="80">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/bhagyajitjagdev/authfort/main/.github/logo-dark.svg" width="80">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/bhagyajitjagdev/authfort/main/.github/logo-light.svg" width="80">
+  <img alt="AuthFort" src="https://raw.githubusercontent.com/bhagyajitjagdev/authfort/main/.github/logo-light.svg" width="80">
 </picture>
 
 # AuthFort
