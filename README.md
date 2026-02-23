@@ -15,6 +15,7 @@ Drop-in auth for FastAPI — JWT, OAuth, roles, sessions, and a TypeScript clien
 [![PyPI](https://img.shields.io/pypi/v/authfort-service?label=authfort-service&color=blue)](https://pypi.org/project/authfort-service/)
 [![npm](https://img.shields.io/npm/v/authfort-client?label=authfort-client&color=green)](https://www.npmjs.com/package/authfort-client)
 [![CI](https://github.com/bhagyajitjagdev/authfort/actions/workflows/ci.yml/badge.svg)](https://github.com/bhagyajitjagdev/authfort/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/bhagyajitjagdev/authfort/branch/main/graph/badge.svg)](https://codecov.io/gh/bhagyajitjagdev/authfort)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -258,6 +259,59 @@ const { state, user, isAuthenticated } = createAuthStore(auth);
 - **Database**: PostgreSQL, SQLite, or MySQL
 - **ORM**: SQLAlchemy (included)
 
+## Development
+
+### Running Tests
+
+```bash
+# Server (290 tests)
+cd server
+uv sync --extra sqlite --extra fastapi
+uv run pytest tests/ -v
+
+# Service (28 tests)
+cd service
+uv sync --extra fastapi
+uv run pytest tests/ -v
+
+# Client (78 tests)
+cd client
+npm ci
+npx vitest run
+```
+
+### Coverage
+
+```bash
+# Server — generates terminal report + HTML
+cd server
+uv run pytest tests/ --cov --cov-report=term-missing --cov-report=html
+
+# Service
+cd service
+uv run pytest tests/ --cov --cov-report=term-missing --cov-report=html
+
+# Client
+cd client
+npx vitest run --coverage
+```
+
+### Dead Code Detection
+
+```bash
+# Server
+cd server
+uv run vulture src/ vulture_whitelist.py
+
+# Service
+cd service
+uv run vulture src/ vulture_whitelist.py
+
+# Client
+cd client
+npx knip
+```
+
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
@@ -266,7 +320,7 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 1. Fork the repository
 2. Create a feature branch (`feat/my-feature`)
-3. Run tests (`uv run pytest tests/ -v` in server/ or service/)
+3. Run tests (see [Development](#development) above)
 4. Submit a pull request
 
 ### Reporting Issues
@@ -278,12 +332,14 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.8
+### Latest — v0.0.9
 
-- Replaced `sqlmodel` with plain `sqlalchemy[asyncio]>=2.0`
-- All models use SQLAlchemy `DeclarativeBase` + `mapped_column()`
-- Eliminated 85 false deprecation warnings in tests
-- Bundled migrations consolidated into single `001_initial_schema.py`
+- User profile APIs — `update_user()`, `phone` field, `avatar_url`/`phone` on signup
+- OAuth popup mode, `redirect_to` redirects, `frontend_url` for cross-origin setups
+- Provider token storage — access + refresh tokens saved from OAuth providers
+- `has_role()`, `get_jwks()`, `cleanup_expired_sessions()` convenience methods
+- Configurable RSA key size, all 16 event classes exported
+- Client SDK: typed `OAuthProvider`, popup flow, auto-initialize in framework integrations
 
 ## License
 

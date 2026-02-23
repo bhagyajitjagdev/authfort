@@ -1,4 +1,4 @@
-"""Phase 9 tests — cleanup APIs, user profile, has_role, get_jwks, rsa_key_size,
+"""Tests for cleanup APIs, user profile, has_role, get_jwks, rsa_key_size,
 update_user, UserUpdated event, OAuth scope validation, redirect_to, popup mode,
 provider tokens, and signup with avatar_url/phone."""
 
@@ -328,7 +328,7 @@ class TestSignupWithProfile:
 
 
 class TestOAuthScopes:
-    def test_google_required_scopes(self):
+    async def test_google_required_scopes(self):
         from authfort import GoogleProvider
 
         p = GoogleProvider(client_id="id", client_secret="secret")
@@ -336,14 +336,14 @@ class TestOAuthScopes:
         assert "email" in p.scopes
         assert "profile" in p.scopes
 
-    def test_github_required_scopes(self):
+    async def test_github_required_scopes(self):
         from authfort import GitHubProvider
 
         p = GitHubProvider(client_id="id", client_secret="secret")
         assert "read:user" in p.scopes
         assert "user:email" in p.scopes
 
-    def test_extra_scopes_are_appended(self):
+    async def test_extra_scopes_are_appended(self):
         from authfort import GoogleProvider
 
         p = GoogleProvider(
@@ -354,7 +354,7 @@ class TestOAuthScopes:
         # Required scopes still present
         assert "openid" in p.scopes
 
-    def test_duplicate_scopes_are_deduplicated(self):
+    async def test_duplicate_scopes_are_deduplicated(self):
         from authfort import GoogleProvider
 
         p = GoogleProvider(
@@ -366,7 +366,7 @@ class TestOAuthScopes:
         assert scope_list.count("email") == 1
         assert "custom" in scope_list
 
-    def test_scopes_in_authorization_url(self):
+    async def test_scopes_in_authorization_url(self):
         from authfort import GoogleProvider
 
         p = GoogleProvider(
@@ -734,7 +734,7 @@ class TestFrontendUrl:
 
 
 class TestEventExports:
-    def test_all_events_exported_from_init(self):
+    async def test_all_events_exported_from_init(self):
         from authfort import (
             KeyRotated,
             Login,
