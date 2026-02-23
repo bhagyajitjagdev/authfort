@@ -162,8 +162,8 @@ Currently supported: React, Vue, Svelte. To add another:
 
 ### Tests
 
-- pytest-asyncio in strict mode
-- Use `pytestmark = pytest.mark.asyncio` at module level
+- pytest-asyncio in auto mode (`asyncio_mode = "auto"` in pyproject.toml)
+- Async test functions are detected automatically — no `pytestmark` needed
 - File-based SQLite for test isolation (not in-memory)
 - Service tests use `_transport` injection (not monkeypatch)
 

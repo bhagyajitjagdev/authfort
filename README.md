@@ -53,6 +53,7 @@ AuthFort consists of three packages that work together:
 - **Cookie & Bearer Modes** — HttpOnly cookies or Authorization header
 - **Client SDK** — TypeScript with React, Vue, and Svelte integrations
 - **Microservice Verifier** — Lightweight JWT verification without database access
+- **Fully Typed** — `py.typed` marker for both Python packages, TypeScript client with full type definitions
 
 ## Quick Start
 
