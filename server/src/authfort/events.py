@@ -191,6 +191,16 @@ class EmailOTPLogin(Event):
     email: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class RateLimitExceeded(Event):
+    """Fired when a request is rejected due to rate limiting."""
+    endpoint: str = ""
+    ip_address: str | None = None
+    email: str | None = None
+    limit: str = ""
+    key_type: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Event name mapping
 # ---------------------------------------------------------------------------
@@ -218,6 +228,7 @@ EVENT_MAP: dict[str, type[Event]] = {
     "magic_link_login": MagicLinkLogin,
     "email_otp_requested": EmailOTPRequested,
     "email_otp_login": EmailOTPLogin,
+    "rate_limit_exceeded": RateLimitExceeded,
 }
 
 
