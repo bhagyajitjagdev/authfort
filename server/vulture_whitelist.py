@@ -30,6 +30,11 @@ _.oauth_authorize
 _.oauth_callback
 _.introspect_endpoint
 _.jwks_endpoint
+_.magic_link_endpoint
+_.magic_link_verify_endpoint
+_.otp_endpoint
+_.otp_verify_endpoint
+_.verify_email_endpoint
 
 # ---------------------------------------------------------------------------
 # Pydantic / dataclass fields (used for serialization, not accessed in code)
@@ -45,6 +50,8 @@ _.exp
 _.iat
 _.iss
 _.updated_at
+_.endpoint
+_.key_type
 
 # ---------------------------------------------------------------------------
 # Alembic migration variables (required by Alembic framework)
@@ -75,3 +82,10 @@ _.dialect  # required param in TypeDecorator.process_result_value
 # Repository utility (used in tests, useful for admin/debugging)
 # ---------------------------------------------------------------------------
 _.get_all_signing_keys
+
+# ---------------------------------------------------------------------------
+# Rate limiting (protocol used for type checking, not runtime isinstance)
+# ---------------------------------------------------------------------------
+from authfort.ratelimit import RateLimitStore
+
+RateLimitStore

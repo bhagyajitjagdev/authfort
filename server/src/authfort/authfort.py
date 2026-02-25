@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from authfort.config import JWT_ALGORITHM, AuthFortConfig, CookieConfig
+from authfort.config import JWT_ALGORITHM, AuthFortConfig, CookieConfig, RateLimitConfig
 from authfort.db import create_engine, create_session_factory, get_session
 from authfort.events import (
     EmailOTPLogin,
@@ -61,6 +61,8 @@ class AuthFort:
         email_otp_ttl: Email OTP code lifetime in seconds (default 300 = 5 min).
         allow_passwordless_signup: If True, magic links and OTP auto-create users
             for unknown emails (password_hash=None). Default False.
+        rate_limit: RateLimitConfig or None. None = no rate limiting (default).
+            Pass RateLimitConfig() to enable with sensible defaults.
     """
 
     def __init__(
@@ -82,6 +84,7 @@ class AuthFort:
         magic_link_ttl: int = 600,
         email_otp_ttl: int = 300,
         allow_passwordless_signup: bool = False,
+        rate_limit: RateLimitConfig | None = None,
     ) -> None:
         if rsa_key_size < 2048:
             raise ValueError("rsa_key_size must be >= 2048")
@@ -101,12 +104,20 @@ class AuthFort:
             magic_link_ttl_seconds=magic_link_ttl,
             email_otp_ttl_seconds=email_otp_ttl,
             allow_passwordless_signup=allow_passwordless_signup,
+            rate_limit=rate_limit,
         )
         self._engine = create_engine(database_url)
         self._session_factory = create_session_factory(self._engine)
         self._current_user_dep = None
         self._providers = providers or []
         self._hooks = HookRegistry()
+
+        # Rate limit store (only created when rate limiting is enabled)
+        self._rate_limit_store = None
+        if rate_limit is not None:
+            from authfort.ratelimit import InMemoryStore
+
+            self._rate_limit_store = InMemoryStore()
 
     @property
     def config(self) -> AuthFortConfig:
@@ -122,6 +133,11 @@ class AuthFort:
     def hooks(self) -> HookRegistry:
         """Access the hook registry."""
         return self._hooks
+
+    @property
+    def rate_limit_store(self):
+        """Access the rate limit store (for testing). Returns None if disabled."""
+        return self._rate_limit_store
 
     # ------ Event hooks ------
 
@@ -759,13 +775,17 @@ class AuthFort:
         from authfort.integrations.fastapi.introspect_router import create_introspect_router
         from authfort.integrations.fastapi.router import create_auth_router
 
-        router = create_auth_router(self._config, self._get_db, self._hooks)
+        router = create_auth_router(
+            self._config, self._get_db, self._hooks,
+            rate_limit_store=self._rate_limit_store,
+        )
 
         if self._providers:
             from authfort.integrations.fastapi.oauth_router import create_oauth_router
 
             oauth_router = create_oauth_router(
                 self._config, self._get_db, self._providers, self._hooks,
+                rate_limit_store=self._rate_limit_store,
             )
             router.include_router(oauth_router)
 

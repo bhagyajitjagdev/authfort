@@ -13,7 +13,7 @@ from authfort.core.oauth import create_oauth_state, oauth_authenticate, verify_o
 from authfort.core.schemas import AuthResponse
 from authfort.events import HookRegistry, get_collector
 from authfort.integrations.fastapi.cookies import set_auth_cookies
-from authfort.integrations.fastapi.router import _auth_error_detail
+from authfort.integrations.fastapi.router import _auth_error_detail, _create_rate_limit_dep
 from authfort.providers.base import OAuthProvider
 
 
@@ -22,6 +22,8 @@ def create_oauth_router(
     get_db: Callable,
     providers: list[OAuthProvider],
     hooks: HookRegistry,
+    *,
+    rate_limit_store=None,
 ) -> APIRouter:
     """Create a FastAPI router with OAuth authorize/callback endpoints for each provider.
 
@@ -32,7 +34,14 @@ def create_oauth_router(
     router = APIRouter(tags=["oauth"])
     provider_map: dict[str, OAuthProvider] = {p.name: p for p in providers}
 
-    @router.get("/oauth/{provider_name}/authorize")
+    rl = config.rate_limit
+    _authorize_rl = []
+    if rl is not None and rl.oauth_authorize and rate_limit_store is not None:
+        _authorize_rl = [Depends(_create_rate_limit_dep(
+            hooks, rate_limit_store, "oauth_authorize", rl.oauth_authorize,
+        ))]
+
+    @router.get("/oauth/{provider_name}/authorize", dependencies=_authorize_rl)
     async def oauth_authorize(
         provider_name: str,
         request: Request,

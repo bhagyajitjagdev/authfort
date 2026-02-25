@@ -31,7 +31,7 @@ from authfort.core.schemas import (
     SignupRequest,
     UserResponse,
 )
-from authfort.events import HookRegistry, LoginFailed, get_collector
+from authfort.events import HookRegistry, LoginFailed, RateLimitExceeded, get_collector
 from authfort.integrations.fastapi.cookies import clear_auth_cookies, set_auth_cookies
 from authfort.integrations.fastapi.deps import create_current_user_dep
 
@@ -44,8 +44,83 @@ def _auth_error_detail(e: AuthError) -> dict:
     return detail
 
 
+def _create_rate_limit_dep(
+    hooks: HookRegistry,
+    store,
+    endpoint_name: str,
+    limit_str: str,
+):
+    """Create a FastAPI dependency that enforces IP-based rate limiting."""
+    from authfort.ratelimit import parse_rate_limit
+
+    limit = parse_rate_limit(limit_str)
+
+    async def check_rate_limit(request: Request):
+        ip = request.client.host if request.client else "unknown"
+        ip_key = f"ip:{ip}:{endpoint_name}"
+        allowed, remaining, retry_after = store.hit(ip_key, limit)
+
+        if not allowed:
+            await hooks.emit(
+                "rate_limit_exceeded",
+                RateLimitExceeded(
+                    endpoint=endpoint_name,
+                    ip_address=ip,
+                    limit=limit_str,
+                    key_type="ip",
+                ),
+            )
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": "Too many requests. Please try again later.",
+                },
+                headers={"Retry-After": str(int(retry_after) + 1)},
+            )
+
+    return check_rate_limit
+
+
+async def _check_email_rate_limit(
+    hooks: HookRegistry,
+    store,
+    endpoint_name: str,
+    limit_str: str,
+    email: str,
+    ip: str | None,
+) -> None:
+    """Check email-based rate limit. Called inline after body parsing."""
+    from authfort.ratelimit import parse_rate_limit
+
+    limit = parse_rate_limit(limit_str)
+    email_key = f"email:{email.strip().lower()}:{endpoint_name}"
+    allowed, remaining, retry_after = store.hit(email_key, limit)
+
+    if not allowed:
+        await hooks.emit(
+            "rate_limit_exceeded",
+            RateLimitExceeded(
+                endpoint=endpoint_name,
+                ip_address=ip,
+                email=email,
+                limit=limit_str,
+                key_type="email",
+            ),
+        )
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "rate_limit_exceeded",
+                "message": "Too many requests. Please try again later.",
+            },
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+
+
 def create_auth_router(
     config: AuthFortConfig, get_db: Callable, hooks: HookRegistry,
+    *, rate_limit_store=None,
 ) -> APIRouter:
     """Create a FastAPI router with all auth endpoints.
 
@@ -57,7 +132,30 @@ def create_auth_router(
     router = APIRouter(tags=["auth"])
     current_user_dep = create_current_user_dep(config, get_db)
 
-    @router.post("/signup", response_model=AuthResponse, status_code=201)
+    # Build per-endpoint rate limit dependencies
+    rl = config.rate_limit
+    _signup_rl = []
+    _login_rl = []
+    _refresh_rl = []
+    _magic_link_rl = []
+    _otp_rl = []
+    _verify_email_rl = []
+
+    if rl is not None and rate_limit_store is not None:
+        if rl.signup:
+            _signup_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "signup", rl.signup))]
+        if rl.login:
+            _login_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "login", rl.login))]
+        if rl.refresh:
+            _refresh_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "refresh", rl.refresh))]
+        if rl.magic_link:
+            _magic_link_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "magic_link", rl.magic_link))]
+        if rl.otp:
+            _otp_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "otp", rl.otp))]
+        if rl.verify_email:
+            _verify_email_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "verify_email", rl.verify_email))]
+
+    @router.post("/signup", response_model=AuthResponse, status_code=201, dependencies=_signup_rl)
     async def signup_endpoint(
         data: SignupRequest,
         request: Request,
@@ -65,6 +163,11 @@ def create_auth_router(
         session: Annotated[AsyncSession, Depends(get_db)],
     ):
         """Register a new user with email and password."""
+        if rl is not None and rl.signup and rate_limit_store is not None:
+            await _check_email_rate_limit(
+                hooks, rate_limit_store, "signup", rl.signup,
+                data.email, request.client.host if request.client else None,
+            )
         if not config.allow_signup:
             raise HTTPException(
                 status_code=403,
@@ -89,7 +192,7 @@ def create_auth_router(
         set_auth_cookies(config, response, result)
         return result
 
-    @router.post("/login", response_model=AuthResponse)
+    @router.post("/login", response_model=AuthResponse, dependencies=_login_rl)
     async def login_endpoint(
         data: LoginRequest,
         request: Request,
@@ -97,6 +200,11 @@ def create_auth_router(
         session: Annotated[AsyncSession, Depends(get_db)],
     ):
         """Authenticate with email and password."""
+        if rl is not None and rl.login and rate_limit_store is not None:
+            await _check_email_rate_limit(
+                hooks, rate_limit_store, "login", rl.login,
+                data.email, request.client.host if request.client else None,
+            )
         try:
             result = await login(
                 session,
@@ -120,7 +228,7 @@ def create_auth_router(
         set_auth_cookies(config, response, result)
         return result
 
-    @router.post("/refresh", response_model=AuthResponse)
+    @router.post("/refresh", response_model=AuthResponse, dependencies=_refresh_rl)
     async def refresh_endpoint(
         request: Request,
         response: Response,
@@ -187,12 +295,17 @@ def create_auth_router(
 
     # ------ Passwordless endpoints ------
 
-    @router.post("/magic-link")
+    @router.post("/magic-link", dependencies=_magic_link_rl)
     async def magic_link_endpoint(
         data: MagicLinkRequest,
         session: Annotated[AsyncSession, Depends(get_db)],
     ):
         """Request a magic link for passwordless login."""
+        if rl is not None and rl.magic_link and rate_limit_store is not None:
+            await _check_email_rate_limit(
+                hooks, rate_limit_store, "magic_link", rl.magic_link,
+                data.email, None,
+            )
         await create_magic_link_token(
             session, config=config, email=data.email, events=get_collector(),
         )
@@ -221,18 +334,23 @@ def create_auth_router(
         set_auth_cookies(config, response, result)
         return result
 
-    @router.post("/otp")
+    @router.post("/otp", dependencies=_otp_rl)
     async def otp_endpoint(
         data: OTPRequest,
         session: Annotated[AsyncSession, Depends(get_db)],
     ):
         """Request an email OTP code for passwordless login."""
+        if rl is not None and rl.otp and rate_limit_store is not None:
+            await _check_email_rate_limit(
+                hooks, rate_limit_store, "otp", rl.otp,
+                data.email, None,
+            )
         await create_email_otp(
             session, config=config, email=data.email, events=get_collector(),
         )
         return {"message": "If an account exists, a verification code has been sent."}
 
-    @router.post("/otp/verify", response_model=AuthResponse)
+    @router.post("/otp/verify", response_model=AuthResponse, dependencies=_otp_rl)
     async def otp_verify_endpoint(
         data: OTPVerifyRequest,
         request: Request,
@@ -240,6 +358,11 @@ def create_auth_router(
         session: Annotated[AsyncSession, Depends(get_db)],
     ):
         """Verify an email OTP code and log in."""
+        if rl is not None and rl.otp and rate_limit_store is not None:
+            await _check_email_rate_limit(
+                hooks, rate_limit_store, "otp", rl.otp,
+                data.email, request.client.host if request.client else None,
+            )
         try:
             result = await verify_email_otp(
                 session,
@@ -256,7 +379,7 @@ def create_auth_router(
         set_auth_cookies(config, response, result)
         return result
 
-    @router.post("/verify-email")
+    @router.post("/verify-email", dependencies=_verify_email_rl)
     async def verify_email_endpoint(
         data: EmailVerifyRequest,
         session: Annotated[AsyncSession, Depends(get_db)],

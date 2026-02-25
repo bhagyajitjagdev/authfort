@@ -4,7 +4,7 @@ __version__ = "0.0.9"
 
 from authfort.alembic_helper import alembic_exclude
 from authfort.authfort import AuthFort
-from authfort.config import CookieConfig
+from authfort.config import CookieConfig, RateLimitConfig
 from authfort.core.auth import AuthError
 from authfort.core.schemas import AuthResponse, AuthTokens, SessionResponse, UserResponse
 from authfort.events import (
@@ -22,6 +22,7 @@ from authfort.events import (
     PasswordChanged,
     PasswordReset,
     PasswordResetRequested,
+    RateLimitExceeded,
     RoleAdded,
     RoleRemoved,
     SessionRevoked,
@@ -59,6 +60,8 @@ __all__ = [
     "PasswordChanged",
     "PasswordReset",
     "PasswordResetRequested",
+    "RateLimitConfig",
+    "RateLimitExceeded",
     "RoleAdded",
     "RoleRemoved",
     "SessionResponse",
