@@ -12,7 +12,7 @@ class VerificationToken(Base):
     __tablename__ = "authfort_verification_tokens"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("authfort_users.id"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("authfort_users.id", ondelete="CASCADE"), index=True)
     token_hash: Mapped[str] = mapped_column(String(255), unique=True)
     type: Mapped[str] = mapped_column(String(20))
     expires_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False)

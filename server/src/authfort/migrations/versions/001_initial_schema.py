@@ -49,7 +49,7 @@ def upgrade() -> None:
     op.create_table(
         "authfort_accounts",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("authfort_users.id"), nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("authfort_users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("provider", sa.String(50), nullable=False),
         sa.Column("provider_account_id", sa.String(255), nullable=True),
         sa.Column("access_token", sa.Text(), nullable=True),
@@ -64,12 +64,12 @@ def upgrade() -> None:
     op.create_table(
         "authfort_refresh_tokens",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("authfort_users.id"), nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("authfort_users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("token_hash", sa.String(255), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("revoked", sa.Boolean(), nullable=False, server_default=sa.text("0")),
-        sa.Column("replaced_by", sa.Uuid(), sa.ForeignKey("authfort_refresh_tokens.id"), nullable=True),
+        sa.Column("replaced_by", sa.Uuid(), sa.ForeignKey("authfort_refresh_tokens.id", ondelete="SET NULL"), nullable=True),
         sa.Column("user_agent", sa.Text(), nullable=True),
         sa.Column("ip_address", sa.String(45), nullable=True),
     )
@@ -81,7 +81,7 @@ def upgrade() -> None:
     op.create_table(
         "authfort_user_roles",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("authfort_users.id"), nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("authfort_users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("role", sa.String(50), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint("user_id", "role"),
@@ -92,7 +92,7 @@ def upgrade() -> None:
     op.create_table(
         "authfort_verification_tokens",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("authfort_users.id"), nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("authfort_users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("token_hash", sa.String(255), nullable=False),
         sa.Column("type", sa.String(20), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),

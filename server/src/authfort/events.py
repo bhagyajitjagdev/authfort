@@ -200,6 +200,12 @@ class RateLimitExceeded(Event):
     limit: str = ""
     key_type: str = ""
 
+@dataclass(frozen=True, slots=True)
+class UserDeleted(Event):
+    """Fired when a user is deleted."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
 
 # ---------------------------------------------------------------------------
 # Event name mapping
@@ -229,6 +235,7 @@ EVENT_MAP: dict[str, type[Event]] = {
     "email_otp_requested": EmailOTPRequested,
     "email_otp_login": EmailOTPLogin,
     "rate_limit_exceeded": RateLimitExceeded,
+    "user_deleted": UserDeleted,
 }
 
 
