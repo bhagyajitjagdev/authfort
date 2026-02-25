@@ -32,6 +32,14 @@ class UserResponse(BaseModel):
     session_id: uuid.UUID | None = None
 
 
+class ListUsersResponse(BaseModel):
+    """Paginated list of users."""
+    users: list[UserResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 class SessionResponse(BaseModel):
     """A user session (refresh token) for session management UIs."""
     id: uuid.UUID

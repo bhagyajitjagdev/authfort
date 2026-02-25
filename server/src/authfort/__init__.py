@@ -6,7 +6,7 @@ from authfort.alembic_helper import alembic_exclude
 from authfort.authfort import AuthFort
 from authfort.config import CookieConfig, RateLimitConfig
 from authfort.core.auth import AuthError
-from authfort.core.schemas import AuthResponse, AuthTokens, SessionResponse, UserResponse
+from authfort.core.schemas import AuthResponse, AuthTokens, ListUsersResponse, SessionResponse, UserResponse
 from authfort.events import (
     EmailOTPLogin,
     EmailOTPRequested,
@@ -29,6 +29,7 @@ from authfort.events import (
     TokenRefreshed,
     UserBanned,
     UserCreated,
+    UserDeleted,
     UserUnbanned,
     UserUpdated,
 )
@@ -51,6 +52,7 @@ __all__ = [
     "GoogleProvider",
     "GitHubProvider",
     "KeyRotated",
+    "ListUsersResponse",
     "Login",
     "LoginFailed",
     "Logout",
@@ -69,6 +71,7 @@ __all__ = [
     "TokenRefreshed",
     "UserBanned",
     "UserCreated",
+    "UserDeleted",
     "UserResponse",
     "UserUnbanned",
     "UserUpdated",

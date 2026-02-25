@@ -28,6 +28,7 @@ from authfort.events import (
     RoleRemoved,
     SessionRevoked,
     UserBanned,
+    UserDeleted,
     UserUnbanned,
     UserUpdated,
     _current_collector,
@@ -499,6 +500,140 @@ class AuthFort:
         return result
 
     # ------ User management ------
+
+    async def list_users(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        query: str | None = None,
+        banned: bool | None = None,
+        role: str | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+    ):
+        """List users with pagination and filtering.
+
+        Args:
+            limit: Max users per page (default 50).
+            offset: Number of users to skip.
+            query: Case-insensitive partial match on email or name.
+            banned: Filter by banned status.
+            role: Filter by role.
+            sort_by: Sort field — "created_at", "email", or "name".
+            sort_order: "asc" or "desc" (default "desc").
+
+        Returns:
+            ListUsersResponse with users, total count, limit, and offset.
+        """
+        from authfort.core.schemas import ListUsersResponse, UserResponse
+        from authfort.repositories import role as role_repo
+        from authfort.repositories import user as user_repo
+
+        async with get_session(self._session_factory) as session:
+            users, total = await user_repo.list_users(
+                session,
+                limit=limit,
+                offset=offset,
+                query=query,
+                banned=banned,
+                role=role,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
+            user_responses = []
+            for u in users:
+                roles = await role_repo.get_roles(session, u.id)
+                user_responses.append(UserResponse(
+                    id=u.id,
+                    email=u.email,
+                    name=u.name,
+                    email_verified=u.email_verified,
+                    avatar_url=u.avatar_url,
+                    phone=u.phone,
+                    roles=roles,
+                    created_at=u.created_at,
+                ))
+        return ListUsersResponse(
+            users=user_responses,
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def get_user(self, user_id: uuid.UUID):
+        """Get a single user by ID.
+
+        Returns:
+            UserResponse with user data and roles.
+
+        Raises:
+            AuthError: If user not found.
+        """
+        from authfort.core.auth import AuthError
+        from authfort.core.schemas import UserResponse
+        from authfort.repositories import role as role_repo
+        from authfort.repositories import user as user_repo
+
+        async with get_session(self._session_factory) as session:
+            user = await user_repo.get_user_by_id(session, user_id)
+            if user is None:
+                raise AuthError("User not found", code="user_not_found", status_code=404)
+            roles = await role_repo.get_roles(session, user_id)
+        return UserResponse(
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            email_verified=user.email_verified,
+            avatar_url=user.avatar_url,
+            phone=user.phone,
+            roles=roles,
+            created_at=user.created_at,
+        )
+
+    async def delete_user(self, user_id: uuid.UUID) -> None:
+        """Delete a user and all related data.
+
+        Fires a UserDeleted event after successful deletion.
+
+        Raises:
+            ValueError: If user not found.
+        """
+        from authfort.repositories import user as user_repo
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            user = await user_repo.get_user_by_id(session, user_id)
+            if user is None:
+                raise ValueError(f"User {user_id} not found")
+            email = user.email
+            await user_repo.delete_user(session, user_id)
+            collector.collect("user_deleted", UserDeleted(user_id=user_id, email=email))
+        await collector.flush()
+
+    async def get_user_count(
+        self,
+        *,
+        query: str | None = None,
+        banned: bool | None = None,
+        role: str | None = None,
+    ) -> int:
+        """Count users with optional filters.
+
+        Args:
+            query: Case-insensitive partial match on email or name.
+            banned: Filter by banned status.
+            role: Filter by role.
+
+        Returns:
+            Number of matching users.
+        """
+        from authfort.repositories import user as user_repo
+
+        async with get_session(self._session_factory) as session:
+            return await user_repo.get_user_count(
+                session, query=query, banned=banned, role=role,
+            )
 
     _UNSET = object()
 

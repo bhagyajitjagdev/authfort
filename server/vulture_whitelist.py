@@ -13,6 +13,10 @@ AuthFort.cleanup_expired_keys
 AuthFort.cleanup_expired_tokens
 AuthFort.cleanup_expired_sessions
 AuthFort.get_jwks
+AuthFort.list_users
+AuthFort.get_user
+AuthFort.delete_user
+AuthFort.get_user_count
 AuthFort.fastapi_router
 AuthFort.jwks_router
 AuthFort.require_role
@@ -52,6 +56,9 @@ _.iss
 _.updated_at
 _.endpoint
 _.key_type
+_.total
+_.limit
+_.offset
 
 # ---------------------------------------------------------------------------
 # Alembic migration variables (required by Alembic framework)
