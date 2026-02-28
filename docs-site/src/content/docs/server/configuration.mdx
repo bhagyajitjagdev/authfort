@@ -27,6 +27,8 @@ auth = AuthFort(
     email_otp_ttl=300,
     allow_passwordless_signup=False,
     rate_limit=RateLimitConfig(),
+    trust_proxy=False,
+    trusted_proxies=["172.18.0.0/16"],
 )`;
 
 export const providersExample = `from authfort import GoogleProvider, GitHubProvider, GenericOIDCProvider
@@ -196,3 +198,28 @@ auth = AuthFort(
 Format: `"{count}/{period}"` where period is `sec`, `min`, `hour`, or `day`. Set to `None` to disable for that endpoint.
 
 See [Rate Limiting](/authfort/server/rate-limiting/) for details on IP/email-based limiting, events, and custom storage backends.
+
+### `trust_proxy`
+
+Whether to trust proxy headers (`X-Forwarded-For`, `X-Real-IP`) from any source. Default: `False`.
+
+Enable this when AuthFort runs behind a single reverse proxy (nginx, traefik, cloud load balancer) and you trust all incoming connections. The leftmost IP in `X-Forwarded-For` is used as the client IP for rate limiting and audit events.
+
+**Only enable this if AuthFort is not directly exposed to the internet.** An attacker can spoof `X-Forwarded-For` to bypass IP-based rate limiting.
+
+### `trusted_proxies`
+
+List of trusted proxy IPs or CIDR ranges. Default: `None`. **Recommended for production.**
+
+Only requests arriving from these addresses will have their proxy headers read. Requests from other IPs use `request.client.host` directly, preventing spoofing.
+
+Supports individual IPs and CIDR notation:
+
+```python
+auth = AuthFort(
+    database_url="...",
+    trusted_proxies=["172.18.0.0/16", "10.0.0.1"],
+)
+```
+
+When `trusted_proxies` is set, `trust_proxy` is ignored — the trusted list takes precedence. Networks are parsed once at startup using Python's `ipaddress` module (zero per-request overhead).

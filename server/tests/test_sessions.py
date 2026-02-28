@@ -236,3 +236,83 @@ class TestSessionResponseSerialization:
         assert "created_at" in json_data
         assert "expires_at" in json_data
         assert "revoked" in json_data
+
+
+class TestSessionStability:
+    """Verify session_id stays stable across refresh token rotation."""
+
+    async def test_refresh_preserves_session_id(self, auth: AuthFort):
+        """Session_id in auth response should be the same before and after refresh."""
+        email = unique_email()
+        result = await auth.create_user(email, "password123")
+        original_session_id = result.user.session_id
+
+        refreshed = await auth.refresh(result.tokens.refresh_token)
+        assert refreshed.user.session_id == original_session_id
+
+    async def test_active_sessions_no_duplicates_after_refresh(self, auth: AuthFort):
+        """After multiple refreshes, active_only should return 1 session, not N."""
+        email = unique_email()
+        result = await auth.create_user(email, "password123")
+        user_id = result.user.id
+
+        # Refresh 3 times
+        token = result.tokens.refresh_token
+        for _ in range(3):
+            r = await auth.refresh(token)
+            token = r.tokens.refresh_token
+
+        sessions = await auth.get_sessions(user_id, active_only=True)
+        assert len(sessions) == 1
+
+    async def test_all_sessions_no_duplicates_after_refresh(self, auth: AuthFort):
+        """get_sessions() without active_only deduplicates by session_id."""
+        email = unique_email()
+        result = await auth.create_user(email, "password123")
+        user_id = result.user.id
+
+        # Refresh 3 times — creates 3 additional tokens, all with same session_id
+        token = result.tokens.refresh_token
+        for _ in range(3):
+            r = await auth.refresh(token)
+            token = r.tokens.refresh_token
+
+        sessions = await auth.get_sessions(user_id)
+        assert len(sessions) == 1
+
+    async def test_revoke_session_works_after_refresh(self, auth: AuthFort):
+        """Revoking by session_id should work even after token rotation."""
+        email = unique_email()
+        result = await auth.create_user(email, "password123")
+        user_id = result.user.id
+        session_id = result.user.session_id
+
+        # Refresh to rotate the token
+        refreshed = await auth.refresh(result.tokens.refresh_token)
+
+        # Revoke by the original session_id
+        assert await auth.revoke_session(session_id) is True
+
+        # New refresh token should also be revoked (same session)
+        with pytest.raises(Exception):
+            await auth.refresh(refreshed.tokens.refresh_token)
+
+    async def test_exclude_by_session_id_after_refresh(self, auth: AuthFort):
+        """revoke_all(exclude=session_id) should keep that session alive after refresh."""
+        email = unique_email()
+        result = await auth.create_user(email, "password123")
+        user_id = result.user.id
+
+        # Login again to create a second session
+        result2 = await auth.login(email, "password123")
+
+        # Refresh session 1
+        refreshed = await auth.refresh(result.tokens.refresh_token)
+        session_1_id = refreshed.user.session_id
+
+        # Revoke all except session 1
+        await auth.revoke_all_sessions(user_id, exclude=session_1_id)
+
+        active = await auth.get_sessions(user_id, active_only=True)
+        assert len(active) == 1
+        assert active[0].id == session_1_id

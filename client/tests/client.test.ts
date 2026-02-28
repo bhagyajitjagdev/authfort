@@ -216,6 +216,38 @@ describe('AuthClient — cookie mode', () => {
     expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
+  it('deduplicates concurrent 401 refresh calls (cookie mode)', async () => {
+    // All 3 initial requests return 401
+    mockFetch.mockResolvedValueOnce(jsonResponse(null, 401)); // req A
+    mockFetch.mockResolvedValueOnce(jsonResponse(null, 401)); // req B
+    mockFetch.mockResolvedValueOnce(jsonResponse(null, 401)); // req C
+    // Single shared refresh → succeeds
+    mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));
+    // All 3 retries succeed
+    mockFetch.mockResolvedValueOnce(jsonResponse({ a: 1 }));
+    mockFetch.mockResolvedValueOnce(jsonResponse({ b: 2 }));
+    mockFetch.mockResolvedValueOnce(jsonResponse({ c: 3 }));
+
+    const [a, b, c] = await Promise.all([
+      client.fetch('http://api.example.com/a'),
+      client.fetch('http://api.example.com/b'),
+      client.fetch('http://api.example.com/c'),
+    ]);
+
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(c.status).toBe(200);
+
+    // 3 initial + 1 refresh (NOT 3) + 3 retries = 7 total
+    expect(mockFetch).toHaveBeenCalledTimes(7);
+
+    // Verify only 1 call to /refresh
+    const refreshCalls = mockFetch.mock.calls.filter(
+      (call: unknown[]) => call[0] === `${BASE_URL}/refresh`,
+    );
+    expect(refreshCalls).toHaveLength(1);
+  });
+
   it('fetch emits unauthenticated after failed retry', async () => {
     // Sign in first
     mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));

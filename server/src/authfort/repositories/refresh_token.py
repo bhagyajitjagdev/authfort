@@ -16,18 +16,26 @@ async def create_refresh_token(
     expires_at,
     user_agent: str | None = None,
     ip_address: str | None = None,
+    session_id: uuid.UUID | None = None,
 ) -> RefreshToken:
-    """Create a new refresh token record (store the hash, not the raw token)."""
+    """Create a new refresh token record (store the hash, not the raw token).
+
+    Args:
+        session_id: Stable session identifier carried across refresh rotations.
+            If None (new login), the token's own id is used as the session_id.
+    """
+    token_id = uuid.uuid4()
     token = RefreshToken(
+        id=token_id,
         user_id=user_id,
         token_hash=token_hash,
+        session_id=session_id if session_id is not None else token_id,
         expires_at=expires_at,
         user_agent=user_agent,
         ip_address=ip_address,
     )
     session.add(token)
     await session.flush()
-    await session.refresh(token)
     return token
 
 
@@ -75,14 +83,14 @@ async def revoke_all_user_refresh_tokens(
     Uses atomic SQL UPDATE to avoid race conditions with concurrent token creation.
 
     Args:
-        exclude: If provided, skip this token ID (keep one session alive).
+        exclude: If provided, keep all tokens belonging to this session_id alive.
     """
     stmt = sa_update(RefreshToken).where(
         RefreshToken.user_id == user_id,
         RefreshToken.revoked == False,
     )
     if exclude is not None:
-        stmt = stmt.where(RefreshToken.id != exclude)
+        stmt = stmt.where(RefreshToken.session_id != exclude)
     stmt = stmt.values(revoked=True)
     await session.execute(stmt)
     await session.flush()
@@ -134,16 +142,14 @@ async def revoke_session_by_id(
     session: AsyncSession,
     session_id: uuid.UUID,
 ) -> bool:
-    """Revoke a specific session (refresh token) by its ID.
+    """Revoke all refresh tokens belonging to a session.
 
-    Returns True if the session was found and revoked, False if not found or already revoked.
+    Returns True if at least one active token was revoked, False otherwise.
     """
-    statement = select(RefreshToken).where(RefreshToken.id == session_id)
-    result = (await session.execute(statement)).scalars()
-    token = result.first()
-    if token is None or token.revoked:
-        return False
-    token.revoked = True
-    session.add(token)
+    stmt = sa_update(RefreshToken).where(
+        RefreshToken.session_id == session_id,
+        RefreshToken.revoked == False,
+    ).values(revoked=True)
+    result = await session.execute(stmt)
     await session.flush()
-    return True
+    return result.rowcount > 0

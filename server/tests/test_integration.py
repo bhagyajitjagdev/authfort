@@ -231,6 +231,23 @@ class TestRefresh:
         assert response.status_code == 401
         assert response.json()["detail"]["error"] == "refresh_token_missing"
 
+    async def test_refresh_preserves_session_id_in_response(self, client: AsyncClient):
+        """session_id should remain stable across refresh token rotation."""
+        email = unique_email()
+        signup_response = await client.post("/auth/signup", json={
+            "email": email,
+            "password": "testpassword123",
+        })
+        signup_data = signup_response.json()
+        original_session_id = signup_data["user"]["session_id"]
+        refresh_token = signup_data["tokens"]["refresh_token"]
+
+        response = await client.post("/auth/refresh", json={
+            "refresh_token": refresh_token,
+        })
+        assert response.status_code == 200
+        assert response.json()["user"]["session_id"] == original_session_id
+
 
 class TestLogout:
     async def test_logout_success(self, client: AsyncClient):

@@ -9,6 +9,22 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.17
+
+### Added
+- `trust_proxy` config — trust `X-Forwarded-For` / `X-Real-IP` from any source
+- `trusted_proxies` config — only trust proxy headers from listed IPs/CIDRs (recommended for production)
+- Centralized IP extraction across all auth and OAuth endpoints
+- Stable `session_id` across refresh token rotation — JWT `sid` claim no longer changes on refresh
+- Migration `002_add_session_id` — adds `session_id` column (run `authfort migrate` to apply)
+- `get_sessions()` deduplicates by `session_id` — one entry per logical session
+- `revoke_session()` and `revoke_all_sessions(exclude=...)` operate on stable `session_id`
+
+### Fixed
+- **client**: Cookie-mode refresh deduplication — concurrent 401s share a single `/refresh` call
+
+---
+
 ## v0.0.16
 
 ### Fixed

@@ -198,6 +198,7 @@ async def refresh(
 
     response = await _issue_tokens(
         session, config=config, user=user, user_agent=user_agent, ip_address=ip_address,
+        session_id=stored_token.session_id or stored_token.id,
     )
 
     new_token_hash = hash_refresh_token(response.tokens.refresh_token)
@@ -770,8 +771,14 @@ async def _issue_tokens(
     user,
     user_agent: str | None = None,
     ip_address: str | None = None,
+    session_id: uuid.UUID | None = None,
 ) -> AuthResponse:
-    """Internal helper: create access token + refresh token for a user."""
+    """Internal helper: create access token + refresh token for a user.
+
+    Args:
+        session_id: Stable session identifier. If None (new login/signup),
+            the token's own id is used. If provided (refresh), carried forward.
+    """
     signing_key = await _get_or_create_signing_key(session, config)
 
     roles = await role_repo.get_roles(session, user.id)
@@ -786,6 +793,7 @@ async def _issue_tokens(
         expires_at=expires_at,
         user_agent=user_agent,
         ip_address=ip_address,
+        session_id=session_id,
     )
 
     access_token = create_access_token(
@@ -797,7 +805,7 @@ async def _issue_tokens(
         private_key=signing_key.private_key,
         config=config,
         name=user.name,
-        session_id=stored_token.id,
+        session_id=stored_token.session_id,
     )
 
     user_response = UserResponse(
@@ -810,7 +818,7 @@ async def _issue_tokens(
         banned=user.banned,
         roles=roles,
         created_at=user.created_at,
-        session_id=stored_token.id,
+        session_id=stored_token.session_id,
     )
 
     tokens = AuthTokens(

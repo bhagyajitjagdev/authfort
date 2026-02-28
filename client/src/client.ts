@@ -44,6 +44,7 @@ class AuthClientImpl implements AuthClient {
   >();
   private _tokenManager: TokenManager | null = null;
   private _initPromise: Promise<void> | null = null;
+  private _cookieRefreshPromise: Promise<boolean> | null = null;
 
   private readonly _baseUrl: string;
   private readonly _tokenMode: 'cookie' | 'bearer';
@@ -162,16 +163,7 @@ class AuthClientImpl implements AuthClient {
         const result = await this._tokenManager!.refresh();
         refreshed = result !== null;
       } else {
-        const refreshResponse = await globalThis.fetch(
-          `${this._baseUrl}/refresh`,
-          {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-          },
-        );
-        refreshed = refreshResponse.ok;
+        refreshed = await this._doCookieRefresh();
       }
 
       if (refreshed) {
@@ -471,6 +463,31 @@ class AuthClientImpl implements AuthClient {
   // ---------------------------------------------------------------------------
   // Private
   // ---------------------------------------------------------------------------
+
+  /**
+   * Deduplicated cookie-mode refresh. Multiple concurrent 401 handlers
+   * share a single /refresh request instead of each firing their own.
+   */
+  private _doCookieRefresh(): Promise<boolean> {
+    if (this._cookieRefreshPromise) {
+      return this._cookieRefreshPromise;
+    }
+
+    this._cookieRefreshPromise = globalThis
+      .fetch(`${this._baseUrl}/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      .then((r) => r.ok)
+      .catch(() => false)
+      .finally(() => {
+        this._cookieRefreshPromise = null;
+      });
+
+    return this._cookieRefreshPromise;
+  }
 
   private _setAuthenticated(user: AuthUser): void {
     this._setState('authenticated', user);

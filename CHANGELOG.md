@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.17] - 2026-02-28
+
+### Added
+- **server**: `trust_proxy` config — trust `X-Forwarded-For` / `X-Real-IP` headers from any source (simple mode for single-proxy setups)
+- **server**: `trusted_proxies` config — only trust proxy headers from listed IPs/CIDRs, e.g. `["172.18.0.0/16"]` (recommended for production, prevents spoofing)
+- **server**: Centralized `get_client_ip()` helper replaces 12 inline `request.client.host` calls across all auth and OAuth endpoints
+- **server**: CIDR networks parsed once at startup via Python `ipaddress` module (zero per-request overhead)
+- **server**: Stable `session_id` across refresh token rotation — `session_id` in JWT (`sid` claim) no longer changes on every refresh, fixing session list UIs that showed phantom entries after each token rotation
+- **server**: New migration `002_add_session_id` — adds `session_id` column to `authfort_refresh_tokens` (run `authfort migrate` to apply)
+- **server**: `get_sessions()` now deduplicates by `session_id` — returns one entry per logical session instead of one per refresh token
+- **server**: `revoke_session()` and `revoke_all_sessions(exclude=...)` now operate on `session_id` — revoking a session invalidates all tokens in its rotation chain
+
+### Fixed
+- **client**: Cookie-mode refresh deduplication — multiple concurrent 401 responses now share a single `/refresh` call instead of each firing their own (fixes phantom sessions and wasted refresh token rotations)
+
 ## [0.0.16] - 2026-02-28
 
 ### Fixed
@@ -243,6 +258,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.17]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.16...v0.0.17
 [0.0.16]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.14...v0.0.15
 [0.0.14]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.13...v0.0.14

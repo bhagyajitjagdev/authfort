@@ -85,6 +85,34 @@ The `rate_limit_exceeded` event fires on every rejected request with:
 | `limit` | `str` | The limit that was exceeded |
 | `key_type` | `str` | `"ip"` or `"email"` |
 
+## Behind a Reverse Proxy
+
+When AuthFort runs behind a reverse proxy (nginx, traefik, Docker), `request.client.host` returns the proxy's internal IP. Without proxy configuration, **all users share a single rate limit bucket**.
+
+**Option 1: Trust all proxies** (simple, for single-proxy setups)
+
+```python
+auth = AuthFort(
+    database_url="...",
+    trust_proxy=True,
+    rate_limit=RateLimitConfig(),
+)
+```
+
+**Option 2: Trust specific proxies** (recommended for production)
+
+```python
+auth = AuthFort(
+    database_url="...",
+    trusted_proxies=["172.18.0.0/16"],
+    rate_limit=RateLimitConfig(),
+)
+```
+
+AuthFort reads `X-Forwarded-For` (leftmost value) then falls back to `X-Real-IP`. If neither header is present, `request.client.host` is used.
+
+See [Configuration](/authfort/server/configuration/) for details on `trust_proxy` and `trusted_proxies`.
+
 ## Custom Storage Backend
 
 The default `InMemoryStore` works for single-process deployments. For multi-process or multi-server setups, implement the `RateLimitStore` protocol with a shared backend like Redis.

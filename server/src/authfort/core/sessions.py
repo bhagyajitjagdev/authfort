@@ -32,16 +32,27 @@ async def get_sessions(
     tokens = await refresh_token_repo.get_sessions_by_user(
         session, user_id, active_only=active_only,
     )
+
+    # Deduplicate by session_id — tokens are ordered by created_at DESC,
+    # so the first token per session_id is the most recent one.
+    seen: set[uuid.UUID] = set()
+    unique: list = []
+    for t in tokens:
+        sid = t.session_id if t.session_id is not None else t.id
+        if sid not in seen:
+            seen.add(sid)
+            unique.append(t)
+
     return [
         SessionResponse(
-            id=t.id,
+            id=t.session_id if t.session_id is not None else t.id,
             user_agent=t.user_agent,
             ip_address=t.ip_address,
             created_at=t.created_at,
             expires_at=t.expires_at,
             revoked=t.revoked,
         )
-        for t in tokens
+        for t in unique
     ]
 
 

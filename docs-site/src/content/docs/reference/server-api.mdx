@@ -26,6 +26,8 @@ export const constructor = `AuthFort(
     email_otp_ttl: int = 300,
     allow_passwordless_signup: bool = False,
     rate_limit: RateLimitConfig | None = None,
+    trust_proxy: bool = False,
+    trusted_proxies: list[str] | None = None,
 )`;
 
 export const hookDecorator = `@auth.on("login")
@@ -282,9 +284,11 @@ Count users with optional filters. Same filters as `list_users()`.
 
 ## Session Management
 
+The `session_id` is stable across refresh token rotations — it is assigned when a user logs in and stays the same through all subsequent refreshes. The JWT `sid` claim contains this stable ID. Use it to identify and manage individual sessions (e.g. "sign out other devices").
+
 ### `get_sessions(user_id, *, active_only=False)`
 
-List sessions for a user.
+List sessions for a user. Results are deduplicated by `session_id` — each entry represents one logical session regardless of how many token rotations have occurred.
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -295,7 +299,7 @@ List sessions for a user.
 
 ### `revoke_session(session_id)`
 
-Revoke a single session.
+Revoke a session. Invalidates all refresh tokens in that session's rotation chain.
 
 **Returns:** `bool` — `True` if found and revoked
 
@@ -306,7 +310,7 @@ Revoke all sessions for a user. Bumps token version.
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `user_id` | `UUID` | — | User ID |
-| `exclude` | `UUID \| None` | `None` | Session ID to keep alive |
+| `exclude` | `UUID \| None` | `None` | Session ID to keep alive (e.g. the current session) |
 
 **Returns:** `None`
 

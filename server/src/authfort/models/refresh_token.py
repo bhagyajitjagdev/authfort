@@ -17,6 +17,7 @@ class RefreshToken(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("authfort_users.id", ondelete="CASCADE"), index=True)
     token_hash: Mapped[str] = mapped_column(String(255), unique=True)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, default=None, index=True)
     expires_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)

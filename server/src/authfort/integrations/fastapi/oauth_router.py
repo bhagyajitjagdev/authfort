@@ -13,6 +13,7 @@ from authfort.core.oauth import create_oauth_state, oauth_authenticate, verify_o
 from authfort.core.schemas import AuthResponse
 from authfort.events import HookRegistry, get_collector
 from authfort.integrations.fastapi.cookies import set_auth_cookies
+from authfort.integrations.fastapi.proxy import get_client_ip
 from authfort.integrations.fastapi.router import _auth_error_detail, _create_rate_limit_dep
 from authfort.providers.base import OAuthProvider
 
@@ -38,7 +39,7 @@ def create_oauth_router(
     _authorize_rl = []
     if rl is not None and rl.oauth_authorize and rate_limit_store is not None:
         _authorize_rl = [Depends(_create_rate_limit_dep(
-            hooks, rate_limit_store, "oauth_authorize", rl.oauth_authorize,
+            config, hooks, rate_limit_store, "oauth_authorize", rl.oauth_authorize,
         ))]
 
     @router.get("/oauth/{provider_name}/authorize", dependencies=_authorize_rl)
@@ -106,7 +107,7 @@ def create_oauth_router(
                 collector.collect("login_failed", LoginFailed(
                     email=None,
                     reason=reason,
-                    ip_address=request.client.host if request.client else None,
+                    ip_address=get_client_ip(request, config),
                     user_agent=request.headers.get("User-Agent"),
                 ))
 
@@ -152,7 +153,7 @@ def create_oauth_router(
                 redirect_uri=redirect_uri,
                 code_verifier=state_data.code_verifier,
                 user_agent=request.headers.get("User-Agent"),
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request, config),
                 events=get_collector(),
             )
         except AuthError as e:

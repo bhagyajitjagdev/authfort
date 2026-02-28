@@ -86,9 +86,28 @@ class AuthFort:
         email_otp_ttl: int = 300,
         allow_passwordless_signup: bool = False,
         rate_limit: RateLimitConfig | None = None,
+        trust_proxy: bool = False,
+        trusted_proxies: list[str] | None = None,
     ) -> None:
         if rsa_key_size < 2048:
             raise ValueError("rsa_key_size must be >= 2048")
+
+        # Parse trusted_proxies strings into network objects once at init
+        import ipaddress
+
+        parsed_networks: tuple = ()
+        if trusted_proxies:
+            nets = []
+            for entry in trusted_proxies:
+                try:
+                    nets.append(ipaddress.ip_network(entry, strict=False))
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid IP/CIDR in trusted_proxies: '{entry}'. "
+                        "Expected an IP address or CIDR (e.g. '10.0.0.1', '172.18.0.0/16')."
+                    )
+            parsed_networks = tuple(nets)
+
         self._config = AuthFortConfig(
             database_url=database_url,
             access_token_expire_seconds=access_token_ttl,
@@ -106,6 +125,8 @@ class AuthFort:
             email_otp_ttl_seconds=email_otp_ttl,
             allow_passwordless_signup=allow_passwordless_signup,
             rate_limit=rate_limit,
+            trust_proxy=trust_proxy,
+            trusted_proxy_networks=parsed_networks,
         )
         self._engine = create_engine(database_url)
         self._session_factory = create_session_factory(self._engine)

@@ -349,10 +349,11 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.16
+### Latest — v0.0.17
 
-- `change_password()` returns 400 (not 401) for wrong old password
-- Login on OAuth-only account returns 400 (not 401) with `oauth_account` code
+- `trust_proxy` and `trusted_proxies` config — real client IP extraction behind reverse proxies (nginx, traefik, Docker)
+- Stable `session_id` across refresh token rotation — fixes session list UIs showing phantom entries
+- Cookie-mode refresh deduplication in client SDK — concurrent 401s share a single refresh call
 
 ## License
 

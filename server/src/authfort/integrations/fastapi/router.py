@@ -34,6 +34,7 @@ from authfort.core.schemas import (
 from authfort.events import HookRegistry, LoginFailed, RateLimitExceeded, get_collector
 from authfort.integrations.fastapi.cookies import clear_auth_cookies, set_auth_cookies
 from authfort.integrations.fastapi.deps import create_current_user_dep
+from authfort.integrations.fastapi.proxy import get_client_ip
 
 
 def _auth_error_detail(e: AuthError) -> dict:
@@ -45,6 +46,7 @@ def _auth_error_detail(e: AuthError) -> dict:
 
 
 def _create_rate_limit_dep(
+    config: AuthFortConfig,
     hooks: HookRegistry,
     store,
     endpoint_name: str,
@@ -56,7 +58,7 @@ def _create_rate_limit_dep(
     limit = parse_rate_limit(limit_str)
 
     async def check_rate_limit(request: Request):
-        ip = request.client.host if request.client else "unknown"
+        ip = get_client_ip(request, config) or "unknown"
         ip_key = f"ip:{ip}:{endpoint_name}"
         allowed, remaining, retry_after = store.hit(ip_key, limit)
 
@@ -143,17 +145,17 @@ def create_auth_router(
 
     if rl is not None and rate_limit_store is not None:
         if rl.signup:
-            _signup_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "signup", rl.signup))]
+            _signup_rl = [Depends(_create_rate_limit_dep(config, hooks, rate_limit_store, "signup", rl.signup))]
         if rl.login:
-            _login_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "login", rl.login))]
+            _login_rl = [Depends(_create_rate_limit_dep(config, hooks, rate_limit_store, "login", rl.login))]
         if rl.refresh:
-            _refresh_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "refresh", rl.refresh))]
+            _refresh_rl = [Depends(_create_rate_limit_dep(config, hooks, rate_limit_store, "refresh", rl.refresh))]
         if rl.magic_link:
-            _magic_link_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "magic_link", rl.magic_link))]
+            _magic_link_rl = [Depends(_create_rate_limit_dep(config, hooks, rate_limit_store, "magic_link", rl.magic_link))]
         if rl.otp:
-            _otp_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "otp", rl.otp))]
+            _otp_rl = [Depends(_create_rate_limit_dep(config, hooks, rate_limit_store, "otp", rl.otp))]
         if rl.verify_email:
-            _verify_email_rl = [Depends(_create_rate_limit_dep(hooks, rate_limit_store, "verify_email", rl.verify_email))]
+            _verify_email_rl = [Depends(_create_rate_limit_dep(config, hooks, rate_limit_store, "verify_email", rl.verify_email))]
 
     @router.post("/signup", response_model=AuthResponse, status_code=201, dependencies=_signup_rl)
     async def signup_endpoint(
@@ -166,7 +168,7 @@ def create_auth_router(
         if rl is not None and rl.signup and rate_limit_store is not None:
             await _check_email_rate_limit(
                 hooks, rate_limit_store, "signup", rl.signup,
-                data.email, request.client.host if request.client else None,
+                data.email, get_client_ip(request, config),
             )
         if not config.allow_signup:
             raise HTTPException(
@@ -183,7 +185,7 @@ def create_auth_router(
                 avatar_url=data.avatar_url,
                 phone=data.phone,
                 user_agent=request.headers.get("User-Agent"),
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request, config),
                 events=get_collector(),
             )
         except AuthError as e:
@@ -203,7 +205,7 @@ def create_auth_router(
         if rl is not None and rl.login and rate_limit_store is not None:
             await _check_email_rate_limit(
                 hooks, rate_limit_store, "login", rl.login,
-                data.email, request.client.host if request.client else None,
+                data.email, get_client_ip(request, config),
             )
         try:
             result = await login(
@@ -212,7 +214,7 @@ def create_auth_router(
                 email=data.email,
                 password=data.password,
                 user_agent=request.headers.get("User-Agent"),
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request, config),
                 events=get_collector(),
             )
         except AuthError as e:
@@ -220,7 +222,7 @@ def create_auth_router(
             await hooks.emit("login_failed", LoginFailed(
                 email=data.email,
                 reason=e.code,
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request, config),
                 user_agent=request.headers.get("User-Agent"),
             ))
             raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
@@ -254,7 +256,7 @@ def create_auth_router(
                 config=config,
                 raw_refresh_token=raw_refresh_token,
                 user_agent=request.headers.get("User-Agent"),
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request, config),
                 events=get_collector(),
             )
         except AuthError as e:
@@ -325,7 +327,7 @@ def create_auth_router(
                 config=config,
                 token=data.token,
                 user_agent=request.headers.get("User-Agent"),
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request, config),
                 events=get_collector(),
             )
         except AuthError as e:
@@ -361,7 +363,7 @@ def create_auth_router(
         if rl is not None and rl.otp and rate_limit_store is not None:
             await _check_email_rate_limit(
                 hooks, rate_limit_store, "otp", rl.otp,
-                data.email, request.client.host if request.client else None,
+                data.email, get_client_ip(request, config),
             )
         try:
             result = await verify_email_otp(
@@ -370,7 +372,7 @@ def create_auth_router(
                 email=data.email,
                 code=data.code,
                 user_agent=request.headers.get("User-Agent"),
-                ip_address=request.client.host if request.client else None,
+                ip_address=get_client_ip(request, config),
                 events=get_collector(),
             )
         except AuthError as e:
