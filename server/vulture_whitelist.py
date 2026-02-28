@@ -70,10 +70,19 @@ _.depends_on
 _.downgrade
 
 # ---------------------------------------------------------------------------
-# Alembic include_object callback params (required by signature)
+# Alembic include_object / include_name callback params (required by signature)
 # ---------------------------------------------------------------------------
 _.compare_to
 _.reflected
+_.parent_names
+
+# ---------------------------------------------------------------------------
+# Public helpers (used by consumers, not internally)
+# ---------------------------------------------------------------------------
+from authfort.alembic_helper import register_foreign_tables, alembic_filters, AUTHFORT_TABLES
+register_foreign_tables
+alembic_filters
+AUTHFORT_TABLES
 
 # ---------------------------------------------------------------------------
 # SQLAlchemy TypeDecorator (required by SQLAlchemy framework)

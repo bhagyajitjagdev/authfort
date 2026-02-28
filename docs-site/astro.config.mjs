@@ -102,6 +102,7 @@ export default defineConfig({
           collapsed: true,
           items: [
             { label: 'Server API', slug: 'reference/server-api' },
+            { label: 'Server CLI & Helpers', slug: 'reference/server-cli' },
             { label: 'Server Config', slug: 'reference/server-config' },
             { label: 'Server Types', slug: 'reference/server-types' },
             { label: 'Server Events', slug: 'reference/server-events' },

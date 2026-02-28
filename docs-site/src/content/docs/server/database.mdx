@@ -19,27 +19,28 @@ export const mysqlExample = `auth = AuthFort(
     database_url="mysql+aiomysql://user:pass@localhost:3306/mydb",
 )`;
 
-export const migrateExample = `from contextlib import asynccontextmanager
+export const migrateCliExample = `authfort migrate --database-url "postgresql+asyncpg://user:pass@localhost:5432/mydb"`;
 
-@asynccontextmanager
-async def lifespan(app):
-    await auth.migrate()
-    yield
-    await auth.dispose()`;
+export const migrateCodeExample = `# Alternative: run migrations programmatically (e.g. in tests)
+await auth.migrate()`;
 
-export const alembicExclude = `from authfort import alembic_exclude
-from authfort.models import Base as AuthFortBase
-from your_app.models import Base as AppBase
+export const alembicFiltersExample = `from authfort import alembic_filters, register_foreign_tables
+from sqlalchemy.orm import DeclarativeBase
 
-# Include both metadata sets so Alembic sees all tables
-target_metadata = [AppBase.metadata, AuthFortBase.metadata]
+class Base(DeclarativeBase):
+    pass
+
+# Register AuthFort table stubs so your models can FK to authfort_users
+register_foreign_tables(Base.metadata)
+
+target_metadata = Base.metadata
 
 def run_migrations_online():
     # ...
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        include_name=alembic_exclude(),  # Skip authfort_* tables
+        **alembic_filters(),  # Skip authfort_* tables
     )`;
 
 export const separateDb = `# Your app
@@ -76,11 +77,13 @@ Requires: `pip install authfort[mysql]`
 
 ## Migrations
 
-AuthFort includes bundled Alembic migrations. Run them at startup:
+AuthFort includes bundled Alembic migrations. Run them via the CLI before starting your app:
 
-<CodeBlock code={migrateExample} />
+<CodeBlock title="Terminal" lang="bash" code={migrateCliExample} />
 
-`migrate()` is idempotent — it only runs pending migrations. Safe to call on every startup.
+The command is idempotent — it only runs pending migrations. Run it once on setup and again after upgrading AuthFort.
+
+<CodeBlock code={migrateCodeExample} />
 
 All AuthFort tables are prefixed with `authfort_` to avoid conflicts with your application's tables:
 
@@ -94,11 +97,14 @@ All AuthFort tables are prefixed with `authfort_` to avoid conflicts with your a
 
 ## Sharing a Database
 
-If your application uses the same database, AuthFort's tables coexist with yours. When running Alembic for your own migrations, use `alembic_exclude()` to filter out AuthFort's tables:
+If your application uses the same database, AuthFort's tables coexist with yours. Two helpers make this seamless:
 
-<CodeBlock title="your_app/alembic/env.py" code={alembicExclude} />
+- **`register_foreign_tables(metadata)`** — registers stub tables so your models can `ForeignKey("authfort_users.id")`
+- **`alembic_filters()`** — prevents Alembic from generating migrations for AuthFort's tables
 
-This prevents Alembic from generating migrations for AuthFort's tables.
+<CodeBlock title="your_app/alembic/env.py" code={alembicFiltersExample} />
+
+`alembic_filters()` returns both `include_name` and `include_object` filters, so Alembic won't try to create, modify, or drop any `authfort_*` tables.
 
 ## Separate Database
 

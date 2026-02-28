@@ -9,6 +9,18 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.15
+
+### Added
+- `authfort migrate` CLI command — run migrations without a bootstrap script (`uvx authfort migrate --database-url "..."`)
+- `register_foreign_tables(metadata)` — register AuthFort table stubs for FK resolution in consumer models
+- `alembic_filters()` — returns both `include_name` and `include_object` filters for `context.configure(**alembic_filters())`
+
+### Removed
+- `alembic_exclude()` — replaced by `alembic_filters()`
+
+---
+
 ## v0.0.14
 
 ### Fixed

@@ -1,0 +1,75 @@
+---
+title: CLI & Helpers
+description: Command-line tools and Alembic integration helpers.
+sidebar:
+  order: 6
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+## CLI Commands
+
+The `authfort` command is available after installing the package.
+
+### `authfort migrate`
+
+Run bundled Alembic migrations to create or update AuthFort database tables.
+
+```bash
+authfort migrate --database-url "postgresql+asyncpg://user:pass@localhost/mydb"
+```
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--database-url` | Yes | Async SQLAlchemy database URL |
+
+The command is idempotent — it only applies pending migrations. Run it once on initial setup and again after upgrading AuthFort.
+
+Also works with `uvx`:
+
+```bash
+uvx authfort migrate --database-url "sqlite+aiosqlite:///auth.db"
+```
+
+---
+
+## Alembic Helpers
+
+Helpers for applications that share a database with AuthFort and use their own Alembic setup.
+
+### `register_foreign_tables(metadata)`
+
+Register stub tables in your MetaData so your models can use `ForeignKey("authfort_users.id")`.
+
+```python
+from sqlalchemy.orm import DeclarativeBase
+from authfort import register_foreign_tables
+
+class Base(DeclarativeBase):
+    pass
+
+register_foreign_tables(Base.metadata)
+```
+
+Call this **before** defining models that FK to AuthFort tables. Registers `authfort_users` and `authfort_user_roles` stubs (minimal — just the primary key column).
+
+Idempotent — safe to call multiple times.
+
+### `alembic_filters()`
+
+Returns a dict with `include_name` and `include_object` filter functions that skip all AuthFort-managed tables.
+
+```python
+from authfort import alembic_filters
+
+context.configure(
+    connection=connection,
+    target_metadata=target_metadata,
+    **alembic_filters(),
+)
+```
+
+**Returns:** `{"include_name": Callable, "include_object": Callable}`
+
+Filtered tables: `authfort_users`, `authfort_accounts`, `authfort_refresh_tokens`, `authfort_user_roles`, `authfort_signing_keys`, `authfort_verification_tokens`, `authfort_alembic_version`.
+

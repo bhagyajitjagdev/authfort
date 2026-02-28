@@ -1,4 +1,4 @@
-"""Tests for the internal migration system and alembic_exclude helper."""
+"""Tests for the internal migration system."""
 
 import os
 import tempfile
@@ -8,7 +8,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import inspect, text
 
-from authfort import AuthFort, CookieConfig, alembic_exclude
+from authfort import AuthFort, CookieConfig
 
 AUTHFORT_TABLES = [
     "authfort_users",
@@ -74,20 +74,3 @@ class TestMigrate:
         assert login_result.user.email == email
 
 
-class TestAlembicExclude:
-    def test_skips_authfort_tables(self):
-        """The filter returns False for authfort_* tables."""
-        filter_fn = alembic_exclude()
-        assert filter_fn(None, "authfort_users", "table", True, None) is False
-        assert filter_fn(None, "authfort_refresh_tokens", "table", True, None) is False
-
-    def test_allows_other_tables(self):
-        """The filter returns True for non-authfort tables."""
-        filter_fn = alembic_exclude()
-        assert filter_fn(None, "my_table", "table", True, None) is True
-        assert filter_fn(None, "users", "table", True, None) is True
-
-    def test_allows_non_table_objects(self):
-        """The filter returns True for non-table objects like indexes."""
-        filter_fn = alembic_exclude()
-        assert filter_fn(None, "authfort_users", "index", True, None) is True

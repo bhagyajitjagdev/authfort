@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.15] - 2026-02-28
+
+### Added
+- **server**: `authfort migrate` CLI command — run migrations without a bootstrap script (`uvx authfort migrate --database-url "..."`)
+- **server**: `register_foreign_tables(metadata)` — register AuthFort table stubs for FK resolution in consumer models
+- **server**: `alembic_filters()` — returns both `include_name` and `include_object` filters for `context.configure(**alembic_filters())`
+
+### Removed
+- **server**: `alembic_exclude()` — replaced by `alembic_filters()`
+
 ## [0.0.14] - 2026-02-28
 
 ### Fixed
@@ -227,6 +237,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.15]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.14...v0.0.15
 [0.0.14]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.12...v0.0.13
 [0.0.12]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.11...v0.0.12

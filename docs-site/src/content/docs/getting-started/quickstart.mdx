@@ -20,7 +20,6 @@ auth = AuthFort(
 
 @asynccontextmanager
 async def lifespan(app):
-    await auth.migrate()
     yield
     await auth.dispose()
 
@@ -64,7 +63,13 @@ This guide creates a working FastAPI application with signup, login, protected r
 
    <CodeBlock title="main.py" code={mainCode} />
 
-3. **Run it**
+3. **Run migrations**
+
+   <CodeBlock title="Terminal" lang="bash" code='authfort migrate --database-url "sqlite+aiosqlite:///auth.db"' />
+
+   This creates the database tables. You only need to run this once (and again after upgrading AuthFort).
+
+4. **Run it**
 
    <CodeBlock title="Terminal" lang="bash" code="uvicorn main:app --reload" />
 

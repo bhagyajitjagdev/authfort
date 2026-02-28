@@ -1,8 +1,8 @@
 """AuthFort — Authentication and authorization library for Python."""
 
-__version__ = "0.0.9"
+__version__ = "0.0.15"
 
-from authfort.alembic_helper import alembic_exclude
+from authfort.alembic_helper import alembic_filters, register_foreign_tables
 from authfort.authfort import AuthFort
 from authfort.config import CookieConfig, RateLimitConfig
 from authfort.core.auth import AuthError
@@ -79,5 +79,6 @@ __all__ = [
     "UserResponse",
     "UserUnbanned",
     "UserUpdated",
-    "alembic_exclude",
+    "alembic_filters",
+    "register_foreign_tables",
 ]

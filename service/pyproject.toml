@@ -1,6 +1,6 @@
 [project]
 name = "authfort-service"
-version = "0.0.14"
+version = "0.0.15"
 description = "Lightweight JWT verification for AuthFort-powered microservices"
 readme = "README.md"
 license = {text = "MIT"}

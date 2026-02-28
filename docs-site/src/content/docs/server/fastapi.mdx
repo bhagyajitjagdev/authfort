@@ -18,7 +18,6 @@ auth = AuthFort(
 
 @asynccontextmanager
 async def lifespan(app):
-    await auth.migrate()
     yield
     await auth.dispose()
 
@@ -94,6 +93,12 @@ AuthFort provides first-class FastAPI integration via routers and dependencies.
 ## Setup
 
 <CodeBlock title="main.py" code={fullSetup} />
+
+Before starting the app, run migrations once:
+
+```bash
+authfort migrate --database-url "sqlite+aiosqlite:///auth.db"
+```
 
 This gives you:
 
