@@ -349,9 +349,10 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.13
+### Latest — v0.0.16
 
-- `AuthUser` and `AuthUserRole` exports for ORM JOINs
+- `change_password()` returns 400 (not 401) for wrong old password
+- Login on OAuth-only account returns 400 (not 401) with `oauth_account` code
 
 ## License
 

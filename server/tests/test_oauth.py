@@ -518,7 +518,7 @@ class TestCrossAccountScenarios:
             "password": "anypassword",
         })
 
-        assert login_res.status_code == 401
+        assert login_res.status_code == 400
         detail = login_res.json()["detail"]
         assert detail["error"] == "oauth_account"
         assert detail["message"] == "This account uses social login"
@@ -557,7 +557,7 @@ class TestCrossAccountScenarios:
             "password": "anypassword",
         })
 
-        assert login_res.status_code == 401
+        assert login_res.status_code == 400
         detail = login_res.json()["detail"]
         assert detail["error"] == "oauth_account"
         assert "google" in detail["providers"]

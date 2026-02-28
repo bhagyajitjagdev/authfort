@@ -9,6 +9,14 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.16
+
+### Fixed
+- `change_password()` returns 400 (not 401) for wrong old password — prevents client SDK 401 retry loop
+- Login on OAuth-only account returns 400 (not 401) with `oauth_account` code — wrong auth method is a bad request, not an auth failure
+
+---
+
 ## v0.0.15
 
 ### Added

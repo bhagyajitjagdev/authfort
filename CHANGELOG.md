@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.16] - 2026-02-28
+
+### Fixed
+- **server**: `change_password()` now returns 400 (not 401) for wrong old password — the request is already authenticated via access token, so a wrong confirmation field is a validation error, not an auth failure. Prevents `authfort-client` from triggering a useless 401 retry loop.
+- **server**: Login on OAuth-only account now returns 400 (not 401) with `oauth_account` code — the user is identified but using the wrong auth method, which is a bad request, not an authentication failure.
+
 ## [0.0.15] - 2026-02-28
 
 ### Added
@@ -237,6 +243,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.16]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.14...v0.0.15
 [0.0.14]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.13...v0.0.14
 [0.0.13]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.12...v0.0.13

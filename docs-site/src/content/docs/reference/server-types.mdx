@@ -138,13 +138,13 @@ Exception raised by all AuthFort methods on failure.
 |------|--------|---------|
 | `invalid_credentials` | 401 | Wrong email or password |
 | `user_exists` | 409 | Email already registered |
-| `oauth_account` | 401 | Account uses social login |
+| `oauth_account` | 400 | Account uses social login |
 | `user_banned` | 403 | Account is banned |
 | `signup_disabled` | 403 | Public signup is disabled |
 | `refresh_token_invalid` | 401 | Refresh token invalid |
 | `refresh_token_expired` | 401 | Refresh token expired |
 | `user_not_found` | 404 | User not found |
-| `invalid_password` | 401 | Old password incorrect (change password) |
+| `invalid_password` | 400 | Old password incorrect (change password) |
 | `invalid_reset_token` | 400 | Reset token invalid or expired |
 | `oauth_state_invalid` | 400 | Invalid OAuth state |
 | `oauth_state_expired` | 400 | OAuth state expired |

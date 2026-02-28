@@ -134,7 +134,7 @@ async def login(
         raise AuthError(
             "This account uses social login",
             code="oauth_account",
-            status_code=401,
+            status_code=400,
             providers=providers,
         )
 
@@ -354,7 +354,7 @@ async def change_password(
     Raises:
         AuthError: If user not found (code: user_not_found, status: 404).
         AuthError: If user is OAuth-only (code: oauth_account, status: 400).
-        AuthError: If old password is wrong (code: invalid_password, status: 401).
+        AuthError: If old password is wrong (code: invalid_password, status: 400).
     """
     user = await user_repo.get_user_by_id(session, user_id)
     if user is None:
@@ -368,7 +368,7 @@ async def change_password(
         )
 
     if not verify_password(old_password, user.password_hash):
-        raise AuthError("Invalid password", code="invalid_password", status_code=401)
+        raise AuthError("Invalid password", code="invalid_password", status_code=400)
 
     hashed = hash_password(new_password)
     await user_repo.update_user(session, user, password_hash=hashed)

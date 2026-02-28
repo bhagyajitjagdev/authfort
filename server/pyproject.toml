@@ -1,6 +1,6 @@
 [project]
 name = "authfort"
-version = "0.0.15"
+version = "0.0.16"
 description = "Comprehensive authentication and authorization library for Python"
 readme = "README.md"
 license = {text = "MIT"}

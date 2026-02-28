@@ -1,6 +1,6 @@
 """AuthFort — Authentication and authorization library for Python."""
 
-__version__ = "0.0.15"
+__version__ = "0.0.16"
 
 from authfort.alembic_helper import alembic_filters, register_foreign_tables
 from authfort.authfort import AuthFort
