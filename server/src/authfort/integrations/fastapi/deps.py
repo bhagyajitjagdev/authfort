@@ -82,6 +82,7 @@ def create_current_user_dep(config: AuthFortConfig, get_db: Callable):
             email_verified=user.email_verified,
             avatar_url=user.avatar_url,
             phone=user.phone,
+            banned=user.banned,
             roles=roles,
             created_at=user.created_at,
             session_id=session_id,

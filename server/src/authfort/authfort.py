@@ -551,6 +551,7 @@ class AuthFort:
                     email_verified=u.email_verified,
                     avatar_url=u.avatar_url,
                     phone=u.phone,
+                    banned=u.banned,
                     roles=roles,
                     created_at=u.created_at,
                 ))
@@ -587,6 +588,7 @@ class AuthFort:
             email_verified=user.email_verified,
             avatar_url=user.avatar_url,
             phone=user.phone,
+            banned=user.banned,
             roles=roles,
             created_at=user.created_at,
         )
@@ -695,6 +697,7 @@ class AuthFort:
             email_verified=user.email_verified,
             avatar_url=user.avatar_url,
             phone=user.phone,
+            banned=user.banned,
             roles=roles,
             created_at=user.created_at,
         )
