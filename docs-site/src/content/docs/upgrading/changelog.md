@@ -9,6 +9,13 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.14
+
+### Fixed
+- Boolean column defaults in migration use `false` instead of `0` — fixes PostgreSQL table creation failure
+
+---
+
 ## v0.0.13
 
 ### Added
