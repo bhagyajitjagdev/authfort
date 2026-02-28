@@ -7,7 +7,7 @@ sidebar:
 
 import CodeBlock from '../../../components/CodeBlock.astro';
 
-export const configExample = `from authfort import AuthFort, CookieConfig, GoogleProvider
+export const configExample = `from authfort import AuthFort, CookieConfig, GoogleProvider, RateLimitConfig
 
 auth = AuthFort(
     database_url="postgresql+asyncpg://user:pass@localhost/mydb",
@@ -26,6 +26,7 @@ auth = AuthFort(
     magic_link_ttl=600,
     email_otp_ttl=300,
     allow_passwordless_signup=False,
+    rate_limit=RateLimitConfig(),
 )`;
 
 export const providersExample = `from authfort import GoogleProvider, GitHubProvider, GenericOIDCProvider
@@ -37,7 +38,7 @@ providers=[
         discovery_url="https://keycloak.example.com/.well-known/openid-configuration"),
 ]`;
 
-The `AuthFort` constructor accepts the following parameters:
+The `AuthFort` constructor accepts the following parameters. Only `database_url` is required — everything else has sensible defaults.
 
 <CodeBlock title="Example" code={configExample} />
 
@@ -156,3 +157,42 @@ Whether magic links and email OTP auto-create users for unknown emails. Default:
 When `True`, requesting a magic link or OTP for a non-existent email creates a new user with no password. The user can only log in via passwordless methods until they set a password via the password reset flow.
 
 This is independent of `allow_signup` — you can disable password-based signup but allow passwordless signup.
+
+### `rate_limit`
+
+Rate limiting configuration. Default: `None` (disabled).
+
+Pass a `RateLimitConfig` to enable per-endpoint rate limiting on all auth endpoints. Uses an in-memory sliding window counter by default.
+
+```python
+from authfort import RateLimitConfig
+
+auth = AuthFort(
+    database_url="...",
+    rate_limit=RateLimitConfig(),  # all defaults
+)
+
+# Or customize per endpoint
+auth = AuthFort(
+    database_url="...",
+    rate_limit=RateLimitConfig(
+        login="10/min",
+        signup="5/min",
+        refresh=None,  # disable for refresh
+    ),
+)
+```
+
+| Endpoint | Default |
+|----------|---------|
+| `login` | `5/min` |
+| `signup` | `3/min` |
+| `magic_link` | `5/min` |
+| `otp` | `5/min` |
+| `verify_email` | `5/min` |
+| `refresh` | `30/min` |
+| `oauth_authorize` | `10/min` |
+
+Format: `"{count}/{period}"` where period is `sec`, `min`, `hour`, or `day`. Set to `None` to disable for that endpoint.
+
+See [Rate Limiting](/authfort/server/rate-limiting/) for details on IP/email-based limiting, events, and custom storage backends.

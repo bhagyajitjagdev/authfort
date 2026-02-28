@@ -25,6 +25,7 @@ export const constructor = `AuthFort(
     magic_link_ttl: int = 600,
     email_otp_ttl: int = 300,
     allow_passwordless_signup: bool = False,
+    rate_limit: RateLimitConfig | None = None,
 )`;
 
 export const hookDecorator = `@auth.on("login")
@@ -226,6 +227,56 @@ Update a user's profile fields. Only provided fields are changed — omitted fie
 
 **Returns:** `UserResponse`
 **Raises:** `AuthError` if user not found, or if no fields are provided
+
+### `list_users(*, limit=50, offset=0, query=None, banned=None, role=None, sort_by="created_at", sort_order="desc")`
+
+List users with pagination and filtering.
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `limit` | `int` | `50` | Max users per page |
+| `offset` | `int` | `0` | Number of users to skip |
+| `query` | `str \| None` | `None` | Case-insensitive partial match on email or name |
+| `banned` | `bool \| None` | `None` | Filter by banned status |
+| `role` | `str \| None` | `None` | Filter by role |
+| `sort_by` | `str` | `"created_at"` | Sort field — `"created_at"`, `"email"`, or `"name"` |
+| `sort_order` | `str` | `"desc"` | `"asc"` or `"desc"` |
+
+**Returns:** `ListUsersResponse`
+
+### `get_user(user_id)`
+
+Get a single user by ID with roles.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `user_id` | `UUID` | User ID |
+
+**Returns:** `UserResponse` (includes `roles`)
+**Raises:** `AuthError` if user not found
+
+### `delete_user(user_id)`
+
+Delete a user and all related data (roles, tokens, accounts, verification tokens). Fires a `user_deleted` event.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `user_id` | `UUID` | User ID |
+
+**Returns:** `None`
+**Raises:** `ValueError` if user not found
+
+### `get_user_count(*, query=None, banned=None, role=None)`
+
+Count users with optional filters. Same filters as `list_users()`.
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `query` | `str \| None` | `None` | Case-insensitive partial match on email or name |
+| `banned` | `bool \| None` | `None` | Filter by banned status |
+| `role` | `str \| None` | `None` | Filter by role |
+
+**Returns:** `int`
 
 ---
 

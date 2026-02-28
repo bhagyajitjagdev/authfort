@@ -93,6 +93,31 @@ Returned by `get_sessions()`.
 
 ---
 
+## ListUsersResponse
+
+Returned by `list_users()`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `users` | `list[UserResponse]` | Users on the current page |
+| `total` | `int` | Total matching users across all pages |
+| `limit` | `int` | Page size used |
+| `offset` | `int` | Offset used |
+
+---
+
+## UserDeleted
+
+Event payload for `user_deleted`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `user_id` | `UUID` | Deleted user's ID |
+| `email` | `str` | Deleted user's email |
+| `timestamp` | `datetime` | When the deletion occurred |
+
+---
+
 ## AuthError
 
 Exception raised by all AuthFort methods on failure.

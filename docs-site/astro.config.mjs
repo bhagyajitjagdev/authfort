@@ -65,6 +65,8 @@ export default defineConfig({
             { label: 'Database Setup', slug: 'server/database' },
             { label: 'Key Rotation', slug: 'server/key-rotation' },
             { label: 'Ban / Unban', slug: 'server/ban-users' },
+            { label: 'Rate Limiting', slug: 'server/rate-limiting' },
+            { label: 'User Management', slug: 'server/user-management' },
             { label: 'Cleanup', slug: 'server/cleanup' },
             { label: 'FastAPI Integration', slug: 'server/fastapi' },
           ],

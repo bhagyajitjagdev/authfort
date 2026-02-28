@@ -9,6 +9,25 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.11
+
+### Added
+- `RateLimitConfig` — per-endpoint rate limits (`"5/min"` format) with in-memory sliding window
+- IP-based rate limiting on all 8 auth endpoints
+- Email-based rate limiting on login, signup, magic-link, otp, otp/verify (catches distributed attacks)
+- 429 + `Retry-After` header on rate limit exceeded
+- `RateLimitExceeded` event with endpoint, IP, email, limit, key_type
+- `RateLimitStore` protocol — pluggable for Redis or other backends
+- `auth.list_users()` — paginated listing with query/banned/role filters, sort_by/sort_order
+- `auth.get_user(user_id)` — single user lookup with roles
+- `auth.delete_user(user_id)` — cascade delete (roles → tokens → accounts → verification tokens → user)
+- `auth.get_user_count()` — count with same filters
+- `ListUsersResponse` schema, `UserDeleted` event
+- `ondelete="CASCADE"` on all user foreign keys
+- `RateLimitConfig`, `RateLimitExceeded`, `ListUsersResponse`, `UserDeleted` exported from top-level
+
+---
+
 ## v0.0.10
 
 ### Added

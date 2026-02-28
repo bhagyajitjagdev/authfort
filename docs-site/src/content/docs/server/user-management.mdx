@@ -1,0 +1,136 @@
+---
+title: User Management
+description: List, search, and delete users programmatically.
+sidebar:
+  order: 14
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const listUsers = `# List first 50 users (default)
+result = await auth.list_users()
+
+for user in result.users:
+    print(user.email, user.roles)
+
+print(f"Page {result.offset // result.limit + 1}, total: {result.total}")`;
+
+export const filterUsers = `# Search by email or name
+result = await auth.list_users(query="john")
+
+# Only banned users
+result = await auth.list_users(banned=True)
+
+# Users with "admin" role
+result = await auth.list_users(role="admin")
+
+# Combine filters
+result = await auth.list_users(query="john", banned=False, role="editor")`;
+
+export const pagination = `# Page 1
+page1 = await auth.list_users(limit=20, offset=0)
+
+# Page 2
+page2 = await auth.list_users(limit=20, offset=20)
+
+# Sort by email ascending
+result = await auth.list_users(sort_by="email", sort_order="asc")`;
+
+export const getUser = `user = await auth.get_user(user_id)
+
+print(user.email)        # "jane@example.com"
+print(user.roles)        # ["admin", "editor"]
+print(user.email_verified)  # True`;
+
+export const deleteUser = `await auth.delete_user(user_id)`;
+
+export const getUserCount = `# Total users
+total = await auth.get_user_count()
+
+# Count with filters
+banned_count = await auth.get_user_count(banned=True)
+admin_count = await auth.get_user_count(role="admin")`;
+
+export const eventHook = `@auth.on("user_deleted")
+async def on_user_deleted(event):
+    print(f"Deleted user {event.email} ({event.user_id})")
+    # Clean up external services, send notification, etc.`;
+
+AuthFort provides programmatic methods for user management — no HTTP endpoints are exposed. Build your own admin panel or CLI on top of these.
+
+## List Users
+
+<CodeBlock code={listUsers} lang="python" />
+
+Returns a `ListUsersResponse` with `users`, `total`, `limit`, and `offset`.
+
+## Filtering
+
+<CodeBlock code={filterUsers} lang="python" />
+
+The `query` parameter does a case-insensitive partial match on both email and name.
+
+## Pagination & Sorting
+
+<CodeBlock code={pagination} lang="python" />
+
+`sort_by` accepts `"created_at"` (default), `"email"`, or `"name"`.
+
+## Get a Single User
+
+<CodeBlock code={getUser} lang="python" />
+
+Returns a `UserResponse` with the user's roles. Raises `AuthError` if not found.
+
+## Delete a User
+
+<CodeBlock code={deleteUser} lang="python" />
+
+Deletes the user and all related data in order:
+
+1. User roles
+2. Refresh tokens (sessions)
+3. OAuth accounts
+4. Verification tokens
+5. User record
+
+All foreign keys use `CASCADE`, so this is safe even under concurrent access.
+
+## Count Users
+
+<CodeBlock code={getUserCount} lang="python" />
+
+Uses the same filters as `list_users()` — useful for dashboard stats without fetching full user objects.
+
+## Events
+
+<CodeBlock code={eventHook} lang="python" />
+
+The `user_deleted` event fires after successful deletion with `user_id` and `email`.
+
+## Building an Admin Panel
+
+These methods are building blocks — AuthFort doesn't ship admin endpoints. Here's a minimal FastAPI example:
+
+```python
+from fastapi import Depends
+
+@app.get("/admin/users")
+async def admin_list_users(
+    user=Depends(auth.require_role("admin")),
+    query: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+):
+    return await auth.list_users(query=query, limit=limit, offset=offset)
+
+@app.delete("/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: str,
+    user=Depends(auth.require_role("admin")),
+):
+    await auth.delete_user(user_id)
+    return {"deleted": True}
+```
+
+See [Roles & Permissions](/authfort/server/roles/) for `require_role` usage.

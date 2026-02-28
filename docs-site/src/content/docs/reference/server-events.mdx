@@ -236,3 +236,26 @@ Fired when a user logs in via email OTP.
 | `user_id` | `UUID` |
 | `email` | `str` |
 | `timestamp` | `datetime` |
+
+## user_deleted
+
+Fired when a user is deleted via `delete_user()`.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `timestamp` | `datetime` |
+
+## rate_limit_exceeded
+
+Fired when a request is rejected due to rate limiting.
+
+| Field | Type |
+|-------|------|
+| `endpoint` | `str` — e.g., `"login"`, `"signup"`, `"refresh"` |
+| `ip_address` | `str \| None` |
+| `email` | `str \| None` — present for email-based limits |
+| `limit` | `str` — the limit that was exceeded (e.g., `"5/min"`) |
+| `key_type` | `str` — `"ip"` or `"email"` |
+| `timestamp` | `datetime` |
