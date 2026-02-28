@@ -1,0 +1,104 @@
+---
+title: Rate Limiting
+description: Protect auth endpoints from brute-force and abuse.
+sidebar:
+  order: 13
+---
+
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const basicSetup = `from authfort import AuthFort, RateLimitConfig
+
+auth = AuthFort(
+    database_url="postgresql+asyncpg://...",
+    rate_limit=RateLimitConfig(),
+)`;
+
+export const customLimits = `auth = AuthFort(
+    database_url="postgresql+asyncpg://...",
+    rate_limit=RateLimitConfig(
+        login="10/min",
+        signup="5/min",
+        refresh=None,  # disable for refresh
+    ),
+)`;
+
+export const eventHook = `@auth.on("rate_limit_exceeded")
+async def on_rate_limit(event):
+    print(f"{event.key_type} limit hit on {event.endpoint}: {event.ip_address}")`;
+
+Rate limiting protects authentication endpoints from brute-force attacks and abuse. AuthFort uses a sliding window counter — no external dependencies required.
+
+## Enable Rate Limiting
+
+Pass `RateLimitConfig` to the constructor. All endpoints get sensible defaults.
+
+<CodeBlock code={basicSetup} lang="python" />
+
+That's it. All 8 auth endpoints are now rate limited.
+
+## Default Limits
+
+| Endpoint | Default | Limit Type |
+|----------|---------|------------|
+| `login` | `5/min` | IP + email |
+| `signup` | `3/min` | IP + email |
+| `magic_link` | `5/min` | IP + email |
+| `otp` | `5/min` | IP + email |
+| `verify_email` | `5/min` | IP only |
+| `refresh` | `30/min` | IP only |
+| `oauth_authorize` | `10/min` | IP only |
+
+Format: `"{count}/{period}"` — period can be `sec`, `min`, `hour`, or `day`.
+
+## Custom Limits
+
+Override specific endpoints or disable them with `None`.
+
+<CodeBlock code={customLimits} lang="python" />
+
+## How It Works
+
+Rate limiting uses two strategies:
+
+- **IP-based** — applied to all endpoints. Prevents a single IP from flooding.
+- **Email-based** — applied to login, signup, magic link, and OTP. Catches distributed attacks targeting the same account from multiple IPs.
+
+Both must pass for the request to proceed.
+
+When a limit is exceeded, AuthFort returns:
+
+- **429 Too Many Requests** status code
+- **`Retry-After`** header with seconds until the limit resets
+
+## Events
+
+<CodeBlock code={eventHook} lang="python" />
+
+The `rate_limit_exceeded` event fires on every rejected request with:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `endpoint` | `str` | Which endpoint was hit |
+| `ip_address` | `str \| None` | Client IP |
+| `email` | `str \| None` | Email (for email-based limits) |
+| `limit` | `str` | The limit that was exceeded |
+| `key_type` | `str` | `"ip"` or `"email"` |
+
+## Custom Storage Backend
+
+The default `InMemoryStore` works for single-process deployments. For multi-process or multi-server setups, implement the `RateLimitStore` protocol with a shared backend like Redis.
+
+```python
+from authfort.ratelimit import RateLimitStore
+
+class RedisRateLimitStore:
+    def hit(self, key, limit):
+        # Returns: (allowed: bool, remaining: int, retry_after: float)
+        ...
+
+    def reset(self, key=None):
+        ...
+```
+
+See [Server Config](/authfort/reference/server-config/) for the full `RateLimitStore` protocol.

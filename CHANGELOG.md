@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11] - 2026-02-28
+
+### Added
+- **server**: `RateLimitConfig` — optional per-endpoint rate limits (`"5/min"` format) with in-memory sliding window counter
+- **server**: IP-based rate limiting on all 8 auth endpoints (login, signup, refresh, magic-link, otp, otp/verify, verify-email, oauth/authorize)
+- **server**: Email-based rate limiting on login, signup, magic-link, otp, otp/verify (catches distributed attacks)
+- **server**: 429 response with `Retry-After` header on rate limit exceeded
+- **server**: `RateLimitExceeded` event with endpoint, IP, email, limit, key_type
+- **server**: `RateLimitStore` protocol — pluggable for Redis or other backends
+- **server**: `auth.list_users()` — paginated listing with `query` (case-insensitive email/name search), `banned`, `role` filters, `sort_by`/`sort_order`
+- **server**: `auth.get_user(user_id)` — single user lookup, returns `UserResponse` with roles
+- **server**: `auth.delete_user(user_id)` — application-level cascade delete (roles → tokens → accounts → verification tokens → user)
+- **server**: `auth.get_user_count()` — count with same query/banned/role filters
+- **server**: `ListUsersResponse` schema (users, total, limit, offset)
+- **server**: `UserDeleted` event with user_id and email
+- **server**: `ondelete="CASCADE"` on all user foreign keys
+- **server**: `RateLimitConfig`, `RateLimitExceeded`, `ListUsersResponse`, `UserDeleted` exported from top-level
+- 62 new server tests (424 total), 92% coverage maintained
+
 ## [0.0.10] - 2026-02-23
 
 ### Added
@@ -193,6 +212,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.11]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.10...v0.0.11
 [0.0.10]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.9...v0.0.10
 [0.0.9]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.8...v0.0.9
 [0.0.8]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.7...v0.0.8

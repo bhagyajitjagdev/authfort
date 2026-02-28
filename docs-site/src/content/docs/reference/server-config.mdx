@@ -135,6 +135,62 @@ Endpoints are auto-discovered from the `.well-known/openid-configuration` URL.
 
 ---
 
+## RateLimitConfig
+
+```python
+from authfort import RateLimitConfig
+```
+
+Per-endpoint rate limits. Pass to `AuthFort(rate_limit=...)` to enable rate limiting. Set individual fields to `None` to skip rate limiting for that endpoint.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `login` | `str \| None` | `"5/min"` | Login endpoint |
+| `signup` | `str \| None` | `"3/min"` | Signup endpoint |
+| `magic_link` | `str \| None` | `"5/min"` | Magic link request endpoint |
+| `otp` | `str \| None` | `"5/min"` | OTP request and verify endpoints |
+| `verify_email` | `str \| None` | `"5/min"` | Email verification endpoint |
+| `refresh` | `str \| None` | `"30/min"` | Token refresh endpoint |
+| `oauth_authorize` | `str \| None` | `"10/min"` | OAuth authorization endpoint |
+
+Format: `"{count}/{period}"` where period is `sec`, `min`, `hour`, or `day`.
+
+### Examples
+
+```python
+# All defaults
+auth = AuthFort(database_url="...", rate_limit=RateLimitConfig())
+
+# Override specific endpoints
+auth = AuthFort(
+    database_url="...",
+    rate_limit=RateLimitConfig(login="10/min", signup="5/min"),
+)
+
+# Disable rate limiting for refresh
+auth = AuthFort(
+    database_url="...",
+    rate_limit=RateLimitConfig(refresh=None),
+)
+```
+
+---
+
+## RateLimitStore Protocol
+
+```python
+from authfort.ratelimit import RateLimitStore
+```
+
+Protocol for custom rate limit storage backends (e.g., Redis). The default is `InMemoryStore` (sliding window counter, thread-safe).
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `hit` | `hit(key, limit) -> (allowed, remaining, retry_after)` | Record a hit and check if limit exceeded |
+| `reset` | `reset(key=None) -> None` | Reset state for a key, or all keys if `None` |
+
+---
+
 ## AuthFortConfig
 
 Internal configuration object, accessible via `auth.config`. Read-only.
@@ -156,3 +212,4 @@ Internal configuration object, accessible via `auth.config`. Read-only.
 | `magic_link_ttl_seconds` | `int` | Magic link token TTL |
 | `email_otp_ttl_seconds` | `int` | Email OTP code TTL |
 | `allow_passwordless_signup` | `bool` | Auto-create users via magic link/OTP |
+| `rate_limit` | `RateLimitConfig \| None` | Rate limiting config (None = disabled) |

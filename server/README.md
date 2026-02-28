@@ -76,7 +76,9 @@ async def profile(user=Depends(auth.current_user)):
 - Change password (with old password verification)
 - Session management (list, revoke, revoke all except current)
 - Ban/unban users
-- Event hooks (22 event types)
+- Rate limiting — per-endpoint IP + email based, in-memory sliding window, pluggable storage
+- Admin user management — list, search, get, delete users programmatically
+- Event hooks (24 event types)
 - JWKS + key rotation
 - Cookie and bearer token modes
 - Multi-database: PostgreSQL (default), SQLite, MySQL via SQLAlchemy
@@ -128,6 +130,12 @@ await auth.revoke_all_sessions(user_id, exclude=user.session_id)  # keep current
 # Ban/unban
 await auth.ban_user(user_id)
 await auth.unban_user(user_id)
+
+# Admin user management
+users = await auth.list_users(query="john", role="admin", limit=20)
+user = await auth.get_user(user_id)
+await auth.delete_user(user_id)
+count = await auth.get_user_count(banned=True)
 ```
 
 ## License

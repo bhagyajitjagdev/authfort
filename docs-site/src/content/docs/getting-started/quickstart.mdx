@@ -101,8 +101,26 @@ This adds `/auth/oauth/google/authorize` and `/auth/oauth/github/authorize` endp
 
 Users without the `admin` role get a 403 response.
 
+## Add Rate Limiting
+
+Protect auth endpoints from brute-force attacks:
+
+```python
+from authfort import RateLimitConfig
+
+auth = AuthFort(
+    database_url="sqlite+aiosqlite:///auth.db",
+    cookie=CookieConfig(),
+    rate_limit=RateLimitConfig(),  # 5/min login, 3/min signup, etc.
+)
+```
+
+Exceeding the limit returns 429 with a `Retry-After` header. See [Rate Limiting](/authfort/server/rate-limiting/) for details.
+
 ## Next Steps
 
 - [Concepts](/authfort/getting-started/concepts/) — Understand how tokens, sessions, and JWKS work
 - [Configuration](/authfort/server/configuration/) — All available options
+- [Rate Limiting](/authfort/server/rate-limiting/) — Protect endpoints from abuse
+- [User Management](/authfort/server/user-management/) — List, search, and delete users
 - [Client SDK](/authfort/client/) — Connect a frontend

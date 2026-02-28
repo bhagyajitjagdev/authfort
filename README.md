@@ -49,7 +49,9 @@ AuthFort consists of three packages that work together:
 - **Change Password** — Old password verification, automatic token invalidation
 - **Session Management** — List, revoke individual, revoke all (with `exclude` for "sign out other devices")
 - **Ban/Unban** — Instant invalidation (bumps token version, revokes all tokens)
-- **Event Hooks** — 22 event types (user_created, login, magic_link_requested, email_otp_requested, etc.)
+- **Rate Limiting** — Per-endpoint IP + email based, in-memory sliding window, pluggable for Redis
+- **Admin User Management** — List, search, get, delete users with pagination and filtering
+- **Event Hooks** — 24 event types (user_created, login, user_deleted, rate_limit_exceeded, etc.)
 - **JWKS Endpoint** — `/.well-known/jwks.json` with automatic key rotation
 - **Token Introspection** — RFC 7662 for microservice architectures
 - **Multi-Database** — PostgreSQL (primary), SQLite, MySQL via SQLAlchemy
@@ -126,6 +128,12 @@ await auth.change_password(user.id, "old_password", "new_password")
 sessions = await auth.get_sessions(user.id, active_only=True)
 await auth.revoke_session(session_id)
 await auth.revoke_all_sessions(user.id, exclude=user.session_id)  # keep current
+
+# Admin user management
+users = await auth.list_users(query="john", role="admin", limit=20)
+user = await auth.get_user(user_id)
+await auth.delete_user(user_id)
+count = await auth.get_user_count(banned=True)
 
 # Event hooks
 @auth.on("user_created")
@@ -273,7 +281,7 @@ const { state, user, isAuthenticated } = createAuthStore(auth);
 ### Running Tests
 
 ```bash
-# Server (349 tests)
+# Server (424 tests)
 cd server
 uv sync --extra sqlite --extra fastapi
 uv run pytest tests/ -v
@@ -341,13 +349,13 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.10
+### Latest — v0.0.11
 
-- Email verification, magic links, email OTP — passwordless authentication
-- `GenericOAuthProvider` and `GenericOIDCProvider` — connect any OAuth/OIDC provider
-- `allow_passwordless_signup` — auto-create users for unknown emails
-- 5 new endpoints, 6 new events, client SDK passwordless methods
-- 469 total tests across all packages
+- Rate limiting — per-endpoint IP + email based, `RateLimitConfig`, pluggable storage
+- Admin user management — `list_users()`, `get_user()`, `delete_user()`, `get_user_count()`
+- `CASCADE` on all user foreign keys
+- 2 new events: `user_deleted`, `rate_limit_exceeded`
+- 544 total tests across all packages
 
 ## License
 

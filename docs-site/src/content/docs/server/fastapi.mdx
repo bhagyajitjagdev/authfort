@@ -151,3 +151,35 @@ The `session_id` comes from the `sid` claim in the JWT.
 ### Change Password
 
 <CodeBlock code={changePassword} />
+
+### Admin User Management
+
+AuthFort provides programmatic methods for user management — build your own admin endpoints:
+
+```python
+@app.get("/admin/users")
+async def admin_list_users(
+    user=Depends(auth.require_role("admin")),
+    query: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+):
+    return await auth.list_users(query=query, limit=limit, offset=offset)
+
+@app.get("/admin/users/{user_id}")
+async def admin_get_user(
+    user_id: str,
+    user=Depends(auth.require_role("admin")),
+):
+    return await auth.get_user(user_id)
+
+@app.delete("/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: str,
+    user=Depends(auth.require_role("admin")),
+):
+    await auth.delete_user(user_id)
+    return {"deleted": True}
+```
+
+See [User Management](/authfort/server/user-management/) for filtering, pagination, and all available methods.

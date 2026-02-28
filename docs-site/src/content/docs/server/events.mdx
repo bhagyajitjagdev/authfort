@@ -16,7 +16,7 @@ async def on_failed_login(event):
     await log_failed_attempt(event.email, event.ip_address, event.reason)`;
 
 export const typedHandlerExample = `from authfort import AuthFort
-from authfort.events import UserCreated, LoginFailed, UserUpdated, MagicLinkRequested
+from authfort.events import UserCreated, LoginFailed, UserUpdated, UserDeleted, RateLimitExceeded
 
 auth = AuthFort(database_url="...")
 
@@ -106,6 +106,7 @@ Event types are importable from `authfort.events` for type-safe handlers:
 |-------|---------------|
 | `user_created` | `user_id`, `email`, `name`, `provider`, `timestamp` |
 | `user_updated` | `user_id`, `fields`, `timestamp` |
+| `user_deleted` | `user_id`, `email`, `timestamp` |
 | `user_banned` | `user_id`, `timestamp` |
 | `user_unbanned` | `user_id`, `timestamp` |
 
@@ -166,6 +167,12 @@ Event types are importable from `authfort.events` for type-safe handlers:
 | Event | Payload Fields |
 |-------|---------------|
 | `key_rotated` | `old_kid`, `new_kid`, `timestamp` |
+
+### Rate Limiting
+
+| Event | Payload Fields |
+|-------|---------------|
+| `rate_limit_exceeded` | `endpoint`, `ip_address`, `email`, `limit`, `key_type`, `timestamp` |
 
 ## Examples
 
