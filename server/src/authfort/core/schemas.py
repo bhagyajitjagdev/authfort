@@ -27,6 +27,7 @@ class UserResponse(BaseModel):
     email_verified: bool
     avatar_url: str | None
     phone: str | None = None
+    banned: bool = False
     roles: list[str]
     created_at: datetime
     session_id: uuid.UUID | None = None

@@ -807,6 +807,7 @@ async def _issue_tokens(
         email_verified=user.email_verified,
         avatar_url=user.avatar_url,
         phone=user.phone,
+        banned=user.banned,
         roles=roles,
         created_at=user.created_at,
         session_id=stored_token.id,

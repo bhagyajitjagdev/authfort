@@ -349,13 +349,9 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.11
+### Latest — v0.0.12
 
-- Rate limiting — per-endpoint IP + email based, `RateLimitConfig`, pluggable storage
-- Admin user management — `list_users()`, `get_user()`, `delete_user()`, `get_user_count()`
-- `CASCADE` on all user foreign keys
-- 2 new events: `user_deleted`, `rate_limit_exceeded`
-- 544 total tests across all packages
+- `banned` field on `UserResponse` — visible in all user responses
 
 ## License
 

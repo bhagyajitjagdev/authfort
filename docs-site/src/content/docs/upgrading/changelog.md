@@ -9,6 +9,13 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.12
+
+### Added
+- `banned` field on `UserResponse` — visible in all user responses (login, signup, get_user, list_users, current_user)
+
+---
+
 ## v0.0.11
 
 ### Added
