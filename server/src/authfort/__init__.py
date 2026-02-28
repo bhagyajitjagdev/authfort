@@ -33,6 +33,8 @@ from authfort.events import (
     UserUnbanned,
     UserUpdated,
 )
+from authfort.models.user import User as AuthUser
+from authfort.models.user_role import UserRole as AuthUserRole
 from authfort.providers.generic import GenericOAuthProvider, GenericOIDCProvider
 from authfort.providers.github import GitHubProvider
 from authfort.providers.google import GoogleProvider
@@ -40,6 +42,8 @@ from authfort.providers.google import GoogleProvider
 __all__ = [
     "AuthFort",
     "AuthError",
+    "AuthUser",
+    "AuthUserRole",
     "AuthResponse",
     "AuthTokens",
     "CookieConfig",

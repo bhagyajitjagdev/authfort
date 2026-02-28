@@ -349,9 +349,9 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.12
+### Latest — v0.0.13
 
-- `banned` field on `UserResponse` — visible in all user responses
+- `AuthUser` and `AuthUserRole` exports for ORM JOINs
 
 ## License
 

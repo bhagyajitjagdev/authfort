@@ -1,6 +1,6 @@
 {
   "name": "authfort-client",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "TypeScript client SDK for AuthFort authentication",
   "type": "module",
   "main": "dist/index.js",

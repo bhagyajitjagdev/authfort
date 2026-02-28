@@ -9,6 +9,13 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.13
+
+### Added
+- `AuthUser` and `AuthUserRole` exports — SQLAlchemy models for ORM JOINs against consumer tables
+
+---
+
 ## v0.0.12
 
 ### Added

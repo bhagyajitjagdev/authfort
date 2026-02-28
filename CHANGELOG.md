@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.13] - 2026-02-28
+
+### Added
+- **server**: `AuthUser` and `AuthUserRole` exports — exposes SQLAlchemy `User` and `UserRole` models for ORM JOINs against consumer tables
+
 ## [0.0.12] - 2026-02-28
 
 ### Added
@@ -217,6 +222,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.13]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.12...v0.0.13
 [0.0.12]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.11...v0.0.12
 [0.0.11]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.10...v0.0.11
 [0.0.10]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.9...v0.0.10
