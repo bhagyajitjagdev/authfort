@@ -1,11 +1,11 @@
-"""Tests for admin user management — list, get, delete, count."""
+"""Tests for admin user management — list, get, delete, count, email_verified."""
 
 import uuid
 
 import pytest
 import pytest_asyncio
 
-from authfort import AuthFort, AuthError, ListUsersResponse, UserDeleted
+from authfort import AuthFort, AuthError, EmailVerified, ListUsersResponse, UserDeleted
 
 pytestmark = pytest.mark.asyncio
 
@@ -306,3 +306,135 @@ class TestDeleteUser:
         after = await auth.get_user_count()
 
         assert after == before - 1
+
+
+# ---------------------------------------------------------------------------
+# create_user with email_verified
+# ---------------------------------------------------------------------------
+
+
+class TestCreateUserEmailVerified:
+    async def test_default_not_verified(self, auth: AuthFort):
+        email = _email("defver")
+        resp = await auth.create_user(email, "Password1!")
+
+        user = await auth.get_user(resp.user.id)
+        assert user.email_verified is False
+
+    async def test_verified_true(self, auth: AuthFort):
+        email = _email("ver")
+        resp = await auth.create_user(email, "Password1!", email_verified=True)
+
+        user = await auth.get_user(resp.user.id)
+        assert user.email_verified is True
+
+    async def test_verified_false_explicit(self, auth: AuthFort):
+        email = _email("verfalse")
+        resp = await auth.create_user(email, "Password1!", email_verified=False)
+
+        user = await auth.get_user(resp.user.id)
+        assert user.email_verified is False
+
+    async def test_verified_fires_event(self, auth: AuthFort):
+        events = []
+
+        @auth.on("email_verified")
+        async def on_verified(event):
+            events.append(event)
+
+        email = _email("verevt")
+        await auth.create_user(email, "Password1!", email_verified=True)
+
+        assert len(events) == 1
+        assert isinstance(events[0], EmailVerified)
+        assert events[0].email == email
+
+    async def test_not_verified_no_event(self, auth: AuthFort):
+        events = []
+
+        @auth.on("email_verified")
+        async def on_verified(event):
+            events.append(event)
+
+        email = _email("noverevt")
+        await auth.create_user(email, "Password1!")
+
+        assert len(events) == 0
+
+
+# ---------------------------------------------------------------------------
+# update_user with email_verified
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateUserEmailVerified:
+    async def test_set_verified(self, auth: AuthFort):
+        email = _email("updver")
+        resp = await auth.create_user(email, "Password1!")
+
+        result = await auth.update_user(resp.user.id, email_verified=True)
+        assert result.email_verified is True
+
+    async def test_set_verified_fires_event(self, auth: AuthFort):
+        events = []
+
+        @auth.on("email_verified")
+        async def on_verified(event):
+            events.append(event)
+
+        email = _email("updverevt")
+        resp = await auth.create_user(email, "Password1!")
+
+        await auth.update_user(resp.user.id, email_verified=True)
+
+        assert len(events) == 1
+        assert isinstance(events[0], EmailVerified)
+        assert events[0].email == email
+
+    async def test_already_verified_no_duplicate_event(self, auth: AuthFort):
+        events = []
+
+        @auth.on("email_verified")
+        async def on_verified(event):
+            events.append(event)
+
+        email = _email("dupevt")
+        resp = await auth.create_user(email, "Password1!", email_verified=True)
+        events.clear()  # ignore create event
+
+        await auth.update_user(resp.user.id, email_verified=True)
+
+        assert len(events) == 0
+
+    async def test_set_unverified_no_event(self, auth: AuthFort):
+        events = []
+
+        @auth.on("email_verified")
+        async def on_verified(event):
+            events.append(event)
+
+        email = _email("unver")
+        resp = await auth.create_user(email, "Password1!", email_verified=True)
+        events.clear()
+
+        result = await auth.update_user(resp.user.id, email_verified=False)
+        assert result.email_verified is False
+        assert len(events) == 0
+
+    async def test_update_verified_with_other_fields(self, auth: AuthFort):
+        email = _email("vermulti")
+        resp = await auth.create_user(email, "Password1!")
+
+        result = await auth.update_user(
+            resp.user.id, name="Admin User", email_verified=True,
+        )
+        assert result.name == "Admin User"
+        assert result.email_verified is True
+
+    async def test_update_only_email_verified(self, auth: AuthFort):
+        """email_verified alone counts as a valid update (no ValueError)."""
+        email = _email("veronly")
+        resp = await auth.create_user(email, "Password1!")
+
+        result = await auth.update_user(resp.user.id, email_verified=True)
+        assert result.email_verified is True

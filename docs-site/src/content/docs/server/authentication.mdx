@@ -25,7 +25,15 @@ export const signupProgrammatic = `result = await auth.create_user(
     avatar_url="https://example.com/avatar.jpg",
     phone="+1234567890",
 )
-# result.user.id, result.user.email, result.tokens.access_token`;
+# result.user.id, result.user.email, result.tokens.access_token
+
+# Admin-created accounts can skip email verification
+result = await auth.create_user(
+    "admin@example.com",
+    "strongpassword",
+    name="Admin User",
+    email_verified=True,  # fires email_verified event
+)`;
 
 export const updateUserExample = `# Update specific fields — only provided fields are changed
 updated = await auth.update_user(
@@ -38,7 +46,10 @@ updated = await auth.update_user(
 updated = await auth.update_user(user_id, phone=None)
 
 # Omitted fields are not touched — this only changes the name
-updated = await auth.update_user(user_id, name="Jane")`;
+updated = await auth.update_user(user_id, name="Jane")
+
+# Admin can manually verify a user's email
+updated = await auth.update_user(user_id, email_verified=True)`;
 
 export const loginEndpoint = `POST /auth/login
 Content-Type: application/json

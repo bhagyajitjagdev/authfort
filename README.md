@@ -111,7 +111,7 @@ For operations beyond the REST endpoints:
 
 ```python
 # User management
-user = await auth.create_user("admin@example.com", "password", name="Admin")
+user = await auth.create_user("admin@example.com", "password", name="Admin", email_verified=True)
 await auth.add_role(user.id, "admin")
 await auth.ban_user(user.id)
 
@@ -281,7 +281,7 @@ const { state, user, isAuthenticated } = createAuthStore(auth);
 ### Running Tests
 
 ```bash
-# Server (424 tests)
+# Server (491 tests)
 cd server
 uv sync --extra sqlite --extra fastapi
 uv run pytest tests/ -v
@@ -349,11 +349,11 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.17
+### Latest — v0.0.18
 
-- `trust_proxy` and `trusted_proxies` config — real client IP extraction behind reverse proxies (nginx, traefik, Docker)
-- Stable `session_id` across refresh token rotation — fixes session list UIs showing phantom entries
-- Cookie-mode refresh deduplication in client SDK — concurrent 401s share a single refresh call
+- `create_user(email_verified=True)` — admin-created accounts can skip email verification
+- `update_user(user_id, email_verified=True)` — admin can manually verify/unverify a user's email
+- `EmailVerified` event fires automatically (no duplicates if already verified)
 
 ## License
 

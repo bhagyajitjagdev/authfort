@@ -187,7 +187,7 @@ Fired when `create_email_verification_token()` is called for a valid user.
 
 ## email_verified
 
-Fired when a user's email is successfully verified.
+Fired when a user's email is successfully verified — via `verify_email()`, magic link, email OTP, or programmatically via `create_user(email_verified=True)` / `update_user(email_verified=True)`. Not fired if the user is already verified.
 
 | Field | Type |
 |-------|------|

@@ -9,6 +9,15 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.18
+
+### Added
+- `create_user(email_verified=True)` — mark email as verified at creation time (admin-created accounts)
+- `update_user(user_id, email_verified=True)` — admin can manually verify or unverify a user's email
+- `EmailVerified` event fires automatically on verification via `create_user()` or `update_user()` (no duplicate if already verified)
+
+---
+
 ## v0.0.17
 
 ### Added

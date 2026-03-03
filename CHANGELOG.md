@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.18] - 2026-03-03
+
+### Added
+- **server**: `create_user(email_verified=True)` — mark email as verified at creation time (e.g., admin-created accounts that skip email verification)
+- **server**: `update_user(user_id, email_verified=True)` — admin can manually verify or unverify a user's email
+- **server**: `EmailVerified` event fires automatically when `email_verified=True` is set via `create_user()` or `update_user()` (no duplicate event if user is already verified)
+- 11 new server tests (491 total)
+
 ## [0.0.17] - 2026-02-28
 
 ### Added
@@ -258,6 +266,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.18]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.17...v0.0.18
 [0.0.17]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.16...v0.0.17
 [0.0.16]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.15...v0.0.16
 [0.0.15]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.14...v0.0.15

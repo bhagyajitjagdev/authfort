@@ -47,7 +47,7 @@ See [Configuration](/authfort/server/configuration/) for parameter details.
 
 ## Authentication
 
-### `create_user(email, password, *, name=None, avatar_url=None, phone=None)`
+### `create_user(email, password, *, name=None, avatar_url=None, phone=None, email_verified=False)`
 
 Create a new user. Works regardless of `allow_signup` setting.
 
@@ -58,6 +58,7 @@ Create a new user. Works regardless of `allow_signup` setting.
 | `name` | `str \| None` | Display name |
 | `avatar_url` | `str \| None` | Profile image URL |
 | `phone` | `str \| None` | Phone number |
+| `email_verified` | `bool` | Mark email as verified at creation (default `False`). Fires `email_verified` event when `True`. |
 
 **Returns:** `AuthResponse`
 **Raises:** `AuthError` if email already exists
@@ -216,7 +217,7 @@ Unban a user.
 
 **Returns:** `None`
 
-### `update_user(user_id, *, name, avatar_url, phone)`
+### `update_user(user_id, *, name, avatar_url, phone, email_verified)`
 
 Update a user's profile fields. Only provided fields are changed — omitted fields are left untouched. Pass `None` to clear a field.
 
@@ -226,6 +227,7 @@ Update a user's profile fields. Only provided fields are changed — omitted fie
 | `name` | `str \| None` | Display name (omit to leave unchanged) |
 | `avatar_url` | `str \| None` | Profile image URL (omit to leave unchanged) |
 | `phone` | `str \| None` | Phone number (omit to leave unchanged) |
+| `email_verified` | `bool` | Set email verification status (omit to leave unchanged). Fires `email_verified` event only when transitioning from `False` to `True`. |
 
 **Returns:** `UserResponse`
 **Raises:** `AuthError` if user not found, or if no fields are provided

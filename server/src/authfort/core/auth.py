@@ -62,6 +62,7 @@ async def signup(
     phone: str | None = None,
     user_agent: str | None = None,
     ip_address: str | None = None,
+    email_verified: bool = False,
     events: EventCollector | None = None,
 ) -> AuthResponse:
     """Register a new user with email and password.
@@ -79,6 +80,7 @@ async def signup(
     user = await user_repo.create_user(
         session, email=email, password_hash=hashed, name=name,
         avatar_url=avatar_url, phone=phone,
+        email_verified=email_verified,
     )
 
     await account_repo.create_account(
@@ -86,7 +88,7 @@ async def signup(
     )
 
     if events is not None:
-        from authfort.events import Login, UserCreated
+        from authfort.events import EmailVerified, Login, UserCreated
 
         events.collect("user_created", UserCreated(
             user_id=user.id, email=user.email, name=user.name, provider="email",
@@ -95,6 +97,10 @@ async def signup(
             user_id=user.id, email=user.email, provider="email",
             ip_address=ip_address, user_agent=user_agent,
         ))
+        if email_verified:
+            events.collect("email_verified", EmailVerified(
+                user_id=user.id, email=user.email,
+            ))
 
     return await _issue_tokens(
         session, config=config, user=user, user_agent=user_agent, ip_address=ip_address,

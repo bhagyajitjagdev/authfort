@@ -212,8 +212,18 @@ class AuthFort:
         name: str | None = None,
         avatar_url: str | None = None,
         phone: str | None = None,
+        email_verified: bool = False,
     ):
         """Create a user programmatically. Always works regardless of allow_signup.
+
+        Args:
+            email: User's email address.
+            password: User's password.
+            name: Display name.
+            avatar_url: Avatar URL.
+            phone: Phone number.
+            email_verified: If True, mark email as verified and fire
+                EmailVerified event. Useful for admin-created accounts.
 
         Returns:
             AuthResponse with user info and tokens.
@@ -228,7 +238,8 @@ class AuthFort:
             result = await signup(
                 session, config=self._config, email=email,
                 password=password, name=name, avatar_url=avatar_url,
-                phone=phone, events=collector,
+                phone=phone, email_verified=email_verified,
+                events=collector,
             )
         await collector.flush()
         return result
@@ -667,6 +678,7 @@ class AuthFort:
         name=_UNSET,
         avatar_url=_UNSET,
         phone=_UNSET,
+        email_verified=_UNSET,
     ):
         """Update a user's profile fields.
 
@@ -677,6 +689,8 @@ class AuthFort:
             name: New display name (or None to clear).
             avatar_url: New avatar URL (or None to clear).
             phone: New phone number (or None to clear).
+            email_verified: Set email verification status. Fires
+                EmailVerified event when transitioning from False to True.
 
         Returns:
             UserResponse with updated user data.
@@ -696,6 +710,8 @@ class AuthFort:
             updates["avatar_url"] = avatar_url
         if phone is not self._UNSET:
             updates["phone"] = phone
+        if email_verified is not self._UNSET:
+            updates["email_verified"] = email_verified
 
         if not updates:
             raise ValueError("No fields to update")
@@ -705,11 +721,22 @@ class AuthFort:
             user = await user_repo.get_user_by_id(session, user_id)
             if user is None:
                 raise AuthError("User not found", code="user_not_found", status_code=404)
+            was_verified = user.email_verified
             user = await user_repo.update_user(session, user, **updates)
             roles = await role_repo.get_roles(session, user_id)
             collector.collect("user_updated", UserUpdated(
                 user_id=user_id, fields=list(updates.keys()),
             ))
+            if (
+                email_verified is not self._UNSET
+                and email_verified
+                and not was_verified
+            ):
+                from authfort.events import EmailVerified
+
+                collector.collect("email_verified", EmailVerified(
+                    user_id=user.id, email=user.email,
+                ))
         await collector.flush()
         return UserResponse(
             id=user.id,
