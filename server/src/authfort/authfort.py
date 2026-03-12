@@ -23,6 +23,7 @@ from authfort.events import (
     MagicLinkRequested,
     PasswordChanged,
     PasswordReset,
+    PasswordSet,
     PasswordResetRequested,
     RoleAdded,
     RoleRemoved,
@@ -417,6 +418,27 @@ class AuthFort:
             await change_password(
                 session, user_id=user_id, old_password=old_password,
                 new_password=new_password, events=collector,
+            )
+        await collector.flush()
+
+    async def set_password(
+        self, user_id: uuid.UUID, new_password: str,
+    ) -> None:
+        """Set an initial password for a passwordless user (magic link, OTP, OAuth).
+
+        Only works when the user has no password set. If they already have one,
+        use change_password instead.
+
+        Raises:
+            AuthError: If user not found or already has a password.
+        """
+        from authfort.core.auth import set_password
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            await set_password(
+                session, user_id=user_id, new_password=new_password,
+                events=collector,
             )
         await collector.flush()
 

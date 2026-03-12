@@ -14,6 +14,7 @@ from authfort.core.auth import (
     login,
     logout,
     refresh,
+    set_password,
     signup,
     verify_email,
     verify_email_otp,
@@ -28,6 +29,7 @@ from authfort.core.schemas import (
     OTPRequest,
     OTPVerifyRequest,
     RefreshRequest,
+    SetPasswordRequest,
     SignupRequest,
     UserResponse,
 )
@@ -294,6 +296,23 @@ def create_auth_router(
     ):
         """Get the current authenticated user's profile."""
         return user
+
+    @router.post("/set-password", status_code=200)
+    async def set_password_endpoint(
+        data: SetPasswordRequest,
+        user: Annotated[UserResponse, Depends(current_user_dep)],
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ):
+        """Set an initial password for a passwordless user."""
+        try:
+            await set_password(
+                session, user_id=user.id, new_password=data.password,
+                events=get_collector(),
+            )
+        except AuthError as e:
+            raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
+
+        return {"message": "Password set successfully."}
 
     # ------ Passwordless endpoints ------
 

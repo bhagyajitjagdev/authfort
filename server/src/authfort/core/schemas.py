@@ -97,5 +97,10 @@ class EmailVerifyRequest(BaseModel):
     token: str
 
 
+class SetPasswordRequest(BaseModel):
+    """Set initial password for passwordless users."""
+    password: str
+
+
 # Rebuild forward refs
 AuthResponse.model_rebuild()

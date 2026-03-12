@@ -127,25 +127,31 @@ async def login(
     if user is None:
         raise AuthError("Invalid email or password", code="invalid_credentials", status_code=401)
 
-    if user.banned:
-        raise AuthError("This account has been banned", code="user_banned", status_code=403)
-
     if user.password_hash is None:
-        # OAuth-only account — tell the frontend so it can guide the user
+        # No password set — distinguish OAuth from passwordless
         providers = [
             a.provider
             for a in await account_repo.get_accounts_by_user(session, user.id)
             if a.provider != "email"
         ]
+        if providers:
+            raise AuthError(
+                "This account uses social login",
+                code="oauth_account",
+                status_code=400,
+                providers=providers,
+            )
         raise AuthError(
-            "This account uses social login",
-            code="oauth_account",
+            "This account uses passwordless login. You can set a password via forgot-password or set-password.",
+            code="no_password",
             status_code=400,
-            providers=providers,
         )
 
     if not verify_password(password, user.password_hash):
         raise AuthError("Invalid email or password", code="invalid_credentials", status_code=401)
+
+    if user.banned:
+        raise AuthError("This account has been banned", code="user_banned", status_code=403)
 
     if events is not None:
         from authfort.events import Login as LoginEvent
@@ -253,14 +259,16 @@ async def create_password_reset_token(
 ) -> str | None:
     """Create a password reset token for a user.
 
-    Returns the raw token string if the user exists and has a password,
-    or None if the user is not found or is OAuth-only (prevents user enumeration).
+    Returns the raw token string if the user exists,
+    or None if the user is not found (prevents user enumeration).
+    Works for all users — password, OAuth, and passwordless.
+    Passwordless users can use this to set their initial password.
 
     The caller is responsible for delivering the token (email, SMS, etc.).
     """
     email = email.strip().lower()
     user = await user_repo.get_user_by_email(session, email)
-    if user is None or user.password_hash is None:
+    if user is None:
         return None
 
     # Delete any existing password_reset tokens for this user
@@ -332,10 +340,22 @@ async def reset_password(
         )
 
     hashed = hash_password(new_password)
+    had_password = user.password_hash is not None
     await user_repo.update_user(session, user, password_hash=hashed)
     await user_repo.bump_token_version(session, user.id)
     await refresh_token_repo.revoke_all_user_refresh_tokens(session, user.id)
     await verification_token_repo.delete_verification_token(session, stored.id)
+
+    # If user had no password (passwordless/OAuth), create an email account record
+    if not had_password:
+        existing_email_account = await account_repo.get_user_account_by_provider(
+            session, user.id, "email",
+        )
+        if existing_email_account is None:
+            await account_repo.create_account(
+                session, user_id=user.id, provider="email",
+                provider_account_id=user.email,
+            )
 
     if events is not None:
         from authfort.events import PasswordReset as PasswordResetEvent
@@ -368,9 +388,22 @@ async def change_password(
         raise AuthError("User not found", code="user_not_found", status_code=404)
 
     if user.password_hash is None:
+        # No password set — distinguish OAuth from passwordless
+        providers = [
+            a.provider
+            for a in await account_repo.get_accounts_by_user(session, user.id)
+            if a.provider != "email"
+        ]
+        if providers:
+            raise AuthError(
+                "This account uses social login",
+                code="oauth_account",
+                status_code=400,
+                providers=providers,
+            )
         raise AuthError(
-            "This account uses social login",
-            code="oauth_account",
+            "This account uses passwordless login. Use set-password to add a password.",
+            code="no_password",
             status_code=400,
         )
 
@@ -386,6 +419,54 @@ async def change_password(
         from authfort.events import PasswordChanged
 
         events.collect("password_changed", PasswordChanged(user_id=user.id))
+
+
+async def set_password(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    new_password: str,
+    events: EventCollector | None = None,
+) -> None:
+    """Set an initial password for a passwordless user (magic link, OTP, OAuth).
+
+    Only works when the user has no password set. If they already have one,
+    use change_password instead.
+
+    Raises:
+        AuthError: If user not found (code: user_not_found, status: 404).
+        AuthError: If user already has a password (code: password_already_set, status: 400).
+    """
+    user = await user_repo.get_user_by_id(session, user_id)
+    if user is None:
+        raise AuthError("User not found", code="user_not_found", status_code=404)
+
+    if user.password_hash is not None:
+        raise AuthError(
+            "Password already set. Use change-password instead.",
+            code="password_already_set",
+            status_code=400,
+        )
+
+    hashed = hash_password(new_password)
+    await user_repo.update_user(session, user, password_hash=hashed)
+    await user_repo.bump_token_version(session, user.id)
+    await refresh_token_repo.revoke_all_user_refresh_tokens(session, user.id)
+
+    # Create email account record if missing
+    existing_email_account = await account_repo.get_user_account_by_provider(
+        session, user.id, "email",
+    )
+    if existing_email_account is None:
+        await account_repo.create_account(
+            session, user_id=user.id, provider="email",
+            provider_account_id=user.email,
+        )
+
+    if events is not None:
+        from authfort.events import PasswordSet
+
+        events.collect("password_set", PasswordSet(user_id=user.id))
 
 
 async def create_email_verification_token(

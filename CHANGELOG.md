@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.19] - 2026-03-12
+
+### Added
+- **server**: `set_password(user_id, new_password)` — passwordless users (magic link, OTP, OAuth) can set an initial password
+- **server**: `POST /auth/set-password` REST endpoint (authenticated) for setting initial password
+- **server**: `PasswordSet` event — fired when a passwordless user sets their initial password
+- **server**: `create_password_reset_token()` now works for all users — passwordless and OAuth users can use forgot-password to set their initial password
+- **server**: `reset_password()` automatically creates an `email` account record when setting a first-time password
+
+### Fixed
+- **server**: Passwordless users (magic link, OTP) no longer get the misleading "This account uses social login" error — they now get a `no_password` error code with a message guiding them to `set-password` or forgot-password
+- **server**: `change_password()` now distinguishes OAuth users (`oauth_account` code with providers list) from passwordless users (`no_password` code)
+- **server**: Banned user check in `login()` moved after password verification — prevents attackers from probing for banned accounts without knowing the password
+
 ## [0.0.18] - 2026-03-03
 
 ### Added

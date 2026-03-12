@@ -43,22 +43,29 @@ class TestCreatePasswordResetToken:
         token = await auth.create_password_reset_token("nobody@example.com")
         assert token is None
 
-    async def test_returns_none_for_oauth_only_user(self, auth: AuthFort):
-        """OAuth-only users have no password_hash, so reset shouldn't work."""
-        # Create a user via OAuth (simulate by creating with password then clearing it)
+    async def test_works_for_passwordless_user(self, auth: AuthFort):
+        """Passwordless/OAuth users can use forgot-password to set an initial password."""
         from authfort.db import get_session
         from authfort.repositories import user as user_repo
 
         email = unique_email()
         _, user_id, _ = await _create_user(auth, email)
 
-        # Remove password hash to simulate OAuth-only account
+        # Remove password hash to simulate passwordless/OAuth account
         async with get_session(auth.session_factory) as session:
             user = await user_repo.get_user_by_id(session, user_id)
             await user_repo.update_user(session, user, password_hash=None)
 
         token = await auth.create_password_reset_token(email)
-        assert token is None
+        assert token is not None
+
+        # Reset should set the password
+        result = await auth.reset_password(token, "newpassword123")
+        assert result is True
+
+        # Should now be able to login with the new password
+        login_result = await auth.login(email, "newpassword123")
+        assert login_result.user.email == email
 
     async def test_replaces_old_tokens(self, auth: AuthFort):
         """Creating a new reset token should delete any previous ones."""
@@ -224,16 +231,35 @@ class TestChangePassword:
 
     async def test_oauth_only_user_rejected(self, auth: AuthFort):
         from authfort.db import get_session
+        from authfort.repositories import account as account_repo
         from authfort.repositories import user as user_repo
 
         email, user_id, _ = await _create_user(auth)
 
-        # Remove password hash to simulate OAuth-only
+        # Remove password hash and add OAuth account to simulate OAuth-only
+        async with get_session(auth.session_factory) as session:
+            user = await user_repo.get_user_by_id(session, user_id)
+            await user_repo.update_user(session, user, password_hash=None)
+            await account_repo.create_account(
+                session, user_id=user_id, provider="google",
+                provider_account_id="google-123",
+            )
+
+        with pytest.raises(AuthError, match="social login"):
+            await auth.change_password(user_id, "old", "new")
+
+    async def test_passwordless_user_rejected(self, auth: AuthFort):
+        from authfort.db import get_session
+        from authfort.repositories import user as user_repo
+
+        email, user_id, _ = await _create_user(auth)
+
+        # Remove password hash to simulate passwordless user
         async with get_session(auth.session_factory) as session:
             user = await user_repo.get_user_by_id(session, user_id)
             await user_repo.update_user(session, user, password_hash=None)
 
-        with pytest.raises(AuthError, match="social login"):
+        with pytest.raises(AuthError, match="passwordless"):
             await auth.change_password(user_id, "old", "new")
 
     async def test_user_not_found(self, auth: AuthFort):

@@ -86,7 +86,7 @@ By default, OTP only works for existing users. Set `allow_passwordless_signup=Tr
 <CodeBlock code={autoSignupConfig} lang="python" />
 
 :::note
-Auto-created users have no password and cannot use email/password login. They can set a password later via the password reset flow. This flag is independent of `allow_signup` — you can set `allow_signup=False` to block email/password registration while still allowing passwordless sign-up.
+Auto-created users have no password and cannot use email/password login directly. They can add a password later via `set_password()` or the forgot-password flow — see [Password Management](/authfort/server/password-management/). This flag is independent of `allow_signup` — you can set `allow_signup=False` to block email/password registration while still allowing passwordless sign-up.
 :::
 
 ## Email Verification

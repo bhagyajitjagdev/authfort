@@ -9,6 +9,21 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.19
+
+### Added
+- `set_password(user_id, new_password)` — passwordless users (magic link, OTP, OAuth) can set an initial password
+- `POST /auth/set-password` REST endpoint (authenticated)
+- `PasswordSet` event fired when a passwordless user sets their initial password
+- `create_password_reset_token()` now works for all users — passwordless/OAuth users can use forgot-password to set a password
+
+### Fixed
+- Passwordless users no longer get misleading "social login" error — new `no_password` error code guides them correctly
+- `change_password()` distinguishes OAuth (`oauth_account`) from passwordless (`no_password`) users
+- Banned check in `login()` moved after password verification (security: prevents banned-account probing)
+
+---
+
 ## v0.0.18
 
 ### Added

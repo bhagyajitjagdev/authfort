@@ -349,11 +349,12 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.18
+### Latest — v0.0.19
 
-- `create_user(email_verified=True)` — admin-created accounts can skip email verification
-- `update_user(user_id, email_verified=True)` — admin can manually verify/unverify a user's email
-- `EmailVerified` event fires automatically (no duplicates if already verified)
+- `set_password()` — passwordless users (magic link, OTP, OAuth) can set an initial password
+- Forgot-password now works for all users — passwordless/OAuth users can set a password via reset flow
+- Fixed misleading "social login" error for passwordless users — new `no_password` error code
+- Banned check moved after password verification in login (security fix)
 
 ## License
 
