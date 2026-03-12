@@ -242,7 +242,7 @@ class TestChangePassword:
             await user_repo.update_user(session, user, password_hash=None)
             await account_repo.create_account(
                 session, user_id=user_id, provider="google",
-                provider_account_id="google-123",
+                provider_account_id=f"google-{user_id}",
             )
 
         with pytest.raises(AuthError, match="social login"):

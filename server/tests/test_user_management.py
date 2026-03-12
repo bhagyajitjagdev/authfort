@@ -250,7 +250,7 @@ class TestDeleteUser:
                 session,
                 user_id=user_id,
                 provider="google",
-                provider_account_id="google-123",
+                provider_account_id=f"google-{user_id}",
             )
 
         await auth.delete_user(user_id)
