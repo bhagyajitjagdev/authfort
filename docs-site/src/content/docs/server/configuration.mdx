@@ -162,7 +162,7 @@ This is independent of `allow_signup` — you can disable password-based signup 
 
 ### `rate_limit`
 
-Rate limiting configuration. Default: `None` (disabled).
+Rate limiting configuration. Default: `None` (disabled). **Strongly recommended for production** — see [Rate Limiting](/authfort/server/rate-limiting/).
 
 Pass a `RateLimitConfig` to enable per-endpoint rate limiting on all auth endpoints. Uses an in-memory sliding window counter by default.
 

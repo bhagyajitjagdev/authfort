@@ -29,6 +29,12 @@ async def on_rate_limit(event):
 
 Rate limiting protects authentication endpoints from brute-force attacks and abuse. AuthFort uses a sliding window counter — no external dependencies required.
 
+:::caution[Strongly recommended for production]
+Rate limiting is **opt-in** but strongly recommended. Without it, attackers can brute-force login credentials, enumerate emails via signup, and flood passwordless endpoints — all of which are commonly flagged in security audits and penetration tests.
+
+Enable it with a single line: `rate_limit=RateLimitConfig()`.
+:::
+
 ## Enable Rate Limiting
 
 Pass `RateLimitConfig` to the constructor. All endpoints get sensible defaults.
