@@ -349,12 +349,13 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.19
+### Latest — v0.0.20
 
-- `set_password()` — passwordless users (magic link, OTP, OAuth) can set an initial password
-- Forgot-password now works for all users — passwordless/OAuth users can set a password via reset flow
-- Fixed misleading "social login" error for passwordless users — new `no_password` error code
-- Banned check moved after password verification in login (security fix)
+- Input validation and sanitization for all user-facing fields (VAPT security fix)
+- Email validation via `email-validator` — rejects injection payloads (SQL, XSS, header injection, XXE)
+- HTML sanitization via `nh3` — strips all tags from names and phone numbers (prevents stored XSS)
+- Avatar URL validation — only http/https URLs accepted
+- Minimum password length enforcement (configurable, default 8)
 
 ## License
 

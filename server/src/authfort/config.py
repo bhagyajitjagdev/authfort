@@ -74,5 +74,6 @@ class AuthFortConfig:
     email_otp_ttl_seconds: int = 300  # 5 minutes
     allow_passwordless_signup: bool = False
     rate_limit: RateLimitConfig | None = None
+    min_password_length: int = 8
     trust_proxy: bool = False
     trusted_proxy_networks: tuple[IPv4Network | IPv6Network, ...] = ()

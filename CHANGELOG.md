@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.20] - 2026-03-31
+
+### Added
+- **server**: Input validation and sanitization for all user-facing fields (VAPT fix)
+- **server**: Email validation using `email-validator` library — rejects SQL injection, XSS, header injection, XXE, and multi-email payloads
+- **server**: Name and phone sanitization using `nh3` — strips all HTML tags (prevents stored XSS)
+- **server**: Avatar URL validation — only `http://` and `https://` URLs accepted
+- **server**: Minimum password length enforcement (configurable via `min_password_length`, default 8)
+- **server**: New `min_password_length` config option on `AuthFort()` constructor
+- **server**: `AuthError` moved to `authfort.core.errors` module (re-exported from `authfort.core.auth` — no breaking changes)
+- 60 new validation tests (541 total)
+
+### Dependencies
+- **server**: Added `email-validator` (>=2.3.0) — RFC-compliant email validation
+- **server**: Added `nh3` (>=0.3.4) — Rust-based HTML sanitization
+
 ## [0.0.19] - 2026-03-12
 
 ### Added

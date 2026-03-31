@@ -1,6 +1,6 @@
 [project]
 name = "authfort"
-version = "0.0.19"
+version = "0.0.20"
 description = "Comprehensive authentication and authorization library for Python"
 readme = "README.md"
 license = {text = "MIT"}
@@ -11,7 +11,9 @@ dependencies = [
     "argon2-cffi>=25.1.0",
     "asyncpg>=0.31.0",
     "cryptography>=46.0.5",
+    "email-validator>=2.3.0",
     "httpx>=0.28.1",
+    "nh3>=0.3.4",
     "pyjwt[crypto]>=2.11.0",
     "sqlalchemy[asyncio]>=2.0",
 ]

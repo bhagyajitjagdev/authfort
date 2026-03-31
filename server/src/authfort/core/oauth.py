@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from authfort.config import JWT_ALGORITHM, AuthFortConfig
 from authfort.core.auth import AuthError, _get_or_create_signing_key, _issue_tokens
 from authfort.core.schemas import AuthResponse
+from authfort.core.validation import sanitize_name, validate_user_email
 from authfort.core.tokens import get_unverified_header
 from authfort.providers.base import OAuthProvider, OAuthUserInfo
 from authfort.repositories import account as account_repo
@@ -229,8 +230,10 @@ async def oauth_authenticate(
         session, provider.name, user_info.provider_account_id,
     )
 
-    # Normalize email for consistent lookups
-    normalized_email = user_info.email.strip().lower()
+    # Validate and normalize email from provider
+    normalized_email = validate_user_email(user_info.email)
+    # Sanitize name from provider (may contain HTML/XSS)
+    sanitized_name = sanitize_name(user_info.name)
 
     if account is not None:
         # Returning user — load and update provider tokens
@@ -256,7 +259,7 @@ async def oauth_authenticate(
                     session,
                     email=normalized_email,
                     password_hash=None,
-                    name=user_info.name,
+                    name=sanitized_name,
                     email_verified=user_info.email_verified,
                 )
             except IntegrityError:

@@ -1,11 +1,11 @@
 """AuthFort — Authentication and authorization library for Python."""
 
-__version__ = "0.0.19"
+__version__ = "0.0.20"
 
 from authfort.alembic_helper import alembic_filters, register_foreign_tables
 from authfort.authfort import AuthFort
 from authfort.config import CookieConfig, RateLimitConfig
-from authfort.core.auth import AuthError
+from authfort.core.errors import AuthError
 from authfort.core.schemas import AuthResponse, AuthTokens, ListUsersResponse, SessionResponse, UserResponse
 from authfort.events import (
     EmailOTPLogin,

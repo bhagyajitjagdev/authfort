@@ -9,6 +9,18 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.20
+
+### Added
+- Input validation and sanitization for all user-facing fields (VAPT fix)
+- Email validation using `email-validator` — rejects SQL injection, XSS, header injection, XXE payloads
+- Name and phone sanitization using `nh3` — strips all HTML tags (prevents stored XSS)
+- Avatar URL validation — only `http://` and `https://` URLs accepted
+- Minimum password length enforcement (`min_password_length` config, default 8)
+- New dependencies: `email-validator` (>=2.3.0), `nh3` (>=0.3.4)
+
+---
+
 ## v0.0.19
 
 ### Added

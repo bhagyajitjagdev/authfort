@@ -5,7 +5,6 @@ Framework-agnostic business logic. All functions take an AsyncSession and config
 
 from __future__ import annotations
 
-import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -23,32 +22,18 @@ from authfort.repositories import role as role_repo
 from authfort.repositories import signing_key as signing_key_repo
 from authfort.repositories import user as user_repo
 from authfort.repositories import verification_token as verification_token_repo
+from authfort.core.errors import AuthError
+from authfort.core.validation import (
+    sanitize_name,
+    sanitize_phone,
+    validate_avatar_url,
+    validate_password,
+    validate_user_email,
+)
 from authfort.utils.passwords import hash_password, verify_password
 
 if TYPE_CHECKING:
     from authfort.events import EventCollector
-
-
-class AuthError(Exception):
-    """Base auth error with an error code and HTTP status."""
-
-    def __init__(self, message: str, code: str, status_code: int = 400, **extra):
-        self.message = message
-        self.code = code
-        self.status_code = status_code
-        self.extra = extra
-        super().__init__(message)
-
-
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
-def _validate_email(email: str) -> str:
-    """Basic email format validation — no dependencies, just a sanity check."""
-    email = email.strip().lower()
-    if not _EMAIL_RE.match(email):
-        raise AuthError("Invalid email address", code="invalid_email", status_code=400)
-    return email
 
 
 async def signup(
@@ -71,7 +56,12 @@ async def signup(
         AuthError: If email is invalid (code: invalid_email, status: 400).
         AuthError: If email is already registered (code: user_exists, status: 409).
     """
-    email = _validate_email(email)
+    email = validate_user_email(email)
+    validate_password(password, min_length=config.min_password_length)
+    name = sanitize_name(name)
+    phone = sanitize_phone(phone)
+    avatar_url = validate_avatar_url(avatar_url)
+
     existing = await user_repo.get_user_by_email(session, email)
     if existing is not None:
         raise AuthError("Email already registered", code="user_exists", status_code=409)
@@ -122,7 +112,7 @@ async def login(
     Raises:
         AuthError: If credentials are invalid (code: invalid_credentials, status: 401).
     """
-    email = email.strip().lower()
+    email = validate_user_email(email)
     user = await user_repo.get_user_by_email(session, email)
     if user is None:
         raise AuthError("Invalid email or password", code="invalid_credentials", status_code=401)
@@ -266,7 +256,7 @@ async def create_password_reset_token(
 
     The caller is responsible for delivering the token (email, SMS, etc.).
     """
-    email = email.strip().lower()
+    email = validate_user_email(email)
     user = await user_repo.get_user_by_email(session, email)
     if user is None:
         return None
@@ -312,6 +302,8 @@ async def reset_password(
     Raises:
         AuthError: If the token is invalid or expired (code: invalid_reset_token).
     """
+    validate_password(new_password, min_length=config.min_password_length)
+
     token_hash = hash_refresh_token(token)
     stored = await verification_token_repo.get_verification_token_by_hash(session, token_hash)
 
@@ -368,6 +360,7 @@ async def reset_password(
 async def change_password(
     session: AsyncSession,
     *,
+    config: AuthFortConfig,
     user_id: uuid.UUID,
     old_password: str,
     new_password: str,
@@ -382,7 +375,9 @@ async def change_password(
         AuthError: If user not found (code: user_not_found, status: 404).
         AuthError: If user is OAuth-only (code: oauth_account, status: 400).
         AuthError: If old password is wrong (code: invalid_password, status: 400).
+        AuthError: If new password is too short (code: password_too_short, status: 400).
     """
+    validate_password(new_password, min_length=config.min_password_length)
     user = await user_repo.get_user_by_id(session, user_id)
     if user is None:
         raise AuthError("User not found", code="user_not_found", status_code=404)
@@ -424,6 +419,7 @@ async def change_password(
 async def set_password(
     session: AsyncSession,
     *,
+    config: AuthFortConfig,
     user_id: uuid.UUID,
     new_password: str,
     events: EventCollector | None = None,
@@ -436,7 +432,9 @@ async def set_password(
     Raises:
         AuthError: If user not found (code: user_not_found, status: 404).
         AuthError: If user already has a password (code: password_already_set, status: 400).
+        AuthError: If new password is too short (code: password_too_short, status: 400).
     """
+    validate_password(new_password, min_length=config.min_password_length)
     user = await user_repo.get_user_by_id(session, user_id)
     if user is None:
         raise AuthError("User not found", code="user_not_found", status_code=404)
@@ -580,7 +578,7 @@ async def create_magic_link_token(
 
     The caller is responsible for delivering the token (email, etc.).
     """
-    email = email.strip().lower()
+    email = validate_user_email(email)
     user = await user_repo.get_user_by_email(session, email)
 
     if user is None and config.allow_passwordless_signup:
@@ -708,7 +706,7 @@ async def create_email_otp(
 
     The caller is responsible for delivering the code (email, etc.).
     """
-    email = email.strip().lower()
+    email = validate_user_email(email)
     user = await user_repo.get_user_by_email(session, email)
 
     if user is None and config.allow_passwordless_signup:
@@ -770,7 +768,7 @@ async def verify_email_otp(
         AuthError: If the code is invalid or expired (code: invalid_otp).
         AuthError: If the user is banned (code: user_banned, status: 403).
     """
-    email = email.strip().lower()
+    email = validate_user_email(email)
     token_hash = hash_refresh_token(code)
     stored = await verification_token_repo.get_verification_token_by_hash(session, token_hash)
 

@@ -87,6 +87,7 @@ class AuthFort:
         email_otp_ttl: int = 300,
         allow_passwordless_signup: bool = False,
         rate_limit: RateLimitConfig | None = None,
+        min_password_length: int = 8,
         trust_proxy: bool = False,
         trusted_proxies: list[str] | None = None,
     ) -> None:
@@ -126,6 +127,7 @@ class AuthFort:
             email_otp_ttl_seconds=email_otp_ttl,
             allow_passwordless_signup=allow_passwordless_signup,
             rate_limit=rate_limit,
+            min_password_length=min_password_length,
             trust_proxy=trust_proxy,
             trusted_proxy_networks=parsed_networks,
         )
@@ -416,8 +418,9 @@ class AuthFort:
         collector = EventCollector(self._hooks)
         async with get_session(self._session_factory) as session:
             await change_password(
-                session, user_id=user_id, old_password=old_password,
-                new_password=new_password, events=collector,
+                session, config=self._config, user_id=user_id,
+                old_password=old_password, new_password=new_password,
+                events=collector,
             )
         await collector.flush()
 
@@ -437,8 +440,8 @@ class AuthFort:
         collector = EventCollector(self._hooks)
         async with get_session(self._session_factory) as session:
             await set_password(
-                session, user_id=user_id, new_password=new_password,
-                events=collector,
+                session, config=self._config, user_id=user_id,
+                new_password=new_password, events=collector,
             )
         await collector.flush()
 
@@ -722,16 +725,21 @@ class AuthFort:
         """
         from authfort.core.auth import AuthError
         from authfort.core.schemas import UserResponse
+        from authfort.core.validation import (
+            sanitize_name,
+            sanitize_phone,
+            validate_avatar_url,
+        )
         from authfort.repositories import role as role_repo
         from authfort.repositories import user as user_repo
 
         updates = {}
         if name is not self._UNSET:
-            updates["name"] = name
+            updates["name"] = sanitize_name(name) if name is not None else None
         if avatar_url is not self._UNSET:
-            updates["avatar_url"] = avatar_url
+            updates["avatar_url"] = validate_avatar_url(avatar_url) if avatar_url is not None else None
         if phone is not self._UNSET:
-            updates["phone"] = phone
+            updates["phone"] = sanitize_phone(phone) if phone is not None else None
         if email_verified is not self._UNSET:
             updates["email_verified"] = email_verified
 

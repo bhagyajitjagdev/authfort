@@ -246,7 +246,7 @@ class TestChangePassword:
             )
 
         with pytest.raises(AuthError, match="social login"):
-            await auth.change_password(user_id, "old", "new")
+            await auth.change_password(user_id, "oldpassword1", "newpassword1")
 
     async def test_passwordless_user_rejected(self, auth: AuthFort):
         from authfort.db import get_session
@@ -260,11 +260,11 @@ class TestChangePassword:
             await user_repo.update_user(session, user, password_hash=None)
 
         with pytest.raises(AuthError, match="passwordless"):
-            await auth.change_password(user_id, "old", "new")
+            await auth.change_password(user_id, "oldpassword1", "newpassword1")
 
     async def test_user_not_found(self, auth: AuthFort):
         with pytest.raises(AuthError, match="User not found"):
-            await auth.change_password(uuid.uuid4(), "old", "new")
+            await auth.change_password(uuid.uuid4(), "oldpassword1", "newpassword1")
 
     async def test_token_version_bumped(self, auth: AuthFort):
         from authfort.db import get_session

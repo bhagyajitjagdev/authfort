@@ -306,8 +306,8 @@ def create_auth_router(
         """Set an initial password for a passwordless user."""
         try:
             await set_password(
-                session, user_id=user.id, new_password=data.password,
-                events=get_collector(),
+                session, config=config, user_id=user.id,
+                new_password=data.password, events=get_collector(),
             )
         except AuthError as e:
             raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
