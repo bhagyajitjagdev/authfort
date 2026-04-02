@@ -1,6 +1,6 @@
 """AuthFort Service — Lightweight JWT verification for microservices."""
 
-__version__ = "0.0.20"
+__version__ = "0.0.21"
 
 from authfort_service.introspect import IntrospectionResult
 from authfort_service.service_auth import ServiceAuth

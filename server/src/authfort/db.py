@@ -8,7 +8,7 @@ from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool, StaticPool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def create_engine(database_url: str) -> AsyncEngine:
+def create_engine(database_url: str, *, pool_recycle: int = 300) -> AsyncEngine:
     """Create async engine with dialect-appropriate settings.
 
     Supports PostgreSQL (asyncpg), SQLite (aiosqlite), and MySQL (aiomysql).
@@ -24,7 +24,7 @@ def create_engine(database_url: str) -> AsyncEngine:
             pool_size=5,
             max_overflow=10,
             pool_pre_ping=True,
-            pool_recycle=3600,
+            pool_recycle=pool_recycle,
         )
 
     return create_async_engine(database_url, echo=False, **kwargs)

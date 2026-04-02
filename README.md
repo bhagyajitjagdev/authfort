@@ -349,13 +349,10 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.20
+### Latest — v0.0.21
 
-- Input validation and sanitization for all user-facing fields (VAPT security fix)
-- Email validation via `email-validator` — rejects injection payloads (SQL, XSS, header injection, XXE)
-- HTML sanitization via `nh3` — strips all tags from names and phone numbers (prevents stored XSS)
-- Avatar URL validation — only http/https URLs accepted
-- Minimum password length enforcement (configurable, default 8)
+- Fix `ConnectionDoesNotExistError` when running behind PgBouncer — lowered default `pool_recycle` from 3600s to 300s
+- New `pool_recycle` config option on `AuthFort()` for tuning connection recycling
 
 ## License
 

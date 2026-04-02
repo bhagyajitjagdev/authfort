@@ -9,6 +9,16 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.21
+
+### Fixed
+- Default `pool_recycle` lowered from 3600s to 300s — prevents `ConnectionDoesNotExistError` behind PgBouncer
+
+### Added
+- New `pool_recycle` config option on `AuthFort()` — tune connection recycling interval (default 300s)
+
+---
+
 ## v0.0.20
 
 ### Added

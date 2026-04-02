@@ -65,6 +65,8 @@ class AuthFort:
             for unknown emails (password_hash=None). Default False.
         rate_limit: RateLimitConfig or None. None = no rate limiting (default).
             Pass RateLimitConfig() to enable with sensible defaults.
+        pool_recycle: How often (seconds) to recycle DB connections (default 300 = 5 min).
+            Lower this if running behind PgBouncer or other connection poolers.
     """
 
     def __init__(
@@ -90,6 +92,7 @@ class AuthFort:
         min_password_length: int = 8,
         trust_proxy: bool = False,
         trusted_proxies: list[str] | None = None,
+        pool_recycle: int = 300,
     ) -> None:
         if rsa_key_size < 2048:
             raise ValueError("rsa_key_size must be >= 2048")
@@ -131,7 +134,7 @@ class AuthFort:
             trust_proxy=trust_proxy,
             trusted_proxy_networks=parsed_networks,
         )
-        self._engine = create_engine(database_url)
+        self._engine = create_engine(database_url, pool_recycle=pool_recycle)
         self._session_factory = create_session_factory(self._engine)
         self._current_user_dep = None
         self._providers = providers or []
