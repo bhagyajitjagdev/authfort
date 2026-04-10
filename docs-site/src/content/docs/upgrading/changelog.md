@@ -9,6 +9,18 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.23
+
+### Added
+- **MFA enforced on OAuth login** — if a user has TOTP MFA enabled, logging in via Google, GitHub, or any OAuth provider now triggers the same MFA challenge as password login
+- **Client** `initialize()` detects `?mfa_token=` in the URL after an OAuth redirect and transitions to `mfa_pending` automatically — no extra code needed in your app
+- **Client** Popup OAuth flow (`signInWithProvider` with `mode: 'popup'`) now resolves with `{ status: 'mfa_required' }` when the account has MFA enabled
+
+### Breaking Changes
+- **Client** `signInWithProvider` popup mode return type changed from `Promise<AuthUser>` to `Promise<SignInResult>` — update any popup mode callers to check `result.status`
+
+---
+
 ## v0.0.22
 
 ### Added

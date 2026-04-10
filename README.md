@@ -349,11 +349,11 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.22
+### Latest — v0.0.23
 
-- TOTP MFA (Google Authenticator, Authy) — full two-step login flow with backup codes and replay protection
-- `mfa_enabled` JWT claim — zero-latency posture checks in downstream services
-- `verifyMFA(code)` on the client SDK; `isMFAPending` in React, Vue, and Svelte integrations
+- MFA enforced on OAuth login — Google, GitHub, and any OAuth provider now trigger the MFA challenge if the account has TOTP enabled
+- Client `initialize()` handles `?mfa_token=` after OAuth redirect automatically, no extra app code needed
+- Popup OAuth mode now returns `SignInResult` to accommodate the MFA case
 
 ## License
 

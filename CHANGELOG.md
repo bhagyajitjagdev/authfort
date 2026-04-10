@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.23] - 2026-04-10
+
+### Added
+- **server**: MFA is now enforced on OAuth logins — if a user has TOTP MFA enabled, `POST /oauth/{provider}/callback` returns an `MFAChallenge` instead of issuing tokens directly, consistent with password login
+- **client**: `initialize()` detects `?mfa_token=` in the URL after an OAuth redirect and transitions to `mfa_pending` state automatically
+- **client**: Popup OAuth flow (`signInWithProvider` with `mode: 'popup'`) now handles `MFAChallenge` from the server — resolves with `{ status: 'mfa_required' }` instead of a user
+
+### Changed
+- **client**: `signInWithProvider` popup mode return type changed from `Promise<AuthUser>` to `Promise<SignInResult>` to accommodate the MFA case
+
 ## [0.0.22] - 2026-04-10
 
 ### Added
