@@ -18,6 +18,7 @@ def create_access_token(
     config: AuthFortConfig,
     name: str | None = None,
     session_id: uuid.UUID | None = None,
+    mfa_enabled: bool = False,
 ) -> str:
     """Create a signed JWT access token.
 
@@ -31,6 +32,7 @@ def create_access_token(
         config: AuthFort configuration.
         name: Optional display name.
         session_id: Optional session (refresh token) ID to embed as `sid`.
+        mfa_enabled: Whether the user has TOTP MFA enabled on their account.
 
     Returns:
         Encoded JWT string.
@@ -43,6 +45,7 @@ def create_access_token(
         "roles": roles,
         "ver": token_version,
         "sid": str(session_id) if session_id else None,
+        "mfa_enabled": mfa_enabled,
         "iat": now,
         "exp": now + timedelta(seconds=config.access_token_expire_seconds),
         "iss": config.jwt_issuer,

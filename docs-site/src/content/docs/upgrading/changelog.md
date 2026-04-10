@@ -9,6 +9,37 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.22
+
+### Added
+- **TOTP MFA** — Google Authenticator, Authy, and any RFC 6238-compatible app
+  - `POST /auth/mfa/init` — generate secret + QR URI
+  - `POST /auth/mfa/confirm` — enable MFA, receive backup codes
+  - `POST /auth/mfa/verify` — complete two-step login with TOTP or backup code
+  - `POST /auth/mfa/disable` — disable MFA (requires current TOTP or backup code)
+  - `POST /auth/mfa/backup-codes/regenerate` — new set of backup codes
+  - `GET /auth/mfa/status` — current MFA status and remaining backup code count
+- **`mfa_enabled` JWT claim** — all access tokens carry this flag; downstream services can check posture with zero latency
+- **MFA challenge token** — `POST /login` returns `{ mfa_required: true, mfa_token }` when MFA is enabled; submit to `/mfa/verify` to receive full tokens
+- **Replay protection** — same TOTP code blocked within the same 30s window
+- **Admin** `admin_disable_mfa(user_id)` — forcibly disable MFA on any account
+- **Config** `mfa_issuer` — authenticator app display name (defaults to `jwt_issuer`)
+- **Config** `mfa_backup_code_count` — number of backup codes per user (default 10)
+- **Service** `TokenPayload.mfa_enabled` — parsed from the `mfa_enabled` JWT claim
+- **Client** `signIn()` now returns `SignInResult` — `{ status: 'authenticated', user }` or `{ status: 'mfa_required' }`
+- **Client** `verifyMFA(code)` — complete a pending MFA login
+- **Client** `isMFAPending` in React hook, Vue composable, and Svelte store
+- **Client** `AuthUser.mfaEnabled` — account-level MFA status
+- **Events** `MFAEnabled`, `MFADisabled`, `MFALogin`, `MFAFailed`, `BackupCodeUsed`, `BackupCodesRegenerated`
+
+### Breaking Changes
+- **Client** `signIn()` return type changed from `Promise<AuthUser>` to `Promise<SignInResult>` — update callers to check `result.status`
+
+### Dependencies
+- **server**: `pyotp >= 2.9.0` — run `uv add pyotp` in `server/`
+
+---
+
 ## v0.0.21
 
 ### Fixed

@@ -256,6 +256,68 @@ Fired when a user is deleted via `delete_user()`.
 | `email` | `str` |
 | `timestamp` | `datetime` |
 
+## mfa_enabled
+
+Fired when a user successfully enables TOTP MFA.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `timestamp` | `datetime` |
+
+## mfa_disabled
+
+Fired when MFA is disabled — by the user (with a code) or by an admin override.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `timestamp` | `datetime` |
+
+## mfa_login
+
+Fired when the MFA step of a login is completed successfully.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `ip_address` | `str \| None` |
+| `timestamp` | `datetime` |
+
+## mfa_failed
+
+Fired when a TOTP or backup code is rejected during MFA verification. Good target for account lockout logic.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `ip_address` | `str \| None` |
+| `timestamp` | `datetime` |
+
+## backup_code_used
+
+Fired when a backup code is consumed during login.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `timestamp` | `datetime` |
+
+## backup_codes_regenerated
+
+Fired when a user regenerates their backup codes.
+
+| Field | Type |
+|-------|------|
+| `user_id` | `UUID` |
+| `email` | `str` |
+| `timestamp` | `datetime` |
+
 ## rate_limit_exceeded
 
 Fired when a request is rejected due to rate limiting.

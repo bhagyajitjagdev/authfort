@@ -1,0 +1,274 @@
+---
+title: TOTP MFA
+description: Two-factor authentication with Google Authenticator, Authy, or any RFC 6238 TOTP app.
+sidebar:
+  order: 3
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import CodeBlock from '../../../components/CodeBlock.astro';
+
+export const installDep = `uv add pyotp`;
+
+export const enableInitEndpoint = `POST /auth/mfa/init
+Authorization: Bearer <access-token>`;
+
+export const enableInitProgrammatic = `setup = await auth.enable_mfa_init(user_id)
+# setup.secret  — base32 TOTP secret
+# setup.qr_uri  — otpauth:// URI for QR code generation`;
+
+export const qrCodeExample = `# Generate a QR image (e.g. with qrcode library)
+import qrcode, io
+img = qrcode.make(setup.qr_uri)
+buf = io.BytesIO()
+img.save(buf, format="PNG")
+qr_png = buf.getvalue()  # send to client`;
+
+export const enableConfirmEndpoint = `POST /auth/mfa/confirm
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{"code": "847291"}`;
+
+export const enableConfirmProgrammatic = `backup_codes = await auth.enable_mfa_confirm(user_id, totp_code)
+# Returns a list of 10 plaintext backup codes — show once, never again`;
+
+export const loginWithMFAEndpoint = `# Step 1: Login (same as always)
+POST /auth/login
+Content-Type: application/json
+
+{"email": "user@example.com", "password": "strongpassword"}
+
+# Response when MFA is enabled:
+{
+  "mfa_required": true,
+  "mfa_token": "eyJ...",   # short-lived JWT (5 min)
+  "expires_in": 300
+}
+
+# Step 2: Submit TOTP code
+POST /auth/mfa/verify
+Content-Type: application/json
+
+{"mfa_token": "eyJ...", "code": "847291"}
+
+# Response: normal AuthResponse with tokens and user`;
+
+export const loginProgrammatic = `from authfort.core.schemas import MFAChallenge
+
+result = await auth.login(email, password)
+
+if isinstance(result, MFAChallenge):
+    # Prompt user for TOTP code, then:
+    auth_response = await auth.complete_mfa_login(result.mfa_token, totp_code)
+else:
+    # Normal login — tokens in result.tokens
+    auth_response = result`;
+
+export const backupCodeLogin = `# A backup code works in place of a TOTP code at /auth/mfa/verify
+POST /auth/mfa/verify
+Content-Type: application/json
+
+{"mfa_token": "eyJ...", "code": "x7k2m-9pqnr"}`;
+
+export const disableEndpoint = `POST /auth/mfa/disable
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{"code": "847291"}  # valid TOTP code or backup code`;
+
+export const disableProgrammatic = `await auth.disable_mfa(user_id, totp_or_backup_code)`;
+
+export const adminDisableProgrammatic = `# Admin override — no TOTP code needed
+# Use for account recovery when the user has lost their authenticator
+await auth.admin_disable_mfa(user_id)`;
+
+export const regenerateEndpoint = `POST /auth/mfa/backup-codes/regenerate
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{"code": "847291"}  # must be a valid TOTP code`;
+
+export const regenerateProgrammatic = `new_codes = await auth.regenerate_backup_codes(user_id, totp_code)
+# Returns 10 new plaintext codes. Old codes are immediately invalidated.`;
+
+export const statusEndpoint = `GET /auth/mfa/status
+Authorization: Bearer <access-token>
+
+# Response:
+{
+  "enabled": true,
+  "backup_codes_remaining": 7
+}`;
+
+export const statusProgrammatic = `status = await auth.get_mfa_status(user_id)
+# status.enabled               — bool
+# status.backup_codes_remaining — int`;
+
+export const postureCheckExample = `# In your app's route guard or middleware — no DB query needed
+from authfort_service import JWTVerifier
+
+payload = await verifier.verify(access_token)
+
+if workspace.requires_mfa and not payload.mfa_enabled:
+    raise HTTPException(403, "MFA required for this workspace")`;
+
+export const mfaIssuerConfig = `auth = AuthFort(
+    database_url="...",
+    mfa_issuer="My App",           # shown in authenticator app (default: jwt_issuer)
+    mfa_backup_code_count=10,      # backup codes per user (default: 10)
+)`;
+
+export const clientMFAExample = `const result = await auth.signIn({
+  email: 'user@example.com',
+  password: 'strongpassword',
+});
+
+if (result.status === 'mfa_required') {
+  // Prompt the user for their TOTP code
+  const code = await promptUser('Enter your authenticator code:');
+  const user = await auth.verifyMFA(code);
+} else {
+  // result.status === 'authenticated'
+  const user = result.user;
+}`;
+
+export const clientStateExample = `// React
+const { isMFAPending, client } = useAuth();
+
+if (isMFAPending) {
+  return <MFACodeForm onSubmit={(code) => client.verifyMFA(code)} />;
+}`;
+
+AuthFort supports TOTP MFA (RFC 6238) — the same protocol used by Google Authenticator, Authy, 1Password, and any standard authenticator app. MFA is an account-level property: once enabled, every login requires a 6-digit code in addition to the password.
+
+## Dependency
+
+<CodeBlock code={installDep} lang="bash" />
+
+## Setup Flow
+
+<Steps>
+
+1. **Initialize setup**
+
+   Call `/auth/mfa/init` to generate a secret and QR code URI for the user to scan:
+
+   <CodeBlock title="Endpoint" code={enableInitEndpoint} lang="http" />
+   <CodeBlock title="Programmatic" code={enableInitProgrammatic} lang="python" />
+
+   The `qr_uri` is an `otpauth://` URI. Encode it into a QR image and show it to the user:
+
+   <CodeBlock code={qrCodeExample} lang="python" />
+
+   MFA is **not enabled yet** at this point — the user hasn't verified they scanned it correctly.
+
+2. **Confirm setup**
+
+   After the user scans the QR code, ask them to enter the first TOTP code from their app:
+
+   <CodeBlock title="Endpoint" code={enableConfirmEndpoint} lang="http" />
+   <CodeBlock title="Programmatic" code={enableConfirmProgrammatic} lang="python" />
+
+   On success, MFA is enabled and the response contains **10 backup codes**. Show these to the user exactly once — they cannot be retrieved again. Instruct them to save the codes in a safe place.
+
+</Steps>
+
+## Login Flow
+
+Once MFA is enabled, `POST /auth/login` returns an `MFAChallenge` instead of tokens:
+
+<CodeBlock code={loginWithMFAEndpoint} lang="http" />
+
+The `mfa_token` is a short-lived signed JWT (5 minutes). Submit it along with the TOTP code to `/auth/mfa/verify` to receive full auth tokens.
+
+<CodeBlock title="Programmatic" code={loginProgrammatic} lang="python" />
+
+### Backup Codes
+
+If the user doesn't have their authenticator app, they can submit a backup code instead:
+
+<CodeBlock code={backupCodeLogin} lang="http" />
+
+Backup codes are single-use — the used code is immediately invalidated.
+
+## Disable MFA
+
+Users can disable MFA by providing a valid TOTP code or backup code:
+
+<CodeBlock title="Endpoint" code={disableEndpoint} lang="http" />
+<CodeBlock title="Programmatic" code={disableProgrammatic} lang="python" />
+
+### Admin Override
+
+If a user loses their authenticator and all backup codes, an admin can disable MFA without a code:
+
+<CodeBlock code={adminDisableProgrammatic} lang="python" />
+
+Verify the user's identity out-of-band before calling this.
+
+## Backup Code Management
+
+### Regenerate Backup Codes
+
+Invalidates all existing backup codes and generates a new set. Requires a valid TOTP code:
+
+<CodeBlock title="Endpoint" code={regenerateEndpoint} lang="http" />
+<CodeBlock title="Programmatic" code={regenerateProgrammatic} lang="python" />
+
+### Check Status
+
+<CodeBlock title="Endpoint" code={statusEndpoint} lang="http" />
+<CodeBlock title="Programmatic" code={statusProgrammatic} lang="python" />
+
+## Workspace / Posture Check
+
+AuthFort includes an `mfa_enabled` claim in every access token. Downstream services can check this claim to enforce MFA requirements — with zero latency and no database query:
+
+<CodeBlock code={postureCheckExample} lang="python" />
+
+This pattern works well for multi-tenant apps where some workspaces require MFA. AuthFort sets the claim; your app enforces the policy.
+
+## Configuration
+
+<CodeBlock code={mfaIssuerConfig} lang="python" />
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `mfa_issuer` | `str \| None` | `None` (uses `jwt_issuer`) | App name shown in the authenticator app |
+| `mfa_backup_code_count` | `int` | `10` | Number of backup codes generated per user |
+
+## Security
+
+| Property | Detail |
+|----------|--------|
+| Algorithm | TOTP (RFC 6238), 30s windows, ±1 window drift tolerance |
+| Replay protection | Same code blocked within the same 30s window |
+| Backup codes | SHA-256 hashed, single-use, `xxxxx-xxxxx` format |
+| Challenge token | Short-lived JWT (5 min), purpose-scoped — cannot be used as an access token |
+| Rate limiting | `/auth/mfa/verify` is rate-limited via `RateLimitConfig(mfa_verify="5/min")` |
+
+## Events
+
+| Event | Fired when |
+|-------|-----------|
+| `mfa_enabled` | User enables MFA |
+| `mfa_disabled` | User or admin disables MFA |
+| `mfa_login` | MFA step completed successfully |
+| `mfa_failed` | TOTP or backup code rejected (good target for account lockout) |
+| `backup_code_used` | A backup code was consumed |
+| `backup_codes_regenerated` | Backup codes were regenerated |
+
+See [Events & Hooks](/authfort/server/events/) for full payload details.
+
+## Client SDK
+
+The TypeScript client handles the two-step flow automatically:
+
+<CodeBlock code={clientMFAExample} lang="typescript" />
+
+Framework integrations expose an `isMFAPending` state for conditional rendering:
+
+<CodeBlock code={clientStateExample} lang="typescript" />
+
+See [Client MFA](/authfort/client/authentication/#mfa) for the full client-side guide.

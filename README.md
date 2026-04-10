@@ -349,10 +349,11 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.21
+### Latest — v0.0.22
 
-- Fix `ConnectionDoesNotExistError` when running behind PgBouncer — lowered default `pool_recycle` from 3600s to 300s
-- New `pool_recycle` config option on `AuthFort()` for tuning connection recycling
+- TOTP MFA (Google Authenticator, Authy) — full two-step login flow with backup codes and replay protection
+- `mfa_enabled` JWT claim — zero-latency posture checks in downstream services
+- `verifyMFA(code)` on the client SDK; `isMFAPending` in React, Vue, and Svelte integrations
 
 ## License
 

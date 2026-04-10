@@ -559,6 +559,143 @@ class AuthFort:
         await collector.flush()
         return result
 
+    # ------ MFA ------
+
+    async def enable_mfa_init(self, user_id: uuid.UUID):
+        """Start TOTP MFA setup for a user.
+
+        Returns a MFASetup with ``secret`` and ``qr_uri`` (otpauth:// URI).
+        The user scans the QR code with their authenticator app.
+        MFA is NOT enabled until enable_mfa_confirm() is called.
+
+        Raises:
+            AuthError: If user not found or MFA already enabled.
+        """
+        from authfort.core.auth import enable_mfa_init
+
+        async with get_session(self._session_factory) as session:
+            return await enable_mfa_init(session, config=self._config, user_id=user_id)
+
+    async def enable_mfa_confirm(
+        self, user_id: uuid.UUID, code: str,
+    ) -> list[str]:
+        """Confirm TOTP setup and enable MFA.
+
+        Verifies the first code from the authenticator app, marks MFA as
+        enabled, and returns plaintext backup codes. Show them exactly once.
+
+        Raises:
+            AuthError: If setup not initiated, already enabled, or code is wrong.
+        """
+        from authfort.core.auth import enable_mfa_confirm
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await enable_mfa_confirm(
+                session, config=self._config, user_id=user_id,
+                code=code, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    async def complete_mfa_login(
+        self, mfa_token: str, code: str,
+    ):
+        """Complete a login that requires MFA.
+
+        Args:
+            mfa_token: The challenge token returned by login().
+            code: 6-digit TOTP code or a backup code.
+
+        Returns:
+            AuthResponse with user info and tokens.
+
+        Raises:
+            AuthError: If the challenge token is invalid/expired or code is wrong.
+        """
+        from authfort.core.auth import complete_mfa_login
+
+        collector = EventCollector(self._hooks)
+        try:
+            async with get_session(self._session_factory) as session:
+                result = await complete_mfa_login(
+                    session, config=self._config,
+                    mfa_token=mfa_token, code=code,
+                    events=collector,
+                )
+        finally:
+            await collector.flush()
+        return result
+
+    async def disable_mfa(self, user_id: uuid.UUID, code: str) -> None:
+        """Disable MFA for a user. Requires a TOTP code or backup code.
+
+        Raises:
+            AuthError: If MFA not enabled or code is wrong.
+        """
+        from authfort.core.auth import disable_mfa
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            await disable_mfa(
+                session, config=self._config, user_id=user_id,
+                code=code, events=collector,
+            )
+        await collector.flush()
+
+    async def admin_disable_mfa(self, user_id: uuid.UUID) -> None:
+        """Disable MFA for a user without requiring a code (admin override).
+
+        For account recovery when the user has lost their authenticator and
+        all backup codes. Verify identity out-of-band before calling this.
+
+        Raises:
+            AuthError: If MFA is not enabled for this user.
+        """
+        from authfort.core.auth import admin_disable_mfa
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            await admin_disable_mfa(
+                session, user_id=user_id, events=collector,
+            )
+        await collector.flush()
+
+    async def regenerate_backup_codes(
+        self, user_id: uuid.UUID, totp_code: str,
+    ) -> list[str]:
+        """Regenerate backup codes. Requires a valid TOTP code.
+
+        Old codes are invalidated. Returns a new set of plaintext codes.
+
+        Raises:
+            AuthError: If MFA not enabled or TOTP code is wrong.
+        """
+        from authfort.core.auth import regenerate_backup_codes
+
+        collector = EventCollector(self._hooks)
+        async with get_session(self._session_factory) as session:
+            result = await regenerate_backup_codes(
+                session, config=self._config, user_id=user_id,
+                totp_code=totp_code, events=collector,
+            )
+        await collector.flush()
+        return result
+
+    async def get_mfa_status(self, user_id: uuid.UUID):
+        """Get the current MFA status for a user.
+
+        Returns:
+            MFAStatus with ``enabled`` and ``backup_codes_remaining``.
+
+        Raises:
+            AuthError: If user not found.
+        """
+        from authfort.core.auth import get_mfa_status
+
+        async with get_session(self._session_factory) as session:
+            return await get_mfa_status(session, user_id=user_id)
+
     # ------ User management ------
 
     async def list_users(
@@ -992,6 +1129,7 @@ class AuthFort:
         use jwks_router() separately at the root level.
         """
         from authfort.integrations.fastapi.introspect_router import create_introspect_router
+        from authfort.integrations.fastapi.mfa_router import create_mfa_router
         from authfort.integrations.fastapi.router import create_auth_router
 
         router = create_auth_router(
@@ -1010,6 +1148,12 @@ class AuthFort:
 
         introspect_router = create_introspect_router(self._config, self._get_db)
         router.include_router(introspect_router)
+
+        mfa_router = create_mfa_router(
+            self._config, self._get_db, self._hooks,
+            rate_limit_store=self._rate_limit_store,
+        )
+        router.include_router(mfa_router)
 
         return router
 

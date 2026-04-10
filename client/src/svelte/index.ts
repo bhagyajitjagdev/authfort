@@ -29,6 +29,8 @@ export interface AuthStore {
   isAuthenticated: Readable<boolean>;
   /** Whether auth state is being determined (derived store) */
   isLoading: Readable<boolean>;
+  /** Whether a TOTP MFA code is required to complete login. Call `client.verifyMFA(code)`. */
+  isMFAPending: Readable<boolean>;
   /** The AuthFort client instance */
   client: AuthClient;
 }
@@ -53,6 +55,7 @@ export function createAuthStore(client: AuthClient): AuthStore {
     user: { subscribe: user.subscribe } as Readable<AuthUser | null>,
     isAuthenticated: derived(state, ($s) => $s === 'authenticated'),
     isLoading: derived(state, ($s) => $s === 'loading'),
+    isMFAPending: derived(state, ($s) => $s === 'mfa_pending'),
     client,
   };
 }

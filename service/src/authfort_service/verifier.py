@@ -31,6 +31,7 @@ class TokenPayload:
     exp: int
     iat: int
     iss: str
+    mfa_enabled: bool = False
 
 
 class JWTVerifier:
@@ -101,4 +102,5 @@ class JWTVerifier:
             exp=payload["exp"],
             iat=payload["iat"],
             iss=payload["iss"],
+            mfa_enabled=payload.get("mfa_enabled", False),
         )

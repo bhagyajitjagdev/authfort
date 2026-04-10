@@ -12,7 +12,9 @@ import type {
   OAuthProvider,
   OAuthSignInOptions,
   ServerAuthResponse,
+  ServerMFAChallengeResponse,
   ServerUserResponse,
+  SignInResult,
 } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -29,6 +31,7 @@ function mapUser(server: ServerUserResponse): AuthUser {
     emailVerified: server.email_verified,
     avatarUrl: server.avatar_url ?? undefined,
     createdAt: server.created_at,
+    mfaEnabled: server.mfa_enabled ?? false,
   };
 }
 
@@ -45,6 +48,8 @@ class AuthClientImpl implements AuthClient {
   private _tokenManager: TokenManager | null = null;
   private _initPromise: Promise<void> | null = null;
   private _cookieRefreshPromise: Promise<boolean> | null = null;
+  /** Stored MFA challenge token while state is 'mfa_pending'. Cleared on verifyMFA, signOut, or new signIn. */
+  private _mfaToken: string | null = null;
 
   private readonly _baseUrl: string;
   private readonly _tokenMode: 'cookie' | 'bearer';
@@ -217,7 +222,10 @@ class AuthClientImpl implements AuthClient {
     return user;
   }
 
-  async signIn(data: { email: string; password: string }): Promise<AuthUser> {
+  async signIn(data: { email: string; password: string }): Promise<SignInResult> {
+    // Clear any stale MFA state from a previous incomplete login
+    this._mfaToken = null;
+
     const response = await globalThis.fetch(`${this._baseUrl}/login`, {
       method: 'POST',
       credentials: 'include',
@@ -229,8 +237,54 @@ class AuthClientImpl implements AuthClient {
       throw await parseErrorResponse(response);
     }
 
+    const result: ServerAuthResponse | ServerMFAChallengeResponse = await response.json();
+
+    // MFA challenge — store token internally, transition to mfa_pending
+    if ('mfa_required' in result && result.mfa_required) {
+      this._mfaToken = result.mfa_token;
+      this._setState('mfa_pending', null);
+      return { status: 'mfa_required' };
+    }
+
+    // Full auth response
+    const authResult = result as ServerAuthResponse;
+    const user = mapUser(authResult.user);
+
+    if (this._tokenManager) {
+      await this._tokenManager.setTokens(
+        authResult.tokens.access_token,
+        authResult.tokens.refresh_token,
+        authResult.tokens.expires_in,
+      );
+    }
+    this._setAuthenticated(user);
+    return { status: 'authenticated', user };
+  }
+
+  async verifyMFA(code: string): Promise<AuthUser> {
+    if (!this._mfaToken) {
+      throw new AuthClientError(
+        'No MFA challenge pending. Call signIn() first.',
+        'no_mfa_challenge',
+        0,
+      );
+    }
+
+    const response = await globalThis.fetch(`${this._baseUrl}/mfa/verify`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mfa_token: this._mfaToken, code }),
+    });
+
+    if (!response.ok) {
+      throw await parseErrorResponse(response);
+    }
+
     const result: ServerAuthResponse = await response.json();
     const user = mapUser(result.user);
+
+    this._mfaToken = null;
 
     if (this._tokenManager) {
       await this._tokenManager.setTokens(
@@ -431,6 +485,7 @@ class AuthClientImpl implements AuthClient {
         body,
       });
     } finally {
+      this._mfaToken = null;
       if (this._tokenManager) await this._tokenManager.clear();
       this._setState('unauthenticated', null);
     }

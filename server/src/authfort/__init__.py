@@ -1,13 +1,15 @@
 """AuthFort — Authentication and authorization library for Python."""
 
-__version__ = "0.0.21"
+__version__ = "0.0.22"
 
 from authfort.alembic_helper import alembic_filters, register_foreign_tables
 from authfort.authfort import AuthFort
 from authfort.config import CookieConfig, RateLimitConfig
 from authfort.core.errors import AuthError
-from authfort.core.schemas import AuthResponse, AuthTokens, ListUsersResponse, SessionResponse, UserResponse
+from authfort.core.schemas import AuthResponse, AuthTokens, ListUsersResponse, MFAChallenge, MFASetup, MFAStatus, SessionResponse, UserResponse
 from authfort.events import (
+    BackupCodeUsed,
+    BackupCodesRegenerated,
     EmailOTPLogin,
     EmailOTPRequested,
     EmailVerificationRequested,
@@ -16,6 +18,10 @@ from authfort.events import (
     Login,
     LoginFailed,
     Logout,
+    MFADisabled,
+    MFAEnabled,
+    MFAFailed,
+    MFALogin,
     MagicLinkLogin,
     MagicLinkRequested,
     OAuthLink,
@@ -47,6 +53,8 @@ __all__ = [
     "AuthUserRole",
     "AuthResponse",
     "AuthTokens",
+    "BackupCodeUsed",
+    "BackupCodesRegenerated",
     "CookieConfig",
     "EmailOTPLogin",
     "EmailOTPRequested",
@@ -61,6 +69,13 @@ __all__ = [
     "Login",
     "LoginFailed",
     "Logout",
+    "MFAChallenge",
+    "MFADisabled",
+    "MFAEnabled",
+    "MFAFailed",
+    "MFALogin",
+    "MFASetup",
+    "MFAStatus",
     "MagicLinkLogin",
     "MagicLinkRequested",
     "OAuthLink",

@@ -152,6 +152,7 @@ Per-endpoint rate limits. Pass to `AuthFort(rate_limit=...)` to enable rate limi
 | `verify_email` | `str \| None` | `"5/min"` | Email verification endpoint |
 | `refresh` | `str \| None` | `"30/min"` | Token refresh endpoint |
 | `oauth_authorize` | `str \| None` | `"10/min"` | OAuth authorization endpoint |
+| `mfa_verify` | `str \| None` | `"5/min"` | MFA verification endpoint (`/auth/mfa/verify`) |
 
 Format: `"{count}/{period}"` where period is `sec`, `min`, `hour`, or `day`.
 
@@ -213,3 +214,5 @@ Internal configuration object, accessible via `auth.config`. Read-only.
 | `email_otp_ttl_seconds` | `int` | Email OTP code TTL |
 | `allow_passwordless_signup` | `bool` | Auto-create users via magic link/OTP |
 | `rate_limit` | `RateLimitConfig \| None` | Rate limiting config (None = disabled) |
+| `mfa_issuer` | `str \| None` | App name shown in authenticator apps (defaults to `jwt_issuer`) |
+| `mfa_backup_code_count` | `int` | Number of backup codes generated per user (default 10) |

@@ -55,7 +55,9 @@ export interface UseAuthReturn {
   isAuthenticated: boolean;
   /** Whether auth state is being determined */
   isLoading: boolean;
-  /** The AuthFort client instance (for signIn, signOut, fetch, etc.) */
+  /** Whether a TOTP MFA code is required to complete login. Call `client.verifyMFA(code)`. */
+  isMFAPending: boolean;
+  /** The AuthFort client instance (for signIn, signOut, fetch, verifyMFA, etc.) */
   client: AuthClient;
 }
 
@@ -84,6 +86,7 @@ export function useAuth(): UseAuthReturn {
     user,
     isAuthenticated: state === 'authenticated',
     isLoading: state === 'loading',
+    isMFAPending: state === 'mfa_pending',
     client,
   };
 }

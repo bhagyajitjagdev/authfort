@@ -37,8 +37,14 @@ export interface AuthClientConfig {
   tokenStorage?: TokenStorage;
 }
 
-/** Authentication state */
-export type AuthState = 'authenticated' | 'unauthenticated' | 'loading';
+/**
+ * Authentication state.
+ * - `'authenticated'` — user is signed in with full tokens
+ * - `'unauthenticated'` — no active session
+ * - `'loading'` — checking for existing session
+ * - `'mfa_pending'` — password verified, waiting for TOTP code (call `verifyMFA()`)
+ */
+export type AuthState = 'authenticated' | 'unauthenticated' | 'loading' | 'mfa_pending';
 
 /** Known OAuth provider names (accepts any string for generic providers) */
 export type OAuthProvider = 'google' | 'github' | (string & {});
@@ -66,7 +72,20 @@ export interface AuthUser {
   emailVerified: boolean;
   avatarUrl?: string;
   createdAt: string;
+  /** Whether the user has TOTP MFA enabled on their account. */
+  mfaEnabled: boolean;
 }
+
+/**
+ * Result of `signIn()`.
+ *
+ * - `status: 'authenticated'` — tokens issued, `user` is populated.
+ * - `status: 'mfa_required'` — password verified but MFA is enabled.
+ *   Call `verifyMFA(code)` to complete the login.
+ */
+export type SignInResult =
+  | { status: 'authenticated'; user: AuthUser }
+  | { status: 'mfa_required' };
 
 /** Auth client interface */
 export interface AuthClient {
@@ -85,8 +104,24 @@ export interface AuthClient {
   /** Sign up with email and password */
   signUp(data: { email: string; password: string; name?: string; avatarUrl?: string; phone?: string }): Promise<AuthUser>;
 
-  /** Sign in with email and password */
-  signIn(data: { email: string; password: string }): Promise<AuthUser>;
+  /**
+   * Sign in with email and password.
+   *
+   * Returns `{ status: 'authenticated', user }` on success, or
+   * `{ status: 'mfa_required' }` if the user has TOTP MFA enabled.
+   * In the MFA case, call `verifyMFA(code)` to complete the login.
+   */
+  signIn(data: { email: string; password: string }): Promise<SignInResult>;
+
+  /**
+   * Complete a login that requires MFA.
+   *
+   * Submit the 6-digit TOTP code from the user's authenticator app (or a
+   * backup code). Only valid after `signIn()` returns `{ status: 'mfa_required' }`.
+   *
+   * @throws {AuthClientError} If the code is wrong or the session has expired.
+   */
+  verifyMFA(code: string): Promise<AuthUser>;
 
   /** Sign in with OAuth provider. Redirect mode (default) navigates the browser. Popup mode opens a window and returns a promise. */
   signInWithProvider(provider: OAuthProvider, options?: OAuthSignInOptions): void | Promise<AuthUser>;
@@ -136,10 +171,18 @@ export interface ServerUserResponse {
   avatar_url: string | null;
   roles: string[];
   created_at: string;
+  mfa_enabled: boolean;
 }
 
 /** Full auth response from server (signup/login/refresh) */
 export interface ServerAuthResponse {
   user: ServerUserResponse;
   tokens: AuthTokens;
+}
+
+/** MFA challenge response — returned by /login when user has MFA enabled */
+export interface ServerMFAChallengeResponse {
+  mfa_required: true;
+  mfa_token: string;
+  expires_in: number;
 }

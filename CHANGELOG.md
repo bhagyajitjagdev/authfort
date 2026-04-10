@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.22] - 2026-04-10
+
+### Added
+- **server**: TOTP MFA (Google Authenticator, Authy) — `POST /auth/mfa/init`, `POST /auth/mfa/confirm`, `POST /auth/mfa/verify`, `POST /auth/mfa/disable`, `GET /auth/mfa/status`
+- **server**: Backup codes — 10 single-use `xxxxx-xxxxx` codes generated on MFA enable, regeneratable via `POST /auth/mfa/backup-codes/regenerate`
+- **server**: `mfa_enabled` claim added to all JWT access tokens — zero-latency posture checks in downstream services
+- **server**: MFA challenge token — short-lived JWT (5 min) issued by `POST /login` when user has MFA enabled; submit to `POST /auth/mfa/verify` to complete login
+- **server**: Replay protection — same TOTP code cannot be reused within the same 30s window
+- **server**: `MFAEnabled`, `MFADisabled`, `MFALogin`, `MFAFailed`, `BackupCodeUsed`, `BackupCodesRegenerated` events
+- **server**: `admin_disable_mfa(user_id)` — allows admins to forcibly disable MFA on a user account
+- **server**: `mfa_issuer` config option — name shown in authenticator apps (defaults to `jwt_issuer`)
+- **server**: `mfa_backup_code_count` config option — number of backup codes generated (default 10)
+- **service**: `mfa_enabled` field on `TokenPayload` — read the claim from verified JWTs
+- **client**: `'mfa_pending'` auth state — set after `signIn()` returns `{ status: 'mfa_required' }`
+- **client**: `verifyMFA(code)` method on `AuthClient` — completes a two-step login
+- **client**: `SignInResult` discriminated union — `signIn()` now returns `{ status: 'authenticated', user }` or `{ status: 'mfa_required' }`
+- **client**: `mfaEnabled` field on `AuthUser` — reflects account-level MFA status from JWT
+- **client**: `isMFAPending` in React hook, Vue composable, and Svelte store
+
+### Dependencies
+- **server**: Added `pyotp` (>=2.9.0) — TOTP generation and verification
+
 ## [0.0.21] - 2026-04-02
 
 ### Fixed

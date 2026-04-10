@@ -24,6 +24,7 @@ from authfort.core.schemas import (
     AuthResponse,
     EmailVerifyRequest,
     LoginRequest,
+    MFAChallenge,
     MagicLinkRequest,
     MagicLinkVerifyRequest,
     OTPRequest,
@@ -196,14 +197,19 @@ def create_auth_router(
         set_auth_cookies(config, response, result)
         return result
 
-    @router.post("/login", response_model=AuthResponse, dependencies=_login_rl)
+    @router.post("/login", response_model=AuthResponse | MFAChallenge, dependencies=_login_rl)
     async def login_endpoint(
         data: LoginRequest,
         request: Request,
         response: Response,
         session: Annotated[AsyncSession, Depends(get_db)],
     ):
-        """Authenticate with email and password."""
+        """Authenticate with email and password.
+
+        Returns ``AuthResponse`` on success, or ``MFAChallenge`` if the user
+        has TOTP MFA enabled. In the MFA case, POST the ``mfa_token`` + code
+        to ``/auth/mfa/verify`` to complete the login.
+        """
         if rl is not None and rl.login and rate_limit_store is not None:
             await _check_email_rate_limit(
                 hooks, rate_limit_store, "login", rl.login,
@@ -229,7 +235,9 @@ def create_auth_router(
             ))
             raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
 
-        set_auth_cookies(config, response, result)
+        # Only set cookies on a full AuthResponse (not on MFA challenge)
+        if isinstance(result, AuthResponse):
+            set_auth_cookies(config, response, result)
         return result
 
     @router.post("/refresh", response_model=AuthResponse, dependencies=_refresh_rl)

@@ -1,6 +1,6 @@
 [project]
 name = "authfort"
-version = "0.0.21"
+version = "0.0.22"
 description = "Comprehensive authentication and authorization library for Python"
 readme = "README.md"
 license = {text = "MIT"}
@@ -15,6 +15,7 @@ dependencies = [
     "httpx>=0.28.1",
     "nh3>=0.3.4",
     "pyjwt[crypto]>=2.11.0",
+    "pyotp>=2.9.0",
     "sqlalchemy[asyncio]>=2.0",
 ]
 

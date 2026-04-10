@@ -54,6 +54,8 @@ export interface UseAuthReturn {
   isAuthenticated: ComputedRef<boolean>;
   /** Whether auth state is being determined */
   isLoading: ComputedRef<boolean>;
+  /** Whether a TOTP MFA code is required to complete login. Call `client.verifyMFA(code)`. */
+  isMFAPending: ComputedRef<boolean>;
   /** The AuthFort client instance */
   client: AuthClient;
 }
@@ -83,6 +85,7 @@ export function useAuth(): UseAuthReturn {
     user: readonly(user) as Readonly<Ref<AuthUser | null>>,
     isAuthenticated: computed(() => state.value === 'authenticated'),
     isLoading: computed(() => state.value === 'loading'),
+    isMFAPending: computed(() => state.value === 'mfa_pending'),
     client,
   };
 }

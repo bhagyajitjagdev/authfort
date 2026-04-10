@@ -59,8 +59,16 @@ Content-Type: application/json
   "password": "strongpassword"
 }`;
 
-export const loginProgrammatic = `result = await auth.login("user@example.com", "strongpassword")
-# result.tokens.access_token, result.tokens.refresh_token`;
+export const loginProgrammatic = `from authfort.core.schemas import MFAChallenge
+
+result = await auth.login("user@example.com", "strongpassword")
+
+if isinstance(result, MFAChallenge):
+    # User has MFA enabled — prompt for TOTP code then:
+    auth_response = await auth.complete_mfa_login(result.mfa_token, totp_code)
+else:
+    # Normal login — result.tokens.access_token, result.tokens.refresh_token
+    pass`;
 
 export const refreshEndpoint = `POST /auth/refresh
 Content-Type: application/json
@@ -117,6 +125,8 @@ Authenticates a user and issues tokens.
 <CodeBlock title="Endpoint" code={loginEndpoint} lang="http" />
 
 Returns `AuthResponse` with tokens. Returns 401 if credentials are invalid. If the user is banned, returns 403.
+
+If the user has **TOTP MFA enabled**, the endpoint instead returns `MFAChallenge` (`mfa_required: true`, `mfa_token`, `expires_in: 300`). The client must POST the token + code to `POST /auth/mfa/verify` to receive full tokens. See [TOTP MFA](/authfort/server/mfa/) for the full flow.
 
 <CodeBlock title="Programmatic" code={loginProgrammatic} />
 

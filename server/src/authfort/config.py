@@ -40,6 +40,7 @@ class RateLimitConfig:
     verify_email: str | None = "5/min"
     refresh: str | None = "30/min"
     oauth_authorize: str | None = "10/min"
+    mfa_verify: str | None = "5/min"
 
     def __post_init__(self) -> None:
         """Validate all rate limit strings at construction time."""
@@ -47,7 +48,7 @@ class RateLimitConfig:
 
         for field_name in (
             "login", "signup", "magic_link", "otp", "verify_email",
-            "refresh", "oauth_authorize",
+            "refresh", "oauth_authorize", "mfa_verify",
         ):
             value = getattr(self, field_name)
             if value is not None:
@@ -77,3 +78,5 @@ class AuthFortConfig:
     min_password_length: int = 8
     trust_proxy: bool = False
     trusted_proxy_networks: tuple[IPv4Network | IPv6Network, ...] = ()
+    mfa_issuer: str | None = None
+    mfa_backup_code_count: int = 10

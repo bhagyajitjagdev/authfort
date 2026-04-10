@@ -17,10 +17,28 @@ console.log(user.id);    // "uuid-string"
 console.log(user.email); // "user@example.com"
 console.log(user.roles); // []`;
 
-export const signInExample = `const user = await auth.signIn({
+export const signInExample = `const result = await auth.signIn({
   email: 'user@example.com',
   password: 'strongpassword',
-});`;
+});
+
+if (result.status === 'authenticated') {
+  console.log(result.user.email);
+}`;
+
+export const signInMFAExample = `const result = await auth.signIn({
+  email: 'user@example.com',
+  password: 'strongpassword',
+});
+
+if (result.status === 'mfa_required') {
+  // Prompt user for TOTP code (or backup code)
+  const code = await showMFAPrompt();
+  const user = await auth.verifyMFA(code);
+} else {
+  // result.status === 'authenticated'
+  const user = result.user;
+}`;
 
 export const signOutExample = `await auth.signOut();`;
 
@@ -75,7 +93,29 @@ After signup, the user is automatically signed in and the auth state changes to 
 
 ## Sign In
 
+`signIn()` returns a `SignInResult` discriminated union:
+
 <CodeBlock code={signInExample} lang="typescript" />
+
+### MFA {#mfa}
+
+If the account has TOTP MFA enabled, `signIn()` returns `{ status: 'mfa_required' }` and the auth state becomes `'mfa_pending'`. Call `verifyMFA()` with the 6-digit TOTP code (or a backup code) to complete the login:
+
+<CodeBlock code={signInMFAExample} lang="typescript" />
+
+The client stores the MFA challenge token internally — `verifyMFA(code)` only needs the code. Framework integrations expose `isMFAPending` for conditional rendering:
+
+```typescript
+// React
+const { isMFAPending, client } = useAuth();
+if (isMFAPending) return <MFACodeForm onSubmit={(code) => client.verifyMFA(code)} />;
+
+// Vue
+const { isMFAPending, client } = useAuth();
+
+// Svelte
+const { isMFAPending, client } = authStore;
+```
 
 ## Sign Out
 

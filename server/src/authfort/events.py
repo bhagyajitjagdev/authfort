@@ -213,6 +213,53 @@ class UserDeleted(Event):
     email: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class MFAEnabled(Event):
+    """Fired when a user successfully enables TOTP MFA."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class MFADisabled(Event):
+    """Fired when MFA is disabled for a user (by the user or an admin)."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class MFALogin(Event):
+    """Fired when a user successfully completes the MFA login step."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+    ip_address: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MFAFailed(Event):
+    """Fired when an MFA code submission fails (wrong code or expired challenge).
+
+    Use this event to feed into rate limiting or alerting systems.
+    """
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+    ip_address: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BackupCodeUsed(Event):
+    """Fired when a backup code is consumed during MFA login."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class BackupCodesRegenerated(Event):
+    """Fired when a user regenerates their backup code set."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Event name mapping
 # ---------------------------------------------------------------------------
@@ -243,6 +290,12 @@ EVENT_MAP: dict[str, type[Event]] = {
     "email_otp_login": EmailOTPLogin,
     "rate_limit_exceeded": RateLimitExceeded,
     "user_deleted": UserDeleted,
+    "mfa_enabled": MFAEnabled,
+    "mfa_disabled": MFADisabled,
+    "mfa_login": MFALogin,
+    "mfa_failed": MFAFailed,
+    "backup_code_used": BackupCodeUsed,
+    "backup_codes_regenerated": BackupCodesRegenerated,
 }
 
 
