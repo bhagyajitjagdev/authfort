@@ -97,7 +97,7 @@ After signup, the user is automatically signed in and the auth state changes to 
 
 <CodeBlock code={signInExample} lang="typescript" />
 
-### MFA {#mfa}
+### MFA
 
 If the account has TOTP MFA enabled, `signIn()` returns `{ status: 'mfa_required' }` and the auth state becomes `'mfa_pending'`. Call `verifyMFA()` with the 6-digit TOTP code (or a backup code) to complete the login:
 
