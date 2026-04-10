@@ -312,7 +312,7 @@ class AuthClientImpl implements AuthClient {
     return user;
   }
 
-  signInWithProvider(provider: OAuthProvider, options?: OAuthSignInOptions): void | Promise<AuthUser> {
+  signInWithProvider(provider: OAuthProvider, options?: OAuthSignInOptions): void | Promise<SignInResult> {
     const mode = options?.mode ?? 'redirect';
     const params = new URLSearchParams();
     if (options?.redirectTo) params.set('redirect_to', options.redirectTo);
