@@ -8,8 +8,6 @@ sidebar:
 import { Steps } from '@astrojs/starlight/components';
 import CodeBlock from '../../../components/CodeBlock.astro';
 
-export const installDep = `uv add pyotp`;
-
 export const enableInitEndpoint = `POST /auth/mfa/init
 Authorization: Bearer <access-token>`;
 
@@ -142,9 +140,7 @@ if (isMFAPending) {
 
 AuthFort supports TOTP MFA (RFC 6238) — the same protocol used by Google Authenticator, Authy, 1Password, and any standard authenticator app. MFA is an account-level property: once enabled, every login requires a 6-digit code in addition to the password.
 
-## Dependency
-
-<CodeBlock code={installDep} lang="bash" />
+TOTP support is built into AuthFort — no extra dependencies needed.
 
 ## Setup Flow
 

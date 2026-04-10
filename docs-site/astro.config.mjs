@@ -60,6 +60,7 @@ export default defineConfig({
             { label: 'Email Verification', slug: 'server/email-verification' },
             { label: 'Magic Links', slug: 'server/magic-links' },
             { label: 'Email OTP', slug: 'server/otp' },
+            { label: 'TOTP MFA', slug: 'server/mfa' },
             { label: 'Events & Hooks', slug: 'server/events' },
             { label: 'Cookies & Bearer', slug: 'server/cookies-and-bearer' },
             { label: 'Database Setup', slug: 'server/database' },

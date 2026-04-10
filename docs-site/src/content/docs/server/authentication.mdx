@@ -126,7 +126,7 @@ Authenticates a user and issues tokens.
 
 Returns `AuthResponse` with tokens. Returns 401 if credentials are invalid. If the user is banned, returns 403.
 
-If the user has **TOTP MFA enabled**, the endpoint instead returns `MFAChallenge` (`mfa_required: true`, `mfa_token`, `expires_in: 300`). The client must POST the token + code to `POST /auth/mfa/verify` to receive full tokens. See [TOTP MFA](/authfort/server/mfa/) for the full flow.
+If the user has **TOTP MFA enabled**, the endpoint instead returns `MFAChallenge` (`mfa_required: true`, `mfa_token`, `expires_in: 300`). The client must POST the token + code to `POST /auth/mfa/verify` to receive full tokens. See [TOTP MFA](/authfort/server/mfa/) for the complete setup and login flow.
 
 <CodeBlock title="Programmatic" code={loginProgrammatic} />
 
@@ -172,3 +172,9 @@ AuthFort also supports passwordless authentication via magic links and email OTP
 - [Email OTP](/authfort/server/otp/) — login via 6-digit code
 
 Both methods automatically verify the user's email address.
+
+## Two-Factor Authentication
+
+Add TOTP MFA (Google Authenticator, Authy) on top of password login:
+
+- [TOTP MFA](/authfort/server/mfa/) — setup flow, backup codes, posture checks
