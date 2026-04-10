@@ -28,6 +28,7 @@ const serverUser = {
   roles: ['user'],
   created_at: '2026-01-01T00:00:00Z',
   phone: null,
+  mfa_enabled: false,
 };
 
 const serverAuthResponse = {

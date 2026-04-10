@@ -14,6 +14,7 @@ const mockAuthResponse: ServerAuthResponse = {
     avatar_url: null,
     roles: ['user'],
     created_at: '2024-01-01T00:00:00Z',
+    mfa_enabled: false,
   },
   tokens: {
     access_token: 'access-token-123',
@@ -31,6 +32,7 @@ const expectedUser: AuthUser = {
   emailVerified: true,
   avatarUrl: undefined,
   createdAt: '2024-01-01T00:00:00Z',
+  mfaEnabled: false,
 };
 
 function mockResponse(status: number, body: unknown): Response {

@@ -9,10 +9,12 @@ const serverUser = {
   id: '123',
   email: 'test@example.com',
   name: 'Test User',
+  phone: null,
   email_verified: true,
   avatar_url: null,
   roles: ['user'],
   created_at: '2026-01-01T00:00:00Z',
+  mfa_enabled: false,
 };
 
 const serverAuthResponse = {
@@ -28,10 +30,12 @@ const expectedUser: AuthUser = {
   id: '123',
   email: 'test@example.com',
   name: 'Test User',
+  phone: undefined,
   roles: ['user'],
   emailVerified: true,
   avatarUrl: undefined,
   createdAt: '2026-01-01T00:00:00Z',
+  mfaEnabled: false,
 };
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -96,12 +100,12 @@ describe('AuthClient — cookie mode', () => {
     const stateChanges: AuthState[] = [];
     client.onAuthStateChange((state) => stateChanges.push(state));
 
-    const user = await client.signIn({
+    const result = await client.signIn({
       email: 'test@example.com',
       password: 'password123',
     });
 
-    expect(user).toEqual(expectedUser);
+    expect(result).toEqual({ status: 'authenticated', user: expectedUser });
     // Initial fire (unauthenticated) + after signIn (authenticated)
     expect(stateChanges).toEqual(['unauthenticated', 'authenticated']);
   });
