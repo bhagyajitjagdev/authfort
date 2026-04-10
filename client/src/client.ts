@@ -85,6 +85,21 @@ class AuthClientImpl implements AuthClient {
   private async _doInitialize(): Promise<void> {
     this._setState('loading', null);
 
+    // Check for mfa_token in URL — set by the OAuth callback when MFA is required
+    if (typeof window !== 'undefined' && window.location) {
+      const params = new URLSearchParams(window.location.search);
+      const mfaToken = params.get('mfa_token');
+      if (mfaToken) {
+        this._mfaToken = mfaToken;
+        params.delete('mfa_token');
+        const newSearch = params.toString();
+        const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+        window.history.replaceState(null, '', newUrl);
+        this._setState('mfa_pending', null);
+        return;
+      }
+    }
+
     try {
       if (this._tokenMode === 'bearer') {
         const result = await this._tokenManager!.refresh();
@@ -312,8 +327,8 @@ class AuthClientImpl implements AuthClient {
     window.location.href = authorizeUrl;
   }
 
-  private _oauthPopup(url: string): Promise<AuthUser> {
-    return new Promise<AuthUser>((resolve, reject) => {
+  private _oauthPopup(url: string): Promise<SignInResult> {
+    return new Promise<SignInResult>((resolve, reject) => {
       const width = 500;
       const height = 600;
       const left = window.screenX + (window.outerWidth - width) / 2;
@@ -335,9 +350,20 @@ class AuthClientImpl implements AuthClient {
       };
 
       const onMessage = (event: MessageEvent) => {
-        // Accept messages from our own origin or the auth server origin
         const data = event.data;
-        if (!data || typeof data !== 'object' || !data.user) return;
+        if (!data || typeof data !== 'object') return;
+
+        // MFA challenge — store token, transition to mfa_pending
+        if (data.mfa_required && data.mfa_token) {
+          cleanup();
+          try { popup.close(); } catch { /* ignore */ }
+          this._mfaToken = data.mfa_token;
+          this._setState('mfa_pending', null);
+          resolve({ status: 'mfa_required' });
+          return;
+        }
+
+        if (!data.user) return;
 
         cleanup();
         try { popup.close(); } catch { /* ignore */ }
@@ -349,12 +375,12 @@ class AuthClientImpl implements AuthClient {
             .setTokens(data.tokens.access_token, data.tokens.refresh_token, data.tokens.expires_in)
             .then(() => {
               this._setAuthenticated(user);
-              resolve(user);
+              resolve({ status: 'authenticated', user });
             })
             .catch(reject);
         } else {
           this._setAuthenticated(user);
-          resolve(user);
+          resolve({ status: 'authenticated', user });
         }
       };
 

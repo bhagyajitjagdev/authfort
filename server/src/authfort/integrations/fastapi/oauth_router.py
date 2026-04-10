@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from authfort.config import AuthFortConfig
 from authfort.core.auth import AuthError
 from authfort.core.oauth import create_oauth_state, oauth_authenticate, verify_oauth_state
-from authfort.core.schemas import AuthResponse
+from authfort.core.schemas import AuthResponse, MFAChallenge
 from authfort.events import HookRegistry, get_collector
 from authfort.integrations.fastapi.cookies import set_auth_cookies
 from authfort.integrations.fastapi.proxy import get_client_ip
@@ -85,7 +85,7 @@ def create_oauth_router(
         )
         return RedirectResponse(url=auth_url, status_code=302)
 
-    @router.get("/oauth/{provider_name}/callback", response_model=AuthResponse)
+    @router.get("/oauth/{provider_name}/callback", response_model=AuthResponse | MFAChallenge)
     async def oauth_callback(
         provider_name: str,
         request: Request,
@@ -160,9 +160,7 @@ def create_oauth_router(
             _fire_login_failed(e.code)
             raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
 
-        set_auth_cookies(config, response, result)
-
-        # Popup mode: return HTML that posts tokens to opener and closes
+        # Popup mode: post result to opener and close
         if state_data.mode == "popup":
             import json
 
@@ -175,7 +173,20 @@ def create_oauth_router(
             )
             return HTMLResponse(content=html)
 
-        # Redirect mode: redirect to specified URL after setting cookies
+        # MFA required — redirect to frontend with mfa_token in query string
+        if isinstance(result, MFAChallenge):
+            base = state_data.redirect_to or "/"
+            if config.frontend_url and base.startswith("/"):
+                base = config.frontend_url + base
+            sep = "&" if "?" in base else "?"
+            return RedirectResponse(
+                url=f"{base}{sep}mfa_token={result.mfa_token}",
+                status_code=302,
+            )
+
+        # Normal auth — set cookies and redirect (or return JSON)
+        set_auth_cookies(config, response, result)
+
         if state_data.redirect_to:
             redirect_url = state_data.redirect_to
             if config.frontend_url:

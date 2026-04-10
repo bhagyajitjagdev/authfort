@@ -17,7 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.config import JWT_ALGORITHM, AuthFortConfig
 from authfort.core.auth import AuthError, _get_or_create_signing_key, _issue_tokens
-from authfort.core.schemas import AuthResponse
+from authfort.core.schemas import AuthResponse, MFAChallenge
+from authfort.repositories import user_mfa as user_mfa_repo
 from authfort.core.validation import sanitize_name, validate_user_email
 from authfort.core.tokens import get_unverified_header
 from authfort.providers.base import OAuthProvider, OAuthUserInfo
@@ -180,7 +181,7 @@ async def oauth_authenticate(
     user_agent: str | None = None,
     ip_address: str | None = None,
     events: "EventCollector | None" = None,
-) -> AuthResponse:
+) -> AuthResponse | MFAChallenge:
     """Complete the OAuth flow: exchange code, fetch user info, find/create user, issue tokens.
 
     Auto-linking: if a user with the same email already exists, the OAuth
@@ -306,6 +307,17 @@ async def oauth_authenticate(
         updates["avatar_url"] = user_info.avatar_url
     if updates:
         user = await user_repo.update_user(session, user, **updates)
+
+    # Check MFA — if enabled, return a challenge instead of tokens
+    user_mfa = await user_mfa_repo.get_user_mfa(session, user.id)
+    if user_mfa is not None and user_mfa.enabled:
+        signing_key = await _get_or_create_signing_key(session, config)
+        from authfort.core.mfa import create_mfa_challenge_token, MFA_CHALLENGE_TTL_SECONDS
+
+        mfa_token = create_mfa_challenge_token(
+            user.id, signing_key.private_key, signing_key.kid, config,
+        )
+        return MFAChallenge(mfa_token=mfa_token, expires_in=MFA_CHALLENGE_TTL_SECONDS)
 
     if events is not None:
         from authfort.events import Login

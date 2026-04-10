@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createAuthClient } from '../src/client';
 import { AuthClientError, parseErrorResponse } from '../src/errors';
-import type { AuthClient, AuthState, AuthUser, TokenStorage } from '../src/types';
+import type { AuthClient, AuthState, AuthUser, SignInResult, TokenStorage } from '../src/types';
 
 const BASE_URL = 'http://localhost:8000/auth';
 
@@ -309,7 +309,7 @@ describe('AuthClient — popup OAuth', () => {
     vi.stubGlobal('outerWidth', 1024);
     vi.stubGlobal('outerHeight', 768);
 
-    const promise = client.signInWithProvider('google', { mode: 'popup' }) as Promise<AuthUser>;
+    const promise = client.signInWithProvider('google', { mode: 'popup' });
 
     // Simulate the popup posting a message back
     expect(messageHandler).not.toBeNull();
@@ -320,8 +320,8 @@ describe('AuthClient — popup OAuth', () => {
       },
     } as MessageEvent);
 
-    const user = await promise;
-    expect(user.email).toBe('test@example.com');
+    const result = await promise;
+    expect(result).toEqual({ status: 'authenticated', user: expect.objectContaining({ email: 'test@example.com' }) });
     expect(mockPopup.close).toHaveBeenCalled();
   });
 
@@ -332,7 +332,7 @@ describe('AuthClient — popup OAuth', () => {
     vi.stubGlobal('outerWidth', 1024);
     vi.stubGlobal('outerHeight', 768);
 
-    const promise = client.signInWithProvider('google', { mode: 'popup' }) as Promise<AuthUser>;
+    const promise = client.signInWithProvider('google', { mode: 'popup' }) as Promise<SignInResult>;
 
     await expect(promise).rejects.toThrow('Popup blocked');
   });
@@ -353,7 +353,7 @@ describe('AuthClient — popup OAuth', () => {
     vi.stubGlobal('outerWidth', 1024);
     vi.stubGlobal('outerHeight', 768);
 
-    const promise = client.signInWithProvider('google', { mode: 'popup' }) as Promise<AuthUser>;
+    const promise = client.signInWithProvider('google', { mode: 'popup' }) as Promise<SignInResult>;
 
     // Simulate popup being closed by user
     mockPopup.closed = true;
@@ -383,7 +383,7 @@ describe('AuthClient — popup OAuth', () => {
     vi.stubGlobal('outerWidth', 1024);
     vi.stubGlobal('outerHeight', 768);
 
-    const promise = client.signInWithProvider('google', { mode: 'popup' }) as Promise<AuthUser>;
+    const promise = client.signInWithProvider('google', { mode: 'popup' });
 
     // Irrelevant messages should be ignored
     messageHandler!({ data: null } as MessageEvent);
@@ -395,8 +395,8 @@ describe('AuthClient — popup OAuth', () => {
       data: { user: serverUser },
     } as MessageEvent);
 
-    const user = await promise;
-    expect(user.email).toBe('test@example.com');
+    const result = await promise;
+    expect(result).toEqual({ status: 'authenticated', user: expect.objectContaining({ email: 'test@example.com' }) });
     vi.useRealTimers();
   });
 });

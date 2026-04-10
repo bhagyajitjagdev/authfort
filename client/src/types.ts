@@ -123,8 +123,8 @@ export interface AuthClient {
    */
   verifyMFA(code: string): Promise<AuthUser>;
 
-  /** Sign in with OAuth provider. Redirect mode (default) navigates the browser. Popup mode opens a window and returns a promise. */
-  signInWithProvider(provider: OAuthProvider, options?: OAuthSignInOptions): void | Promise<AuthUser>;
+  /** Sign in with OAuth provider. Redirect mode (default) navigates the browser. Popup mode opens a window and returns a promise that resolves to a SignInResult (may be mfa_required if the account has MFA enabled). */
+  signInWithProvider(provider: OAuthProvider, options?: OAuthSignInOptions): void | Promise<SignInResult>;
 
   /** Request a magic link for passwordless login */
   requestMagicLink(email: string): Promise<void>;
