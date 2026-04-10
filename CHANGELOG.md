@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.24] - 2026-04-11
+
+### Fixed
+- **client**: `signInWithProvider` method signature now correctly returns `void | Promise<SignInResult>` to match the interface — fixes TypeScript build error
+
 ## [0.0.23] - 2026-04-10
 
 ### Added

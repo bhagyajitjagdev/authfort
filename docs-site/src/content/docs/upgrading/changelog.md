@@ -9,6 +9,13 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.24
+
+### Fixed
+- **client**: TypeScript build error — `signInWithProvider` method signature now matches the `AuthClient` interface
+
+---
+
 ## v0.0.23
 
 ### Added
