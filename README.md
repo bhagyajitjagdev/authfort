@@ -349,7 +349,12 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.25
+### Latest — v0.0.26
+
+- **`auth.install_fastapi(app)`** — one-call FastAPI integration (mounts routers + registers AuthError exception handler), so validation errors always surface as clean 4xx instead of leaking through as 500
+- **Deliverability check now applies to magic-link / OTP / login / forgot-password** — previously was signup-only, meaning passwordless paths could still accept undeliverable emails
+
+### v0.0.25
 
 - **HIBP password breach check** — rejects passwords found in public breach corpora on signup / change / reset (k-anonymity, fail-open). On by default; disable with `check_pwned_passwords=False`.
 - **Refresh token cross-check** — cookie-mode `/auth/refresh` verifies the access token's `sub` and `sid` match the stored refresh token, closing a cookie-swap attack surface

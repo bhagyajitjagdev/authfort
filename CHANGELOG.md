@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.26] - 2026-04-21
+
+### Added
+- **server**: `AuthFort.install_fastapi(app, prefix="/auth", jwks_prefix="", register_exception_handler=True)` — one-call FastAPI setup that mounts both routers AND registers a global `AuthError` → JSON response exception handler. Prevents `AuthError` from leaking through to downstream apps' generic 500 handlers. Opt out of the handler via `register_exception_handler=False`.
+- **server**: `authfort.integrations.fastapi.authfort_exception_handler` — the handler is also exported for manual wiring via `app.add_exception_handler(AuthError, authfort_exception_handler)`.
+
+### Fixed
+- **server**: `email_deliverability_check=True` now applies to all email-input endpoints, not just signup. Previously, `/auth/magic-link`, `/auth/otp`, `/auth/login`, and the forgot-password path used the sync syntax-only validator and ignored the deliverability flag — meaning `k@k.k` could slip through when `allow_passwordless_signup=True`. (Follow-up to v0.0.25 VAPT response, caught in dev testing.)
+- **server**: `/auth/magic-link` and `/auth/otp` endpoints now wrap `AuthError` in `try/except` and return 400 with the structured detail body, consistent with the other endpoints. Previously, `AuthError` raised from these two paths would escape the router as an unhandled exception.
+
+### Upgrade notes
+- Existing apps using `app.include_router(auth.fastapi_router(), prefix="/auth")` continue to work unchanged.
+- Recommended migration: replace the two `include_router` calls with `auth.install_fastapi(app, prefix="/auth")`. Same behavior plus automatic `AuthError` handling.
+
 ## [0.0.25] - 2026-04-21
 
 ### Added
@@ -366,6 +380,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.26]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.25...v0.0.26
 [0.0.25]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.24...v0.0.25
 [0.0.18]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.17...v0.0.18
 [0.0.17]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.16...v0.0.17

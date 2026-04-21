@@ -1223,6 +1223,44 @@ class AuthFort:
 
         return create_jwks_router(self._config, self._get_db)
 
+    def install_fastapi(
+        self,
+        app,
+        *,
+        prefix: str = "/auth",
+        jwks_prefix: str = "",
+        register_exception_handler: bool = True,
+    ) -> None:
+        """One-call FastAPI setup: mount routers + register AuthError handler.
+
+        Equivalent to::
+
+            app.include_router(auth.fastapi_router(), prefix=prefix)
+            app.include_router(auth.jwks_router(), prefix=jwks_prefix)
+            app.add_exception_handler(AuthError, authfort_exception_handler)
+
+        The exception handler ensures AuthError raised anywhere in the AuthFort
+        code path (validation, core auth logic, custom hooks) is translated
+        into the correct HTTP status + structured JSON body, rather than
+        bubbling up to the app's generic 500 handler.
+
+        Args:
+            app: The FastAPI application.
+            prefix: URL prefix for the main auth router (default ``/auth``).
+            jwks_prefix: URL prefix for the JWKS router (default root).
+            register_exception_handler: If False, skip registering the AuthError
+                handler — useful if the app wants to customize the handler or
+                has already registered a compatible one. Defaults to True.
+        """
+        from authfort.core.errors import AuthError
+        from authfort.integrations.fastapi import authfort_exception_handler
+
+        app.include_router(self.fastapi_router(), prefix=prefix)
+        app.include_router(self.jwks_router(), prefix=jwks_prefix)
+
+        if register_exception_handler:
+            app.add_exception_handler(AuthError, authfort_exception_handler)
+
     @property
     def current_user(self):
         """FastAPI dependency: get the current authenticated user.

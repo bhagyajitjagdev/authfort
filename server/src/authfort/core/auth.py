@@ -312,7 +312,11 @@ async def login(
     Raises:
         AuthError: If credentials are invalid (code: invalid_credentials, status: 401).
     """
-    email = validate_user_email(email)
+    email = await validate_user_email_with_deliverability(
+        email,
+        check_deliverability=config.email_deliverability_check,
+        fail_open=config.email_deliverability_fail_open,
+    )
     user = await user_repo.get_user_by_email(session, email)
     if user is None:
         raise AuthError("Invalid email or password", code="invalid_credentials", status_code=401)
@@ -483,7 +487,11 @@ async def create_password_reset_token(
 
     The caller is responsible for delivering the token (email, SMS, etc.).
     """
-    email = validate_user_email(email)
+    email = await validate_user_email_with_deliverability(
+        email,
+        check_deliverability=config.email_deliverability_check,
+        fail_open=config.email_deliverability_fail_open,
+    )
     user = await user_repo.get_user_by_email(session, email)
     if user is None:
         return None
@@ -860,7 +868,11 @@ async def create_magic_link_token(
 
     The caller is responsible for delivering the token (email, etc.).
     """
-    email = validate_user_email(email)
+    email = await validate_user_email_with_deliverability(
+        email,
+        check_deliverability=config.email_deliverability_check,
+        fail_open=config.email_deliverability_fail_open,
+    )
     user = await user_repo.get_user_by_email(session, email)
 
     if user is None and config.allow_passwordless_signup:
@@ -988,7 +1000,11 @@ async def create_email_otp(
 
     The caller is responsible for delivering the code (email, etc.).
     """
-    email = validate_user_email(email)
+    email = await validate_user_email_with_deliverability(
+        email,
+        check_deliverability=config.email_deliverability_check,
+        fail_open=config.email_deliverability_fail_open,
+    )
     user = await user_repo.get_user_by_email(session, email)
 
     if user is None and config.allow_passwordless_signup:

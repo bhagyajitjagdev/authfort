@@ -9,6 +9,21 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.26
+
+### Added
+- **One-line FastAPI integration** — `auth.install_fastapi(app, prefix="/auth")` mounts both routers and registers a global `AuthError` exception handler so errors always surface as clean 4xx with a structured body, never leaking through to the downstream app's 500 handler.
+- `authfort.integrations.fastapi.authfort_exception_handler` exported for manual wiring via `app.add_exception_handler(...)`.
+
+### Fixed
+- **`email_deliverability_check=True` now gates magic-link, OTP, login, and forgot-password** — not just signup. `k@k.k` submitted to `/auth/magic-link` with `allow_passwordless_signup=True` previously slipped through; now correctly rejected with 400 `invalid_email`.
+- `/auth/magic-link` and `/auth/otp` endpoints now return 400 on invalid email input instead of letting the exception escape as 500.
+
+### Upgrade note
+Existing `app.include_router(auth.fastapi_router(), prefix="/auth")` keeps working. Recommended: switch to `auth.install_fastapi(app, prefix="/auth")` for automatic error handling.
+
+---
+
 ## v0.0.25
 
 ### Added

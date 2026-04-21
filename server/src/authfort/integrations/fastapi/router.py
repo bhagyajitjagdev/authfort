@@ -341,9 +341,12 @@ def create_auth_router(
                 hooks, rate_limit_store, "magic_link", rl.magic_link,
                 data.email, None,
             )
-        await create_magic_link_token(
-            session, config=config, email=data.email, events=get_collector(),
-        )
+        try:
+            await create_magic_link_token(
+                session, config=config, email=data.email, events=get_collector(),
+            )
+        except AuthError as e:
+            raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
         return {"message": "If an account exists, a magic link has been sent."}
 
     @router.post("/magic-link/verify", response_model=AuthResponse)
@@ -380,9 +383,12 @@ def create_auth_router(
                 hooks, rate_limit_store, "otp", rl.otp,
                 data.email, None,
             )
-        await create_email_otp(
-            session, config=config, email=data.email, events=get_collector(),
-        )
+        try:
+            await create_email_otp(
+                session, config=config, email=data.email, events=get_collector(),
+            )
+        except AuthError as e:
+            raise HTTPException(status_code=e.status_code, detail=_auth_error_detail(e))
         return {"message": "If an account exists, a verification code has been sent."}
 
     @router.post("/otp/verify", response_model=AuthResponse, dependencies=_otp_rl)
