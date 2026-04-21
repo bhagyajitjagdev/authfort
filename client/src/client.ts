@@ -35,6 +35,31 @@ function mapUser(server: ServerUserResponse): AuthUser {
   };
 }
 
+/**
+ * Inspect a failed /refresh response and log a distinguishable warning when
+ * the server reports refresh_token_mismatch (cookie-swap defense triggered).
+ *
+ * Behavior is unchanged — auth state still clears via the generic 401 path.
+ * This only surfaces the specific cause in the browser console so apps /
+ * error-tracking tools can distinguish it from an ordinary session expiry.
+ */
+async function logIfRefreshTokenMismatch(response: Response): Promise<void> {
+  try {
+    const body = await response.json();
+    const code = body?.detail?.error ?? body?.error;
+    if (code === 'refresh_token_mismatch') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[authfort] Refresh rejected: refresh_token_mismatch. ' +
+        'The access and refresh tokens did not belong to the same session — ' +
+        'possible cookie tampering or stale client state. Clearing auth.',
+      );
+    }
+  } catch {
+    // Body not JSON or already consumed — silently ignore.
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Implementation
 // ---------------------------------------------------------------------------
@@ -129,6 +154,7 @@ class AuthClientImpl implements AuthClient {
             const data: ServerAuthResponse = await refreshResponse.json();
             this._setAuthenticated(mapUser(data.user));
           } else {
+            await logIfRefreshTokenMismatch(refreshResponse);
             this._setState('unauthenticated', null);
           }
         } else {
@@ -561,7 +587,11 @@ class AuthClientImpl implements AuthClient {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
-      .then((r) => r.ok)
+      .then(async (r) => {
+        if (r.ok) return true;
+        await logIfRefreshTokenMismatch(r);
+        return false;
+      })
       .catch(() => false)
       .finally(() => {
         this._cookieRefreshPromise = null;

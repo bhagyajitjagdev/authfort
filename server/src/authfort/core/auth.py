@@ -18,6 +18,7 @@ from authfort.core.schemas import AuthResponse, AuthTokens, MFAChallenge, MFASet
 from authfort.core.tokens import create_access_token
 from authfort.repositories import account as account_repo
 from authfort.repositories import mfa_backup_code as backup_code_repo
+from authfort.repositories import password_history as password_history_repo
 from authfort.repositories import refresh_token as refresh_token_repo
 from authfort.repositories import role as role_repo
 from authfort.repositories import signing_key as signing_key_repo
@@ -26,16 +27,191 @@ from authfort.repositories import user_mfa as user_mfa_repo
 from authfort.repositories import verification_token as verification_token_repo
 from authfort.core.errors import AuthError
 from authfort.core.validation import (
+    check_pwned_password,
     sanitize_name,
     sanitize_phone,
     validate_avatar_url,
     validate_password,
     validate_user_email,
+    validate_user_email_with_deliverability,
 )
 from authfort.utils.passwords import hash_password, verify_password
 
 if TYPE_CHECKING:
     from authfort.events import EventCollector
+
+
+async def _cross_check_access_token(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    access_token: str,
+    stored_token,
+    events: EventCollector | None,
+) -> None:
+    """Verify access_token's sub + sid match the refresh token row.
+
+    Silently skips when the access token can't be decoded (malformed) or was
+    signed by a rotated-out key — don't block legitimate refresh on those.
+    On true mismatch: revoke the refresh token, emit event, raise 401.
+    """
+    import logging
+
+    import jwt as pyjwt
+
+    try:
+        header = pyjwt.get_unverified_header(access_token)
+    except Exception:
+        logging.getLogger("authfort.auth").info("refresh_malformed_access_token")
+        return
+
+    kid = header.get("kid")
+    if not kid:
+        return
+
+    signing_key = await signing_key_repo.get_signing_key_by_kid(session, kid)
+    if signing_key is None:
+        # Unknown kid — key rotated out. Pre-rotation session; skip check.
+        return
+
+    try:
+        claims = pyjwt.decode(
+            access_token,
+            signing_key.public_key,
+            algorithms=[JWT_ALGORITHM],
+            options={"verify_exp": False},  # access token may be legitimately expired
+            issuer=config.jwt_issuer,
+        )
+    except pyjwt.InvalidTokenError:
+        logging.getLogger("authfort.auth").info("refresh_invalid_access_token")
+        return
+
+    sub_matches = claims.get("sub") == str(stored_token.user_id)
+    sid_claim = claims.get("sid")
+    if stored_token.session_id is None:
+        # Legacy pre-v0.0.17 token row without session_id; only check sub.
+        sid_matches = True
+    else:
+        sid_matches = sid_claim == str(stored_token.session_id)
+
+    if sub_matches and sid_matches:
+        return
+
+    # Mismatch — revoke the refresh token and alert. Commit the revoke before
+    # raising so the outer session rollback doesn't undo it.
+    await refresh_token_repo.revoke_refresh_token(session, stored_token)
+    await session.commit()
+
+    if events is not None:
+        from authfort.events import RefreshTokenMismatch
+
+        events.collect(
+            "refresh_token_mismatch",
+            RefreshTokenMismatch(
+                refresh_user_id=stored_token.user_id,
+                access_sub=claims.get("sub"),
+                session_id=stored_token.session_id,
+            ),
+        )
+
+    raise AuthError(
+        "Token pair mismatch — please log in again",
+        code="refresh_token_mismatch",
+        status_code=401,
+    )
+
+
+async def _enforce_not_pwned(
+    *,
+    config: AuthFortConfig,
+    email: str,
+    password: str,
+    ip_address: str | None,
+    events: EventCollector | None,
+) -> None:
+    """Reject password if it appears in the HIBP breach corpus.
+
+    No-op when config.check_pwned_passwords is False. Honors fail_open
+    configuration — see core.validation.check_pwned_password.
+    """
+    if not config.check_pwned_passwords:
+        return
+    is_pwned = await check_pwned_password(
+        password,
+        timeout=config.pwned_check_timeout,
+        fail_open=config.pwned_check_fail_open,
+        max_concurrency=config.pwned_check_max_concurrency,
+        cache_ttl=config.pwned_check_cache_ttl,
+    )
+    if is_pwned:
+        if events is not None:
+            import hashlib
+
+            from authfort.events import PasswordPwnedRejected
+
+            email_hash = hashlib.sha256(email.lower().encode("utf-8")).hexdigest()
+            events.collect(
+                "password_pwned_rejected",
+                PasswordPwnedRejected(email_hash=email_hash, ip_address=ip_address),
+            )
+        raise AuthError(
+            "This password has appeared in known data breaches. "
+            "Please choose a different one.",
+            code="password_pwned",
+            status_code=400,
+        )
+
+
+async def _enforce_password_history(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    user_id: uuid.UUID,
+    new_password: str,
+    events: EventCollector | None,
+) -> None:
+    """Reject new_password if it matches any of the user's last N stored hashes.
+
+    No-op when config.password_history_count <= 0.
+    """
+    count = config.password_history_count
+    if count <= 0:
+        return
+    recent = await password_history_repo.get_recent_password_hashes(session, user_id, count)
+    for old_hash in recent:
+        if verify_password(new_password, old_hash):
+            if events is not None:
+                from authfort.events import PasswordReuseRejected
+
+                events.collect(
+                    "password_reuse_rejected",
+                    PasswordReuseRejected(user_id=user_id),
+                )
+            raise AuthError(
+                f"Password cannot match any of the last {count} passwords",
+                code="password_reused",
+                status_code=400,
+            )
+
+
+async def _record_password_history(
+    session: AsyncSession,
+    *,
+    config: AuthFortConfig,
+    user_id: uuid.UUID,
+    password_hash: str,
+) -> None:
+    """Append the new hash to history and prune to keep only N most recent.
+
+    No-op when config.password_history_count <= 0.
+    """
+    count = config.password_history_count
+    if count <= 0:
+        return
+    await password_history_repo.add_password_history(
+        session, user_id=user_id, password_hash=password_hash,
+    )
+    await password_history_repo.prune_password_history(session, user_id, keep=count)
 
 
 async def signup(
@@ -58,11 +234,23 @@ async def signup(
         AuthError: If email is invalid (code: invalid_email, status: 400).
         AuthError: If email is already registered (code: user_exists, status: 409).
     """
-    email = validate_user_email(email)
+    email = await validate_user_email_with_deliverability(
+        email,
+        check_deliverability=config.email_deliverability_check,
+        fail_open=config.email_deliverability_fail_open,
+    )
     validate_password(password, min_length=config.min_password_length)
     name = sanitize_name(name)
     phone = sanitize_phone(phone)
     avatar_url = validate_avatar_url(avatar_url)
+
+    # Skip HIBP for admin-provisioned accounts (email_verified=True indicates
+    # an administrator creating the user; they already know what they're doing).
+    if not email_verified:
+        await _enforce_not_pwned(
+            config=config, email=email, password=password,
+            ip_address=ip_address, events=events,
+        )
 
     existing = await user_repo.get_user_by_email(session, email)
     if existing is not None:
@@ -73,6 +261,12 @@ async def signup(
         session, email=email, password_hash=hashed, name=name,
         avatar_url=avatar_url, phone=phone,
         email_verified=email_verified,
+    )
+
+    # Password history: record on first password creation so subsequent changes
+    # can detect reuse back to the original. No check needed — no prior history.
+    await _record_password_history(
+        session, config=config, user_id=user.id, password_hash=hashed,
     )
 
     await account_repo.create_account(
@@ -178,6 +372,7 @@ async def refresh(
     *,
     config: AuthFortConfig,
     raw_refresh_token: str,
+    access_token_cookie: str | None = None,
     user_agent: str | None = None,
     ip_address: str | None = None,
     events: EventCollector | None = None,
@@ -188,8 +383,14 @@ async def refresh(
     - Each refresh token is single-use
     - Reuse of a revoked token triggers nuclear revocation (all user sessions)
 
+    When ``access_token_cookie`` is provided (cookie-mode refresh), this
+    function cross-checks the access token's ``sub`` and ``sid`` claims against
+    the stored refresh token row. A mismatch revokes the refresh token and
+    raises ``refresh_token_mismatch`` — defense against cookie-swap attacks.
+
     Raises:
         AuthError: If refresh token is invalid, expired, or revoked.
+        AuthError: If access_token_cookie's sub/sid don't match the refresh token.
     """
     token_hash = hash_refresh_token(raw_refresh_token)
     stored_token = await refresh_token_repo.get_refresh_token_by_hash(session, token_hash)
@@ -207,6 +408,15 @@ async def refresh(
 
     if stored_token.expires_at < datetime.now(UTC):
         raise AuthError("Refresh token expired", code="refresh_token_expired", status_code=401)
+
+    # Cross-check access token (cookie mode only). See phase14.md item 3.
+    if access_token_cookie:
+        await _cross_check_access_token(
+            session, config=config,
+            access_token=access_token_cookie,
+            stored_token=stored_token,
+            events=events,
+        )
 
     user = await user_repo.get_user_by_id(session, stored_token.user_id)
     if user is None:
@@ -348,12 +558,32 @@ async def reset_password(
             status_code=400,
         )
 
-    hashed = hash_password(new_password)
     had_password = user.password_hash is not None
+    if had_password and verify_password(new_password, user.password_hash):
+        raise AuthError(
+            "New password must differ from the current password",
+            code="password_unchanged",
+            status_code=400,
+        )
+
+    await _enforce_not_pwned(
+        config=config, email=user.email, password=new_password,
+        ip_address=None, events=events,
+    )
+    await _enforce_password_history(
+        session, config=config, user_id=user.id,
+        new_password=new_password, events=events,
+    )
+
+    hashed = hash_password(new_password)
     await user_repo.update_user(session, user, password_hash=hashed)
     await user_repo.bump_token_version(session, user.id)
     await refresh_token_repo.revoke_all_user_refresh_tokens(session, user.id)
     await verification_token_repo.delete_verification_token(session, stored.id)
+
+    await _record_password_history(
+        session, config=config, user_id=user.id, password_hash=hashed,
+    )
 
     # If user had no password (passwordless/OAuth), create an email account record
     if not had_password:
@@ -422,10 +652,30 @@ async def change_password(
     if not verify_password(old_password, user.password_hash):
         raise AuthError("Invalid password", code="invalid_password", status_code=400)
 
+    if verify_password(new_password, user.password_hash):
+        raise AuthError(
+            "New password must differ from the current password",
+            code="password_unchanged",
+            status_code=400,
+        )
+
+    await _enforce_not_pwned(
+        config=config, email=user.email, password=new_password,
+        ip_address=None, events=events,
+    )
+    await _enforce_password_history(
+        session, config=config, user_id=user.id,
+        new_password=new_password, events=events,
+    )
+
     hashed = hash_password(new_password)
     await user_repo.update_user(session, user, password_hash=hashed)
     await user_repo.bump_token_version(session, user.id)
     await refresh_token_repo.revoke_all_user_refresh_tokens(session, user.id)
+
+    await _record_password_history(
+        session, config=config, user_id=user.id, password_hash=hashed,
+    )
 
     if events is not None:
         from authfort.events import PasswordChanged
@@ -463,10 +713,25 @@ async def set_password(
             status_code=400,
         )
 
+    # History enforcement: prior passwordless users may still have history rows
+    # if they previously held a password and switched away — honor reuse policy.
+    await _enforce_not_pwned(
+        config=config, email=user.email, password=new_password,
+        ip_address=None, events=events,
+    )
+    await _enforce_password_history(
+        session, config=config, user_id=user.id,
+        new_password=new_password, events=events,
+    )
+
     hashed = hash_password(new_password)
     await user_repo.update_user(session, user, password_hash=hashed)
     await user_repo.bump_token_version(session, user.id)
     await refresh_token_repo.revoke_all_user_refresh_tokens(session, user.id)
+
+    await _record_password_history(
+        session, config=config, user_id=user.id, password_hash=hashed,
+    )
 
     # Create email account record if missing
     existing_email_account = await account_repo.get_user_account_by_provider(

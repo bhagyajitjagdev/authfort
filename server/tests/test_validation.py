@@ -16,6 +16,7 @@ from authfort.core.validation import (
     validate_avatar_url,
     validate_password,
     validate_user_email,
+    validate_user_email_with_deliverability,
 )
 from conftest import unique_email
 
@@ -93,6 +94,125 @@ class TestEmailValidation:
     def test_email_too_long(self):
         with pytest.raises(AuthError, match="too long"):
             validate_user_email("a" * 250 + "@example.com")
+
+    # VAPT: inputs that previously bubbled as 500 must surface as 400 invalid_email.
+
+    def test_malformed_localhost(self):
+        with pytest.raises(AuthError) as exc_info:
+            validate_user_email("test@localhost")
+        assert exc_info.value.code == "invalid_email"
+        assert exc_info.value.status_code == 400
+
+    def test_malformed_single_char_domain(self):
+        with pytest.raises(AuthError) as exc_info:
+            validate_user_email("a@b")
+        assert exc_info.value.code == "invalid_email"
+        assert exc_info.value.status_code == 400
+
+    def test_malformed_just_text(self):
+        with pytest.raises(AuthError) as exc_info:
+            validate_user_email("just-text")
+        assert exc_info.value.code == "invalid_email"
+        assert exc_info.value.status_code == 400
+
+    def test_non_string_input_raises_400(self):
+        with pytest.raises(AuthError) as exc_info:
+            validate_user_email(12345)  # type: ignore[arg-type]
+        assert exc_info.value.code == "invalid_email"
+        assert exc_info.value.status_code == 400
+
+    def test_none_input_raises_400(self):
+        with pytest.raises(AuthError) as exc_info:
+            validate_user_email(None)  # type: ignore[arg-type]
+        assert exc_info.value.code == "invalid_email"
+        assert exc_info.value.status_code == 400
+
+    def test_unexpected_exception_becomes_400(self, monkeypatch):
+        """If email-validator raises something other than EmailNotValidError, still 400."""
+        from authfort.core import validation as validation_mod
+
+        def raise_weird(*args, **kwargs):
+            raise RuntimeError("simulated internal failure")
+
+        monkeypatch.setattr(validation_mod, "validate_email", raise_weird)
+        with pytest.raises(AuthError) as exc_info:
+            validate_user_email("user@example.com")
+        assert exc_info.value.code == "invalid_email"
+        assert exc_info.value.status_code == 400
+
+
+class TestDeliverabilityCheck:
+    """Tests for validate_user_email_with_deliverability."""
+
+    async def test_disabled_flag_skips_dns(self, monkeypatch):
+        from authfort.core import validation as validation_mod
+
+        def fail_if_called(*args, **kwargs):
+            # Syntax validation uses check_deliverability=False. Fail only
+            # on deliverability checks.
+            if kwargs.get("check_deliverability"):
+                raise AssertionError("DNS should not be consulted when flag is off")
+            # Fall through to the real validator for syntax validation.
+            from email_validator import validate_email as real
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(validation_mod, "validate_email", fail_if_called)
+
+        result = await validate_user_email_with_deliverability(
+            "user@example.com", check_deliverability=False, fail_open=True,
+        )
+        assert result == "user@example.com"
+
+    async def test_mx_failure_fail_open_allows(self, monkeypatch):
+        from authfort.core import validation as validation_mod
+        from email_validator import EmailNotValidError, validate_email as real_validate
+
+        def fake_validate(*args, **kwargs):
+            if kwargs.get("check_deliverability"):
+                # Simulate DNS timeout / resolver error.
+                raise RuntimeError("dns timeout")
+            return real_validate(*args, **kwargs)
+
+        monkeypatch.setattr(validation_mod, "validate_email", fake_validate)
+
+        result = await validate_user_email_with_deliverability(
+            "user@example.com", check_deliverability=True, fail_open=True,
+        )
+        assert result == "user@example.com"
+
+    async def test_mx_failure_fail_closed_rejects(self, monkeypatch):
+        from authfort.core import validation as validation_mod
+        from email_validator import validate_email as real_validate
+
+        def fake_validate(*args, **kwargs):
+            if kwargs.get("check_deliverability"):
+                raise RuntimeError("dns timeout")
+            return real_validate(*args, **kwargs)
+
+        monkeypatch.setattr(validation_mod, "validate_email", fake_validate)
+
+        with pytest.raises(AuthError) as exc_info:
+            await validate_user_email_with_deliverability(
+                "user@example.com", check_deliverability=True, fail_open=False,
+            )
+        assert exc_info.value.code == "invalid_email"
+
+    async def test_no_mx_rejected(self, monkeypatch):
+        from authfort.core import validation as validation_mod
+        from email_validator import EmailNotValidError, validate_email as real_validate
+
+        def fake_validate(*args, **kwargs):
+            if kwargs.get("check_deliverability"):
+                raise EmailNotValidError("The domain name k does not exist.")
+            return real_validate(*args, **kwargs)
+
+        monkeypatch.setattr(validation_mod, "validate_email", fake_validate)
+
+        with pytest.raises(AuthError) as exc_info:
+            await validate_user_email_with_deliverability(
+                "k@k.k", check_deliverability=True, fail_open=True,
+            )
+        assert exc_info.value.code == "invalid_email"
 
 
 # ---------------------------------------------------------------------------

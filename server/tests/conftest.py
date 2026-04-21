@@ -35,12 +35,31 @@ def _cleanup_sqlite():
         os.remove(_sqlite_tmp.name)
 
 
+@pytest.fixture(autouse=True)
+def _stub_hibp(monkeypatch):
+    """Stub HIBP checks in all tests — weak test passwords would otherwise fail.
+
+    Tests that specifically exercise HIBP (see test_hibp.py) re-monkeypatch
+    this with their own behavior.
+    """
+    async def _never_pwned(*args, **kwargs):
+        return False
+
+    monkeypatch.setattr(
+        "authfort.core.validation.check_pwned_password", _never_pwned,
+    )
+    monkeypatch.setattr(
+        "authfort.core.auth.check_pwned_password", _never_pwned,
+    )
+
+
 @pytest_asyncio.fixture
 async def auth():
     """Create an AuthFort instance for testing."""
     instance = AuthFort(
         database_url=TEST_DATABASE_URL,
         cookie=CookieConfig(secure=False),
+        check_pwned_passwords=False,
     )
     await instance.migrate()
     yield instance
@@ -78,6 +97,7 @@ async def auth_with_secret():
         database_url=TEST_DATABASE_URL,
         cookie=CookieConfig(secure=False),
         introspect_secret="test-secret-123",
+        check_pwned_passwords=False,
     )
     await instance.migrate()
     yield instance
@@ -110,6 +130,7 @@ async def auth_with_oauth():
             GoogleProvider(client_id="test-google-id", client_secret="test-google-secret"),
             GitHubProvider(client_id="test-github-id", client_secret="test-github-secret"),
         ],
+        check_pwned_passwords=False,
     )
     await instance.migrate()
     yield instance
@@ -141,6 +162,7 @@ async def auth_with_frontend_url():
             GoogleProvider(client_id="test-google-id", client_secret="test-google-secret"),
         ],
         frontend_url="https://app.example.com",
+        check_pwned_passwords=False,
     )
     await instance.migrate()
     yield instance
@@ -167,6 +189,7 @@ async def auth_no_signup():
         database_url=TEST_DATABASE_URL,
         cookie=CookieConfig(secure=False),
         allow_signup=False,
+        check_pwned_passwords=False,
     )
     await instance.migrate()
     yield instance

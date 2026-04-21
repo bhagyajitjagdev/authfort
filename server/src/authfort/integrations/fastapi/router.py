@@ -249,10 +249,15 @@ def create_auth_router(
     ):
         """Refresh the access token using a refresh token."""
         raw_refresh_token = None
+        access_token_cookie = None
         if data and data.refresh_token:
             raw_refresh_token = data.refresh_token
         elif config.cookie is not None:
             raw_refresh_token = request.cookies.get(config.cookie.refresh_cookie_name)
+            # Access token cookie is only meaningful in cookie mode. Pass it so
+            # the refresh handler can cross-check sub/sid against the stored
+            # refresh token and reject cookie-swap attempts.
+            access_token_cookie = request.cookies.get(config.cookie.access_cookie_name)
 
         if not raw_refresh_token:
             raise HTTPException(
@@ -265,6 +270,7 @@ def create_auth_router(
                 session,
                 config=config,
                 raw_refresh_token=raw_refresh_token,
+                access_token_cookie=access_token_cookie,
                 user_agent=request.headers.get("User-Agent"),
                 ip_address=get_client_ip(request, config),
                 events=get_collector(),

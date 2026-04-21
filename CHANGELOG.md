@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.25] - 2026-04-21
+
+### Added
+- **server**: HIBP (Have I Been Pwned) password breach check via k-anonymity — rejects passwords found in public breach corpora on signup, change, reset, and set-password. **Enabled by default**; fail-open on HIBP unreachable so outages don't block signups. Disable with `check_pwned_passwords=False`. Full password never leaves the process — only the first 5 chars of its SHA-1 travel to HIBP.
+- **server**: Optional email deliverability (MX) check via `email_deliverability_check=True` (default off). When enabled, rejects emails whose domain has no MX record (e.g. `k@k.k`). Fail-open by default on DNS errors. Industry convention is to rely on email verification — enable this only if you need extra signup hygiene.
+- **server**: Password history — opt-in via `password_history_count: int = 0` (default off). When set to N > 0, rejects password reuse of the last N passwords on change, reset, and set-password. New `authfort_password_history` table. Common values: 4 (PCI-DSS), 12 (SOC 2), 24 (FedRAMP).
+- **server**: Refresh token cross-check — cookie-mode `/auth/refresh` now verifies the access_token cookie's `sub` and `sid` claims match the stored refresh token. On mismatch: revoke token, emit `RefreshTokenMismatch` event, return 401 `refresh_token_mismatch`. Defends against cookie-swap / session-fixation attempts. Bearer-mode unaffected.
+- **server**: `refresh_token_mismatch` error code + `RefreshTokenMismatch` event
+- **server**: `password_pwned` error code + `PasswordPwnedRejected` event (email stored as SHA-256 hash in the event)
+- **server**: `password_reused` error code + `PasswordReuseRejected` event
+- **server**: `password_unchanged` error code — `change_password` / `reset_password` now reject setting the new password equal to the current one
+- **server**: New config options: `check_pwned_passwords` (default True), `pwned_check_fail_open`, `pwned_check_timeout`, `pwned_check_max_concurrency`, `pwned_check_cache_ttl`, `email_deliverability_check`, `email_deliverability_fail_open`, `password_history_count`
+- **client**: Distinguishable `console.warn` on `refresh_token_mismatch` (cookie-swap defense triggered) so apps / error-tracking tools can separate this cause from ordinary session expiry. Behavior unchanged — still clears auth and transitions to unauthenticated.
+
+### Changed
+- **server**: `validate_user_email` now returns 400 `invalid_email` on any malformed input (previously could surface as 500 on certain edge cases — VAPT fix). All non-string / unicode-pathological inputs are now clean 400s.
+
+### Migration
+- **server**: New Alembic migration `004_add_password_history.py` — adds the `authfort_password_history` table. Run `alembic upgrade head`. Safe (empty table, no data migration).
+
+### Upgrade notes
+- **Default behavior change**: HIBP password check is on by default. Signup / password change with breached passwords will be rejected. Disable with `check_pwned_passwords=False` if needed. Fail-open ensures HIBP outages don't block signups.
+- `k@k.k` and similar syntactically-legitimate-but-undeliverable emails continue to be accepted at signup by default. Enable `email_deliverability_check=True` for stricter validation, or rely on email verification (the canonical deliverability gate).
+- No client or service breaking changes. Client error handling for `refresh_token_mismatch` behaves identically to other 401 responses (clears auth, transitions to unauthenticated — no retry).
+
 ## [0.0.24] - 2026-04-11
 
 ### Fixed
@@ -341,6 +366,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.25]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.24...v0.0.25
 [0.0.18]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.17...v0.0.18
 [0.0.17]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.16...v0.0.17
 [0.0.16]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.15...v0.0.16

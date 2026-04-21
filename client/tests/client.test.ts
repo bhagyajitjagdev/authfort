@@ -269,6 +269,35 @@ describe('AuthClient — cookie mode', () => {
     expect(stateChanges).toContain('unauthenticated');
   });
 
+  it('warns on refresh_token_mismatch and still clears auth', async () => {
+    // Sign in first
+    mockFetch.mockResolvedValueOnce(jsonResponse(serverAuthResponse));
+    await client.signIn({ email: 'test@example.com', password: 'password123' });
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const stateChanges: AuthState[] = [];
+    client.onAuthStateChange((state) => stateChanges.push(state));
+
+    // Protected request → 401; refresh fails with refresh_token_mismatch
+    mockFetch.mockResolvedValueOnce(jsonResponse(null, 401));
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(
+        { detail: { error: 'refresh_token_mismatch', message: 'Token pair mismatch' } },
+        401,
+      ),
+    );
+
+    const response = await client.fetch('http://api.example.com/data');
+    expect(response.status).toBe(401);
+    expect(stateChanges).toContain('unauthenticated');
+    // Distinguishable warning emitted for cookie-swap / stale-state cases.
+    expect(warnSpy).toHaveBeenCalled();
+    const warnMessage = warnSpy.mock.calls[0]?.[0] as string;
+    expect(warnMessage).toContain('refresh_token_mismatch');
+
+    warnSpy.mockRestore();
+  });
+
   it('onAuthStateChange fires immediately with current state', async () => {
     mockFetch.mockResolvedValue(jsonResponse(serverAuthResponse));
     await client.signIn({ email: 'test@example.com', password: 'password123' });

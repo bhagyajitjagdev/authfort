@@ -9,6 +9,32 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.25
+
+### Added
+- **HIBP breach check** — password-setting endpoints reject passwords found in the Have I Been Pwned corpus via k-anonymity. Enabled by default; fail-open so HIBP outages don't block signups. Disable with `check_pwned_passwords=False` if you need to.
+- **Refresh token cross-check** — cookie-mode `/auth/refresh` now verifies the access token's `sub` and `sid` claims match the stored refresh token. Defends against cookie-swap attempts. Returns 401 `refresh_token_mismatch` and revokes the refresh token on failure.
+- **Password history** (opt-in) — set `password_history_count=N` to prevent reuse of the last N passwords. Common values: 4 (PCI-DSS), 12 (SOC 2), 24 (FedRAMP). Adds the `authfort_password_history` table.
+- **Optional email deliverability check** — set `email_deliverability_check=True` to require MX records at signup. Default off; the canonical deliverability gate remains email verification.
+- **No-op password change rejected** — setting a new password equal to the current one returns 400 `password_unchanged`.
+- **Defensive email validation** — `validate_user_email` now returns 400 on any malformed input (previously could surface 500 on pathological inputs).
+
+### Events
+- `PasswordPwnedRejected` (email stored as SHA-256 hash)
+- `RefreshTokenMismatch`
+- `PasswordReuseRejected`
+
+### Migration
+- New Alembic migration `004_add_password_history.py` — run `alembic upgrade head`. Empty table, no data migration.
+
+### Client SDK
+- Distinguishable `console.warn` when `/refresh` fails with `refresh_token_mismatch`, so apps can tell cookie-swap defense triggers apart from ordinary session expiry. No behavior change — still clears auth.
+
+### Upgrade notes
+HIBP check is **on by default**. If your app flows rely on specific weak passwords (e.g., test data, demo accounts), disable via `check_pwned_passwords=False` before upgrading.
+
+---
+
 ## v0.0.24
 
 ### Fixed

@@ -200,6 +200,15 @@ class TestResetPassword:
         assert len(events_received) == 1
         assert events_received[0].user_id == user_id
 
+    async def test_reset_to_same_password_rejected(self, auth: AuthFort):
+        email, _, _ = await _create_user(auth, password="oldpassword123")
+        token = await auth.create_password_reset_token(email)
+
+        with pytest.raises(AuthError) as exc_info:
+            await auth.reset_password(token, "oldpassword123")
+        assert exc_info.value.code == "password_unchanged"
+        assert exc_info.value.status_code == 400
+
 
 # ---------------------------------------------------------------------------
 # Change Password
@@ -228,6 +237,14 @@ class TestChangePassword:
 
         with pytest.raises(AuthError, match="Invalid password"):
             await auth.change_password(user_id, "wrongpassword", "newpassword456")
+
+    async def test_change_to_same_password_rejected(self, auth: AuthFort):
+        email, user_id, _ = await _create_user(auth, password="oldpassword123")
+
+        with pytest.raises(AuthError) as exc_info:
+            await auth.change_password(user_id, "oldpassword123", "oldpassword123")
+        assert exc_info.value.code == "password_unchanged"
+        assert exc_info.value.status_code == 400
 
     async def test_oauth_only_user_rejected(self, auth: AuthFort):
         from authfort.db import get_session

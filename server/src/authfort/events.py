@@ -260,6 +260,35 @@ class BackupCodesRegenerated(Event):
     email: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class PasswordPwnedRejected(Event):
+    """Fired when HIBP rejects a password at signup / change / reset / set.
+
+    ``email_hash`` is the SHA-256 hex of the lowercased email — avoids storing
+    raw emails in event logs while still letting operators correlate attempts.
+    """
+    email_hash: str = ""
+    ip_address: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RefreshTokenMismatch(Event):
+    """Fired when the /auth/refresh cross-check detects a sub or sid mismatch
+    between the access_token cookie and the stored refresh token.
+
+    Emit ALERT on these — either an attacker swapping cookies, or a buggy client.
+    """
+    refresh_user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    access_sub: str | None = None
+    session_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PasswordReuseRejected(Event):
+    """Fired when password history rejects a password the user previously used."""
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+
+
 # ---------------------------------------------------------------------------
 # Event name mapping
 # ---------------------------------------------------------------------------
@@ -296,6 +325,9 @@ EVENT_MAP: dict[str, type[Event]] = {
     "mfa_failed": MFAFailed,
     "backup_code_used": BackupCodeUsed,
     "backup_codes_regenerated": BackupCodesRegenerated,
+    "password_pwned_rejected": PasswordPwnedRejected,
+    "refresh_token_mismatch": RefreshTokenMismatch,
+    "password_reuse_rejected": PasswordReuseRejected,
 }
 
 

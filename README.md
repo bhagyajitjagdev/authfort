@@ -349,11 +349,13 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.24
+### Latest — v0.0.25
 
-- MFA enforced on OAuth login — Google, GitHub, and any OAuth provider now trigger the MFA challenge if the account has TOTP enabled
-- Client `initialize()` handles `?mfa_token=` after OAuth redirect automatically, no extra app code needed
-- Popup OAuth mode now returns `SignInResult` to accommodate the MFA case
+- **HIBP password breach check** — rejects passwords found in public breach corpora on signup / change / reset (k-anonymity, fail-open). On by default; disable with `check_pwned_passwords=False`.
+- **Refresh token cross-check** — cookie-mode `/auth/refresh` verifies the access token's `sub` and `sid` match the stored refresh token, closing a cookie-swap attack surface
+- **Password history** (opt-in) — `password_history_count=N` prevents reuse of the last N passwords (PCI-DSS, SOC 2, FedRAMP compliance)
+- **Optional email deliverability check** — `email_deliverability_check=True` to require MX records at signup
+- Reject no-op password change (new == current); defensive 500→400 fix on malformed email input
 
 ## License
 

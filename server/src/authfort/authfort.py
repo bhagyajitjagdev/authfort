@@ -67,6 +67,19 @@ class AuthFort:
             Pass RateLimitConfig() to enable with sensible defaults.
         pool_recycle: How often (seconds) to recycle DB connections (default 300 = 5 min).
             Lower this if running behind PgBouncer or other connection poolers.
+        email_deliverability_check: If True, MX records are checked at signup (default False).
+            Adds DNS latency; the canonical deliverability gate is email verification.
+        email_deliverability_fail_open: On DNS timeout, fall back to syntax-only when True
+            (default True). When False, raise invalid_email.
+        check_pwned_passwords: If True (default), reject passwords found in HIBP breach corpus
+            via k-anonymity API. Applied to signup, change, reset, and set-password paths.
+        pwned_check_fail_open: On HIBP unreachable, allow the password when True (default True).
+        pwned_check_timeout: HIBP request timeout in seconds (default 2.0).
+        pwned_check_max_concurrency: Max concurrent outbound HIBP requests (default 30).
+        pwned_check_cache_ttl: Seconds to cache HIBP prefix responses in-memory (default 300).
+            Set to 0 to disable caching.
+        password_history_count: Prevent reuse of the last N passwords (default 0 = disabled).
+            Common values: 4 (PCI-DSS), 12 (SOC 2), 24 (FedRAMP).
     """
 
     def __init__(
@@ -93,6 +106,14 @@ class AuthFort:
         trust_proxy: bool = False,
         trusted_proxies: list[str] | None = None,
         pool_recycle: int = 300,
+        email_deliverability_check: bool = False,
+        email_deliverability_fail_open: bool = True,
+        check_pwned_passwords: bool = True,
+        pwned_check_fail_open: bool = True,
+        pwned_check_timeout: float = 2.0,
+        pwned_check_max_concurrency: int = 30,
+        pwned_check_cache_ttl: float = 300.0,
+        password_history_count: int = 0,
     ) -> None:
         if rsa_key_size < 2048:
             raise ValueError("rsa_key_size must be >= 2048")
@@ -133,6 +154,14 @@ class AuthFort:
             min_password_length=min_password_length,
             trust_proxy=trust_proxy,
             trusted_proxy_networks=parsed_networks,
+            email_deliverability_check=email_deliverability_check,
+            email_deliverability_fail_open=email_deliverability_fail_open,
+            check_pwned_passwords=check_pwned_passwords,
+            pwned_check_fail_open=pwned_check_fail_open,
+            pwned_check_timeout=pwned_check_timeout,
+            pwned_check_max_concurrency=pwned_check_max_concurrency,
+            pwned_check_cache_ttl=pwned_check_cache_ttl,
+            password_history_count=password_history_count,
         )
         self._engine = create_engine(database_url, pool_recycle=pool_recycle)
         self._session_factory = create_session_factory(self._engine)
@@ -240,14 +269,16 @@ class AuthFort:
         from authfort.core.auth import signup
 
         collector = EventCollector(self._hooks)
-        async with get_session(self._session_factory) as session:
-            result = await signup(
-                session, config=self._config, email=email,
-                password=password, name=name, avatar_url=avatar_url,
-                phone=phone, email_verified=email_verified,
-                events=collector,
-            )
-        await collector.flush()
+        try:
+            async with get_session(self._session_factory) as session:
+                result = await signup(
+                    session, config=self._config, email=email,
+                    password=password, name=name, avatar_url=avatar_url,
+                    phone=phone, email_verified=email_verified,
+                    events=collector,
+                )
+        finally:
+            await collector.flush()
         return result
 
     async def login(self, email: str, password: str):
@@ -270,24 +301,40 @@ class AuthFort:
         await collector.flush()
         return result
 
-    async def refresh(self, raw_refresh_token: str):
+    async def refresh(
+        self,
+        raw_refresh_token: str,
+        *,
+        access_token_cookie: str | None = None,
+    ):
         """Refresh an access token using a refresh token.
+
+        Args:
+            raw_refresh_token: The opaque refresh token string.
+            access_token_cookie: When provided (cookie mode), the endpoint
+                cross-checks its ``sub`` and ``sid`` claims against the stored
+                refresh token. Mismatch raises ``refresh_token_mismatch``.
 
         Returns:
             AuthResponse with new tokens (old refresh token is rotated).
 
         Raises:
             AuthError: If refresh token is invalid, expired, or revoked.
+            AuthError: If access/refresh token pair mismatch is detected.
         """
         from authfort.core.auth import refresh
 
         collector = EventCollector(self._hooks)
-        async with get_session(self._session_factory) as session:
-            result = await refresh(
-                session, config=self._config,
-                raw_refresh_token=raw_refresh_token, events=collector,
-            )
-        await collector.flush()
+        try:
+            async with get_session(self._session_factory) as session:
+                result = await refresh(
+                    session, config=self._config,
+                    raw_refresh_token=raw_refresh_token,
+                    access_token_cookie=access_token_cookie,
+                    events=collector,
+                )
+        finally:
+            await collector.flush()
         return result
 
     async def logout(self, raw_refresh_token: str) -> None:
@@ -397,12 +444,14 @@ class AuthFort:
         from authfort.core.auth import reset_password
 
         collector = EventCollector(self._hooks)
-        async with get_session(self._session_factory) as session:
-            result = await reset_password(
-                session, config=self._config, token=token,
-                new_password=new_password, events=collector,
-            )
-        await collector.flush()
+        try:
+            async with get_session(self._session_factory) as session:
+                result = await reset_password(
+                    session, config=self._config, token=token,
+                    new_password=new_password, events=collector,
+                )
+        finally:
+            await collector.flush()
         return result
 
     async def change_password(
@@ -419,13 +468,15 @@ class AuthFort:
         from authfort.core.auth import change_password
 
         collector = EventCollector(self._hooks)
-        async with get_session(self._session_factory) as session:
-            await change_password(
-                session, config=self._config, user_id=user_id,
-                old_password=old_password, new_password=new_password,
-                events=collector,
-            )
-        await collector.flush()
+        try:
+            async with get_session(self._session_factory) as session:
+                await change_password(
+                    session, config=self._config, user_id=user_id,
+                    old_password=old_password, new_password=new_password,
+                    events=collector,
+                )
+        finally:
+            await collector.flush()
 
     async def set_password(
         self, user_id: uuid.UUID, new_password: str,
@@ -441,12 +492,14 @@ class AuthFort:
         from authfort.core.auth import set_password
 
         collector = EventCollector(self._hooks)
-        async with get_session(self._session_factory) as session:
-            await set_password(
-                session, config=self._config, user_id=user_id,
-                new_password=new_password, events=collector,
-            )
-        await collector.flush()
+        try:
+            async with get_session(self._session_factory) as session:
+                await set_password(
+                    session, config=self._config, user_id=user_id,
+                    new_password=new_password, events=collector,
+                )
+        finally:
+            await collector.flush()
 
     # ------ Email verification ------
 

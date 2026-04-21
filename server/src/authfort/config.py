@@ -80,3 +80,14 @@ class AuthFortConfig:
     trusted_proxy_networks: tuple[IPv4Network | IPv6Network, ...] = ()
     mfa_issuer: str | None = None
     mfa_backup_code_count: int = 10
+    # Email deliverability (Phase 14 item 1b) — opt-in MX check.
+    email_deliverability_check: bool = False
+    email_deliverability_fail_open: bool = True
+    # HIBP password breach check (Phase 14 item 2) — default on, fail-open.
+    check_pwned_passwords: bool = True
+    pwned_check_fail_open: bool = True
+    pwned_check_timeout: float = 2.0
+    pwned_check_max_concurrency: int = 30
+    pwned_check_cache_ttl: float = 300.0
+    # Password history (Phase 14 item 5) — opt-in; 0 disables.
+    password_history_count: int = 0

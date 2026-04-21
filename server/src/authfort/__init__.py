@@ -1,6 +1,6 @@
 """AuthFort — Authentication and authorization library for Python."""
 
-__version__ = "0.0.24"
+__version__ = "0.0.25"
 
 from authfort.alembic_helper import alembic_filters, register_foreign_tables
 from authfort.authfort import AuthFort
@@ -26,10 +26,13 @@ from authfort.events import (
     MagicLinkRequested,
     OAuthLink,
     PasswordChanged,
+    PasswordPwnedRejected,
     PasswordReset,
-    PasswordSet,
     PasswordResetRequested,
+    PasswordReuseRejected,
+    PasswordSet,
     RateLimitExceeded,
+    RefreshTokenMismatch,
     RoleAdded,
     RoleRemoved,
     SessionRevoked,
@@ -80,11 +83,14 @@ __all__ = [
     "MagicLinkRequested",
     "OAuthLink",
     "PasswordChanged",
+    "PasswordPwnedRejected",
     "PasswordReset",
     "PasswordResetRequested",
+    "PasswordReuseRejected",
     "PasswordSet",
     "RateLimitConfig",
     "RateLimitExceeded",
+    "RefreshTokenMismatch",
     "RoleAdded",
     "RoleRemoved",
     "SessionResponse",
