@@ -9,6 +9,17 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.27
+
+### Fixed
+- **`AuthFort(...)` now accepts `mfa_issuer` and `mfa_backup_code_count`** — both fields existed on `AuthFortConfig` since v0.0.22 but were never plumbed through the constructor, so they couldn't be set by SDK users. `mfa_issuer` silently fell back to `jwt_issuer` for TOTP enrollment regardless of what callers passed.
+- **`AUTHFORT_TABLES` registry now includes the MFA and password-history tables** — `authfort_user_mfa`, `authfort_mfa_backup_codes` (added v0.0.22), and `authfort_password_history` (added v0.0.25) were missing from the registry. Apps using `register_foreign_tables` / `alembic_filters` for table-prefix isolation could have these tables incorrectly filtered out of AuthFort's migration scope.
+
+### Upgrade note
+No breaking changes. Apps that previously hit a `TypeError` trying to pass `mfa_issuer` will now work as the docs describe. Apps using `alembic_filters` should re-run `alembic revision --autogenerate` to confirm no spurious drops are detected for the previously-missing tables.
+
+---
+
 ## v0.0.26
 
 ### Added

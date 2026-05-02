@@ -13,6 +13,9 @@ AUTHFORT_TABLES = frozenset(
         "authfort_user_roles",
         "authfort_signing_keys",
         "authfort_verification_tokens",
+        "authfort_user_mfa",
+        "authfort_mfa_backup_codes",
+        "authfort_password_history",
         "authfort_alembic_version",
     }
 )

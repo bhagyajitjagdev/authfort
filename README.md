@@ -349,7 +349,12 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.26
+### Latest — v0.0.27
+
+- **`AuthFort(...)` now accepts `mfa_issuer` and `mfa_backup_code_count`** — these config fields existed since v0.0.22 but were never wired through the constructor, so SDK users couldn't actually set them. TOTP enrollment now uses the issuer label you pass instead of silently falling back to `jwt_issuer`.
+- **`AUTHFORT_TABLES` registry includes MFA + password-history tables** — `authfort_user_mfa`, `authfort_mfa_backup_codes`, and `authfort_password_history` were missing from the helper registry, causing them to be filtered out for apps using `alembic_filters` / `register_foreign_tables` for table-prefix isolation.
+
+### v0.0.26
 
 - **`auth.install_fastapi(app)`** — one-call FastAPI integration (mounts routers + registers AuthError exception handler), so validation errors always surface as clean 4xx instead of leaking through as 500
 - **Deliverability check now applies to magic-link / OTP / login / forgot-password** — previously was signup-only, meaning passwordless paths could still accept undeliverable emails

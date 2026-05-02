@@ -80,6 +80,10 @@ class AuthFort:
             Set to 0 to disable caching.
         password_history_count: Prevent reuse of the last N passwords (default 0 = disabled).
             Common values: 4 (PCI-DSS), 12 (SOC 2), 24 (FedRAMP).
+        mfa_issuer: Issuer label shown in authenticator apps for TOTP enrollment
+            (default None = falls back to jwt_issuer).
+        mfa_backup_code_count: Number of single-use backup codes generated when
+            MFA is enrolled or backup codes are regenerated (default 10).
     """
 
     def __init__(
@@ -114,6 +118,8 @@ class AuthFort:
         pwned_check_max_concurrency: int = 30,
         pwned_check_cache_ttl: float = 300.0,
         password_history_count: int = 0,
+        mfa_issuer: str | None = None,
+        mfa_backup_code_count: int = 10,
     ) -> None:
         if rsa_key_size < 2048:
             raise ValueError("rsa_key_size must be >= 2048")
@@ -162,6 +168,8 @@ class AuthFort:
             pwned_check_max_concurrency=pwned_check_max_concurrency,
             pwned_check_cache_ttl=pwned_check_cache_ttl,
             password_history_count=password_history_count,
+            mfa_issuer=mfa_issuer,
+            mfa_backup_code_count=mfa_backup_code_count,
         )
         self._engine = create_engine(database_url, pool_recycle=pool_recycle)
         self._session_factory = create_session_factory(self._engine)

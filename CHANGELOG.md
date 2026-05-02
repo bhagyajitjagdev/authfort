@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.27] - 2026-05-02
+
+### Fixed
+- **server**: `AuthFort(...)` now accepts `mfa_issuer` and `mfa_backup_code_count` kwargs and plumbs them into `AuthFortConfig`. The fields existed on the config dataclass since v0.0.22 but were never wired through the constructor, so `mfa_issuer` was effectively unreachable for SDK users — TOTP enrollment always used `jwt_issuer` regardless of what callers passed. `mfa_backup_code_count` was likewise stuck at the default 10.
+- **server**: `AUTHFORT_TABLES` in `alembic_helper.py` now includes `authfort_user_mfa`, `authfort_mfa_backup_codes` (added in v0.0.22), and `authfort_password_history` (added in v0.0.25). These were missing from the registry, so apps using `register_foreign_tables` / `alembic_filters` for table-prefix isolation could have these tables incorrectly filtered out of AuthFort's migration scope.
+
+### Upgrade notes
+- No breaking changes. Apps that previously tried to pass `mfa_issuer=...` and got a `TypeError` will now work as documented.
+- Apps using `alembic_filters` for table isolation should re-run `alembic revision --autogenerate` to confirm no spurious drops are detected for the three previously-missing tables.
+
 ## [0.0.26] - 2026-04-21
 
 ### Added
@@ -380,6 +390,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.27]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.26...v0.0.27
 [0.0.26]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.25...v0.0.26
 [0.0.25]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.24...v0.0.25
 [0.0.18]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.17...v0.0.18
