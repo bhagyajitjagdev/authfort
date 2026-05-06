@@ -552,7 +552,10 @@ class AuthClientImpl implements AuthClient {
 
     const serverUser: ServerUserResponse = await response.json();
     const user = mapUser(serverUser);
-    this._user = user;
+    // A successful /me proves the session is valid — drive state to
+    // 'authenticated' so consumers using getUser() as a route guard (instead
+    // of initialize()) don't leave _state stuck at the constructor default.
+    this._setAuthenticated(user);
     return user;
   }
 

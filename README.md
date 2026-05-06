@@ -349,7 +349,11 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.27
+### Latest — v0.0.28
+
+- **`authClient.getUser()` now updates auth state** — previously, a successful `/me` set `_user` but left `_state` stuck at `'unauthenticated'`. Apps using `getUser()` as a route guard (TanStack Router `beforeLoad`, etc.) and subscribing to `onAuthStateChange` for streaming-feature lifecycle silently broke after page refresh: listeners saw a stale `'unauthenticated'` and aborted the stream. A successful `/me` now correctly transitions state to `'authenticated'`.
+
+### v0.0.27
 
 - **`AuthFort(...)` now accepts `mfa_issuer` and `mfa_backup_code_count`** — these config fields existed since v0.0.22 but were never wired through the constructor, so SDK users couldn't actually set them. TOTP enrollment now uses the issuer label you pass instead of silently falling back to `jwt_issuer`.
 - **`AUTHFORT_TABLES` registry includes MFA + password-history tables** — `authfort_user_mfa`, `authfort_mfa_backup_codes`, and `authfort_password_history` were missing from the helper registry, causing them to be filtered out for apps using `alembic_filters` / `register_foreign_tables` for table-prefix isolation.

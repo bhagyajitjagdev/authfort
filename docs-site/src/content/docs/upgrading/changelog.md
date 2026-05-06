@@ -9,6 +9,16 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.28
+
+### Fixed
+- **`authClient.getUser()` now updates `_state` to `'authenticated'`** — previously, only `signIn` / `initialize()` and the verify methods drove the state machine; `getUser()` set `_user` directly and left `_state` stuck at the constructor default `'unauthenticated'`. Apps using `getUser()` as a route guard (TanStack Router `beforeLoad`, etc.) and subscribing to `onAuthStateChange` for streaming-feature lifecycle silently broke after page refresh — listeners saw a stale `'unauthenticated'` and treated it as a logout. A successful `/me` is now positive proof of authentication and is reflected in state.
+
+### Upgrade note
+No breaking changes. Apps using the React/Vue/Svelte adapters with no pre-mount auth calls were unaffected. Apps using route guards that called `getUser()` before the adapter's effect fired benefit from this fix; any local `authClient.initialize().catch(() => {})` workaround in your app entry can now be removed.
+
+---
+
 ## v0.0.27
 
 ### Fixed

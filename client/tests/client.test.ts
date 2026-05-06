@@ -157,6 +157,19 @@ describe('AuthClient — cookie mode', () => {
     expect(user).toEqual(expectedUser);
   });
 
+  it('getUser drives _state to authenticated on successful /me', async () => {
+    // No prior signIn / initialize — simulate a route guard pattern where
+    // getUser() is the first auth call after a page refresh.
+    mockFetch.mockResolvedValueOnce(jsonResponse(serverUser));
+    await client.getUser();
+
+    // Listener subscribed AFTER getUser() must see 'authenticated', not
+    // the stale constructor default 'unauthenticated'.
+    const seen: AuthState[] = [];
+    client.onAuthStateChange((s) => seen.push(s));
+    expect(seen).toEqual(['authenticated']);
+  });
+
   it('getToken returns null in cookie mode', async () => {
     const token = await client.getToken();
     expect(token).toBeNull();

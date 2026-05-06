@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.28] - 2026-05-06
+
+### Fixed
+- **client**: `authClient.getUser()` now drives `_state` to `'authenticated'` on a successful `/me` response. Previously, only `signIn` / `signUp` / `verifyMFA` / `verifyOTP` / `verifyMagicLink` / OAuth / `initialize()` updated `_state` — `getUser()` set `_user` directly and left `_state` stuck at the constructor default `'unauthenticated'`. Apps using `getUser()` as a route guard (e.g. TanStack Router `beforeLoad`) and subscribing to `onAuthStateChange()` (e.g. for SSE / WebSocket lifecycle) silently broke after page refresh: `getUser()` succeeded, but listeners saw a stale `'unauthenticated'` callback and treated it as a logout. Reported by an external user — their live-stream feature aborted on every refresh until the workaround `authClient.initialize().catch(() => {})` was shipped in their app entry. Workaround no longer needed in v0.0.28.
+
+### Upgrade notes
+- No breaking changes. Apps using the React/Vue/Svelte adapters were unaffected when no auth call ran before `useEffect`-mounted `initialize()`. Apps using route guards (`beforeLoad`, `loader`, etc.) that called `getUser()` pre-mount benefit from this fix.
+
 ## [0.0.27] - 2026-05-02
 
 ### Fixed
