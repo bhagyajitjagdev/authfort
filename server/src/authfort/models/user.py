@@ -20,5 +20,7 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     token_version: Mapped[int] = mapped_column(Integer, default=0)
     banned: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)

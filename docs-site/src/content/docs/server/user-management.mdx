@@ -42,7 +42,11 @@ print(user.email)        # "jane@example.com"
 print(user.roles)        # ["admin", "editor"]
 print(user.email_verified)  # True`;
 
-export const deleteUser = `await auth.delete_user(user_id)`;
+export const deleteUser = `# Default: anonymize + soft-delete (keeps the row + id)
+await auth.delete_user(user_id)
+
+# Opt into the legacy hard delete (removes the row entirely)
+await auth.delete_user(user_id, hard=True)`;
 
 export const getUserCount = `# Total users
 total = await auth.get_user_count()
@@ -81,20 +85,44 @@ The `query` parameter does a case-insensitive partial match on both email and na
 <CodeBlock code={getUser} lang="python" />
 
 Returns a `UserResponse` with the user's roles. Raises `AuthError` if not found.
+A soft-deleted user is treated as not found unless you pass `get_user(user_id, deleted=True)`.
 
 ## Delete a User
 
 <CodeBlock code={deleteUser} lang="python" />
 
-Deletes the user and all related data in order:
+By default, `delete_user()` **anonymizes + soft-deletes** the account — the
+"erase the person, not the row" pattern. The `authfort_users` row and its `id`
+are **retained**, so any of your own tables that reference `authfort_users.id`
+(workspace ownership, `created_by`, audit) keep their foreign keys valid. AuthFort:
 
-1. User roles
-2. Refresh tokens (sessions)
-3. OAuth accounts
-4. Verification tokens
-5. User record
+1. Scrubs PII — `name` → `"Deleted user"`, `avatar_url`/`phone` → `null`, and
+   `email` → a unique `deleted+<id>@deleted.invalid` placeholder (which **frees
+   the original email** for future re-signup).
+2. Kills credentials — nulls the password hash, deletes MFA secret + backup codes.
+3. Revokes access — bumps `token_version` and deletes all refresh tokens/sessions.
+4. Deletes OAuth accounts, roles, verification tokens, and password history.
+5. Sets `is_deleted = True`, `deleted_at = now()`.
 
-All foreign keys use `CASCADE`, so this is safe even under concurrent access.
+The account can no longer log in, refresh, or use any email-based flow (magic
+link, OTP, password reset, email verification), and is excluded from `list_users()`
+/ `get_user_count()` by default. Anonymizing is **idempotent** — deleting an
+already-deleted user is a no-op. The independent `banned` flag is unaffected.
+
+```python
+await auth.delete_user(user_id, hard=True)  # legacy: remove the row entirely
+```
+
+Pass `hard=True` for the original behavior that removes the row and all related
+records. Note this can fail or break referential integrity if your tables
+reference `authfort_users.id` without an `ON DELETE` rule — which is exactly why
+the soft-delete default exists.
+
+:::caution[Behavior change in v0.0.29]
+Before v0.0.29, `delete_user()` always hard-deleted the row. It now anonymizes by
+default. If you relied on row removal (e.g. your own `ON DELETE CASCADE` tables),
+switch those calls to `delete_user(user_id, hard=True)`.
+:::
 
 ## Count Users
 

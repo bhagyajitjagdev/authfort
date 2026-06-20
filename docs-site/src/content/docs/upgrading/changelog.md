@@ -9,6 +9,22 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.29
+
+### Changed
+- **`auth.delete_user(user_id)` now anonymizes + soft-deletes by default** — instead of removing the row, AuthFort retains the `authfort_users` row and its `id` (so external tables that reference `authfort_users.id` keep their foreign keys valid) while scrubbing all PII (`name` → `"Deleted user"`, `avatar_url`/`phone` → `null`, `email` → a unique `deleted+<id>@deleted.invalid` placeholder), removing credentials + MFA, revoking every session/refresh token, bumping `token_version`, and flagging `is_deleted`. The standard "erase the person, not the row" right-to-erasure pattern. The original email is freed for re-signup, and the operation is idempotent.
+
+### Added
+- **`auth.delete_user(user_id, hard=True)`** — opt back into the legacy hard delete (removes the row + all related records).
+- **`is_deleted` / `deleted_at` columns** on `authfort_users` (migration `005`), surfaced on `UserResponse`.
+- **`deleted=False` filter** on `list_users()`, `get_user_count()`, and `get_user()` — deleted users are excluded by default; pass `deleted=True` to include them.
+- **Deleted accounts are rejected everywhere** — login, refresh, magic-link, OTP, password-reset, email-verification, OAuth, `current_user`, and introspection. Responses are generic (never an explicit "deleted" signal) so erasure status isn't leaked. The `banned` flag is unchanged.
+
+### Upgrade note
+Run `alembic upgrade head` to add the two columns. `delete_user()` no longer hard-deletes by default — if you depended on row removal (e.g. for your own `ON DELETE` cascade tables), pass `hard=True`. The admin read API is otherwise unchanged: `get_user()` still 404s for deleted users and lists/counts still exclude them by default.
+
+---
+
 ## v0.0.28
 
 ### Fixed

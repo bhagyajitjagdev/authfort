@@ -239,7 +239,7 @@ async def oauth_authenticate(
     if account is not None:
         # Returning user — load and update provider tokens
         user = await user_repo.get_user_by_id(session, account.user_id)
-        if user is None:
+        if user is None or user.is_deleted:
             raise AuthError("User not found", code="user_not_found", status_code=401)
 
         if user.banned:
@@ -272,6 +272,8 @@ async def oauth_authenticate(
                         "User creation failed", code="user_creation_failed", status_code=500,
                     )
         else:
+            if user.is_deleted:
+                raise AuthError("User not found", code="user_not_found", status_code=401)
             if user.banned:
                 raise AuthError("This account has been banned", code="user_banned", status_code=403)
             if user_info.email_verified and not user.email_verified:

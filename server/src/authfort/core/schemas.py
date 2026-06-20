@@ -55,6 +55,8 @@ class UserResponse(BaseModel):
     avatar_url: str | None
     phone: str | None = None
     banned: bool = False
+    is_deleted: bool = False
+    deleted_at: datetime | None = None
     roles: list[str]
     created_at: datetime
     session_id: uuid.UUID | None = None

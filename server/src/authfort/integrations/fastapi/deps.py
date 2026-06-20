@@ -60,7 +60,7 @@ def create_current_user_dep(config: AuthFortConfig, get_db: Callable):
             raise HTTPException(status_code=401, detail={"error": "token_invalid", "message": "Invalid access token"})
 
         user = await user_repo.get_user_by_id(session, uuid.UUID(payload["sub"]))
-        if user is None:
+        if user is None or user.is_deleted:
             raise HTTPException(status_code=401, detail={"error": "user_not_found", "message": "User no longer exists"})
 
         if user.banned:

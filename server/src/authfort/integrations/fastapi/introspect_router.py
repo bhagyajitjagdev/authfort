@@ -93,9 +93,9 @@ def create_introspect_router(config: AuthFortConfig, get_db: Callable) -> APIRou
         except Exception:
             return _inactive
 
-        # Check user exists and is not banned
+        # Check user exists and is not banned or deleted
         user = await user_repo.get_user_by_id(session, uuid.UUID(payload["sub"]))
-        if user is None:
+        if user is None or user.is_deleted:
             return _inactive
 
         if user.banned:

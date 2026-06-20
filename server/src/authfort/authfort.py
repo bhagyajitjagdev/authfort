@@ -767,6 +767,7 @@ class AuthFort:
         query: str | None = None,
         banned: bool | None = None,
         role: str | None = None,
+        deleted: bool = False,
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ):
@@ -778,6 +779,8 @@ class AuthFort:
             query: Case-insensitive partial match on email or name.
             banned: Filter by banned status.
             role: Filter by role.
+            deleted: If False (default), exclude anonymized / soft-deleted users.
+                Pass True to include them as well.
             sort_by: Sort field — "created_at", "email", or "name".
             sort_order: "asc" or "desc" (default "desc").
 
@@ -796,6 +799,7 @@ class AuthFort:
                 query=query,
                 banned=banned,
                 role=role,
+                deleted=deleted,
                 sort_by=sort_by,
                 sort_order=sort_order,
             )
@@ -810,6 +814,8 @@ class AuthFort:
                     avatar_url=u.avatar_url,
                     phone=u.phone,
                     banned=u.banned,
+                    is_deleted=u.is_deleted,
+                    deleted_at=u.deleted_at,
                     roles=roles,
                     created_at=u.created_at,
                 ))
@@ -820,14 +826,20 @@ class AuthFort:
             offset=offset,
         )
 
-    async def get_user(self, user_id: uuid.UUID):
+    async def get_user(self, user_id: uuid.UUID, *, deleted: bool = False):
         """Get a single user by ID.
+
+        Args:
+            user_id: The user's UUID.
+            deleted: If False (default), an anonymized / soft-deleted user is
+                treated as not found (404). Pass True to fetch the anonymized
+                record anyway (e.g. for an admin audit view).
 
         Returns:
             UserResponse with user data and roles.
 
         Raises:
-            AuthError: If user not found.
+            AuthError: If user not found (or deleted and ``deleted=False``).
         """
         from authfort.core.auth import AuthError
         from authfort.core.schemas import UserResponse
@@ -836,7 +848,7 @@ class AuthFort:
 
         async with get_session(self._session_factory) as session:
             user = await user_repo.get_user_by_id(session, user_id)
-            if user is None:
+            if user is None or (user.is_deleted and not deleted):
                 raise AuthError("User not found", code="user_not_found", status_code=404)
             roles = await role_repo.get_roles(session, user_id)
         return UserResponse(
@@ -847,14 +859,29 @@ class AuthFort:
             avatar_url=user.avatar_url,
             phone=user.phone,
             banned=user.banned,
+            is_deleted=user.is_deleted,
+            deleted_at=user.deleted_at,
             roles=roles,
             created_at=user.created_at,
         )
 
-    async def delete_user(self, user_id: uuid.UUID) -> None:
-        """Delete a user and all related data.
+    async def delete_user(self, user_id: uuid.UUID, *, hard: bool = False) -> None:
+        """Delete a user account.
 
-        Fires a UserDeleted event after successful deletion.
+        By default this **anonymizes + soft-deletes**: the ``authfort_users`` row
+        and its id are retained (so external foreign keys referencing the user
+        stay valid), while all PII is scrubbed, credentials and MFA are removed,
+        every session/refresh token is revoked, and the account is flagged
+        ``is_deleted``. The original email is freed for future re-signup. This is
+        the standard "erase the person, not the row" account-deletion pattern.
+
+        Pass ``hard=True`` to instead remove the row entirely and all related
+        records (the legacy behavior). Note this can fail or break referential
+        integrity if your own tables reference ``authfort_users.id``.
+
+        Anonymizing is idempotent — deleting an already-deleted user is a no-op
+        (no event is fired). A ``UserDeleted`` event (carrying the original email)
+        fires on the first deletion.
 
         Raises:
             ValueError: If user not found.
@@ -867,8 +894,13 @@ class AuthFort:
             if user is None:
                 raise ValueError(f"User {user_id} not found")
             email = user.email
-            await user_repo.delete_user(session, user_id)
-            collector.collect("user_deleted", UserDeleted(user_id=user_id, email=email))
+            if hard:
+                await user_repo.delete_user(session, user_id)
+                collector.collect("user_deleted", UserDeleted(user_id=user_id, email=email))
+            else:
+                anonymized = await user_repo.anonymize_user(session, user_id)
+                if anonymized:
+                    collector.collect("user_deleted", UserDeleted(user_id=user_id, email=email))
         await collector.flush()
 
     async def get_user_count(
@@ -877,6 +909,7 @@ class AuthFort:
         query: str | None = None,
         banned: bool | None = None,
         role: str | None = None,
+        deleted: bool = False,
     ) -> int:
         """Count users with optional filters.
 
@@ -884,6 +917,8 @@ class AuthFort:
             query: Case-insensitive partial match on email or name.
             banned: Filter by banned status.
             role: Filter by role.
+            deleted: If False (default), exclude anonymized / soft-deleted users.
+                Pass True to include them as well.
 
         Returns:
             Number of matching users.
@@ -892,7 +927,7 @@ class AuthFort:
 
         async with get_session(self._session_factory) as session:
             return await user_repo.get_user_count(
-                session, query=query, banned=banned, role=role,
+                session, query=query, banned=banned, role=role, deleted=deleted,
             )
 
     _UNSET = object()
@@ -977,6 +1012,8 @@ class AuthFort:
             avatar_url=user.avatar_url,
             phone=user.phone,
             banned=user.banned,
+            is_deleted=user.is_deleted,
+            deleted_at=user.deleted_at,
             roles=roles,
             created_at=user.created_at,
         )

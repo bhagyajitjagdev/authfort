@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from authfort.models.user_mfa import UserMFA
@@ -55,6 +55,20 @@ async def disable_user_mfa(
 ) -> None:
     """Delete the MFA record entirely (MFA is now disabled for this user)."""
     await session.delete(user_mfa)
+    await session.flush()
+
+
+async def delete_user_mfa_for_user(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+) -> None:
+    """Delete a user's MFA record by user_id (no-op if none exists).
+
+    Set-based delete used by account anonymization / deletion, where the row
+    is removed explicitly rather than relying on a DB cascade.
+    """
+    stmt = sa_delete(UserMFA).where(UserMFA.user_id == user_id)
+    await session.execute(stmt)
     await session.flush()
 
 

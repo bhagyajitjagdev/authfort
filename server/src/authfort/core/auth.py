@@ -318,7 +318,9 @@ async def login(
         fail_open=config.email_deliverability_fail_open,
     )
     user = await user_repo.get_user_by_email(session, email)
-    if user is None:
+    if user is None or user.is_deleted:
+        # Deleted accounts are indistinguishable from non-existent ones — never
+        # leak that the email maps to an erased account.
         raise AuthError("Invalid email or password", code="invalid_credentials", status_code=401)
 
     if user.password_hash is None:
@@ -423,7 +425,7 @@ async def refresh(
         )
 
     user = await user_repo.get_user_by_id(session, stored_token.user_id)
-    if user is None:
+    if user is None or user.is_deleted:
         raise AuthError("User not found", code="user_not_found", status_code=401)
 
     if user.banned:
@@ -493,7 +495,7 @@ async def create_password_reset_token(
         fail_open=config.email_deliverability_fail_open,
     )
     user = await user_repo.get_user_by_email(session, email)
-    if user is None:
+    if user is None or user.is_deleted:
         return None
 
     # Delete any existing password_reset tokens for this user
@@ -558,7 +560,7 @@ async def reset_password(
         )
 
     user = await user_repo.get_user_by_id(session, stored.user_id)
-    if user is None:
+    if user is None or user.is_deleted:
         await verification_token_repo.delete_verification_token(session, stored.id)
         raise AuthError(
             "Invalid or expired reset token",
@@ -772,7 +774,7 @@ async def create_email_verification_token(
     The caller is responsible for delivering the token (email, etc.).
     """
     user = await user_repo.get_user_by_id(session, user_id)
-    if user is None or user.email_verified:
+    if user is None or user.email_verified or user.is_deleted:
         return None
 
     # Delete any existing email_verify tokens for this user
@@ -832,7 +834,7 @@ async def verify_email(
         )
 
     user = await user_repo.get_user_by_id(session, stored.user_id)
-    if user is None:
+    if user is None or user.is_deleted:
         await verification_token_repo.delete_verification_token(session, stored.id)
         raise AuthError(
             "Invalid or expired verification token",
@@ -887,7 +889,7 @@ async def create_magic_link_token(
     if user is None:
         return None
 
-    if user.banned:
+    if user.banned or user.is_deleted:
         return None
 
     # Delete any existing magic_link tokens for this user
@@ -952,7 +954,7 @@ async def verify_magic_link(
         )
 
     user = await user_repo.get_user_by_id(session, stored.user_id)
-    if user is None:
+    if user is None or user.is_deleted:
         await verification_token_repo.delete_verification_token(session, stored.id)
         raise AuthError(
             "Invalid or expired magic link",
@@ -1019,7 +1021,7 @@ async def create_email_otp(
     if user is None:
         return None
 
-    if user.banned:
+    if user.banned or user.is_deleted:
         return None
 
     # Delete any existing email_otp tokens for this user
@@ -1086,7 +1088,7 @@ async def verify_email_otp(
         )
 
     user = await user_repo.get_user_by_id(session, stored.user_id)
-    if user is None:
+    if user is None or user.is_deleted:
         await verification_token_repo.delete_verification_token(session, stored.id)
         raise AuthError(
             "Invalid or expired OTP code",
@@ -1164,7 +1166,7 @@ async def complete_mfa_login(
         raise AuthError("Invalid MFA token", code="invalid_mfa_token", status_code=401)
 
     user = await user_repo.get_user_by_id(session, user_id)
-    if user is None or user.banned:
+    if user is None or user.banned or user.is_deleted:
         raise AuthError("Invalid MFA token", code="invalid_mfa_token", status_code=401)
 
     user_mfa = await user_mfa_repo.get_user_mfa(session, user_id)

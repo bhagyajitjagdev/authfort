@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.29] - 2026-06-20
+
+### Changed
+- **server**: `auth.delete_user(user_id)` now **anonymizes + soft-deletes** by default instead of removing the row. The `authfort_users` row and its `id` are retained — so external tables that reference `authfort_users.id` (workspace ownership, `created_by`, audit) keep their foreign keys valid — while all PII is scrubbed (`name` → `"Deleted user"`, `avatar_url`/`phone` → `null`, `email` → a unique `deleted+<id>@deleted.invalid` placeholder), credentials and MFA are removed, every session/refresh token is revoked, `token_version` is bumped, and the account is flagged `is_deleted`. This is the standard "erase the person, not the row" right-to-erasure pattern. The original email is freed for future re-signup. Anonymizing is idempotent (deleting an already-deleted user is a no-op). Requested by an external user whose own tables FK `authfort_users.id` with no `ON DELETE` rule, so a hard delete failed on the constraint.
+
+### Added
+- **server**: `auth.delete_user(user_id, hard=True)` — opt back into the legacy behavior that removes the row and all related records entirely.
+- **server**: `is_deleted` (bool) and `deleted_at` (nullable timestamp) columns on `authfort_users` (migration `005_add_user_soft_delete.py`), surfaced on `UserResponse`.
+- **server**: `deleted: bool = False` filter on `auth.list_users()`, `auth.get_user_count()`, and `auth.get_user()`. Deleted users are excluded by default; pass `deleted=True` to include them (or to fetch a single anonymized record).
+- **server**: soft-deleted accounts are rejected at every auth path — login, refresh, magic-link, email-OTP, password-reset, email-verification, OAuth callback, `current_user`, and token introspection. Deleted accounts return generic not-found / invalid responses (never an explicit "deleted" signal) so erasure status is not leaked. The independent `banned` flag is unchanged.
+
+### Upgrade notes
+- **Migration required**: run `alembic upgrade head` (adds `is_deleted` + `deleted_at`).
+- **Behavior change**: `delete_user()` no longer removes the row by default. If you relied on a hard delete (e.g. for cascade cleanup of your own FK-with-`ON DELETE` tables), switch those call sites to `delete_user(user_id, hard=True)`. The observable admin API is otherwise backward-compatible: `get_user()` still 404s for deleted users and `list_users()` / `get_user_count()` still exclude them by default.
+
 ## [0.0.28] - 2026-05-06
 
 ### Fixed
@@ -398,6 +413,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.29]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.28...v0.0.29
+[0.0.28]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.27...v0.0.28
 [0.0.27]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.26...v0.0.27
 [0.0.26]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.25...v0.0.26
 [0.0.25]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.24...v0.0.25

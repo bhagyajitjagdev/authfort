@@ -239,7 +239,7 @@ Update a user's profile fields. Only provided fields are changed — omitted fie
 **Returns:** `UserResponse`
 **Raises:** `AuthError` if user not found, or if no fields are provided
 
-### `list_users(*, limit=50, offset=0, query=None, banned=None, role=None, sort_by="created_at", sort_order="desc")`
+### `list_users(*, limit=50, offset=0, query=None, banned=None, role=None, deleted=False, sort_by="created_at", sort_order="desc")`
 
 List users with pagination and filtering.
 
@@ -250,36 +250,49 @@ List users with pagination and filtering.
 | `query` | `str \| None` | `None` | Case-insensitive partial match on email or name |
 | `banned` | `bool \| None` | `None` | Filter by banned status |
 | `role` | `str \| None` | `None` | Filter by role |
+| `deleted` | `bool` | `False` | If `False`, exclude anonymized / soft-deleted users; `True` includes them as well |
 | `sort_by` | `str` | `"created_at"` | Sort field — `"created_at"`, `"email"`, or `"name"` |
 | `sort_order` | `str` | `"desc"` | `"asc"` or `"desc"` |
 
 **Returns:** `ListUsersResponse`
 
-### `get_user(user_id)`
+### `get_user(user_id, *, deleted=False)`
 
 Get a single user by ID with roles.
 
-| Param | Type | Description |
-|-------|------|-------------|
-| `user_id` | `UUID` | User ID |
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `user_id` | `UUID` | — | User ID |
+| `deleted` | `bool` | `False` | If `False`, a soft-deleted user is treated as not found; `True` returns the anonymized record |
 
-**Returns:** `UserResponse` (includes `roles`)
-**Raises:** `AuthError` if user not found
+**Returns:** `UserResponse` (includes `roles`, `is_deleted`, `deleted_at`)
+**Raises:** `AuthError` if user not found (or deleted and `deleted=False`)
 
-### `delete_user(user_id)`
+### `delete_user(user_id, *, hard=False)`
 
-Delete a user and all related data (roles, tokens, accounts, verification tokens). Fires a `user_deleted` event.
+**Anonymize + soft-delete** a user by default: keeps the `authfort_users` row and
+its `id` (so external foreign keys stay valid), scrubs PII, nulls the password,
+deletes MFA + backup codes, revokes all sessions/refresh tokens, bumps
+`token_version`, frees the original email, and sets `is_deleted` / `deleted_at`.
+Idempotent (deleting an already-deleted user is a no-op). Fires a `user_deleted`
+event with the original email on the first deletion.
 
-| Param | Type | Description |
-|-------|------|-------------|
-| `user_id` | `UUID` | User ID |
+Pass `hard=True` to remove the row and all related records entirely (legacy
+behavior — can fail or break referential integrity if your tables reference
+`authfort_users.id` without an `ON DELETE` rule).
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `user_id` | `UUID` | — | User ID |
+| `hard` | `bool` | `False` | `True` = remove the row entirely instead of anonymizing |
 
 **Returns:** `None`
 **Raises:** `ValueError` if user not found
 
-### `get_user_count(*, query=None, banned=None, role=None)`
+### `get_user_count(*, query=None, banned=None, role=None, deleted=False)`
 
-Count users with optional filters. Same filters as `list_users()`.
+Count users with optional filters. Same filters as `list_users()` (excludes
+soft-deleted users unless `deleted=True`).
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|

@@ -10,6 +10,7 @@ from authfort.models.refresh_token import RefreshToken
 from authfort.models.user import User
 from authfort.models.user_role import UserRole
 from authfort.models.verification_token import VerificationToken
+from authfort.utils import utc_now
 
 
 async def get_user_by_id(session: AsyncSession, user_id: uuid.UUID) -> User | None:
@@ -120,12 +121,16 @@ async def list_users(
     query: str | None = None,
     banned: bool | None = None,
     role: str | None = None,
+    deleted: bool = False,
     sort_by: str = "created_at",
     sort_order: str = "desc",
 ) -> tuple[list[User], int]:
     """Paginated user list with filtering.
 
     Returns (users, total_count) where total_count is the pre-pagination count.
+
+    By default, anonymized / soft-deleted users are excluded. Pass
+    ``deleted=True`` to include them as well.
     """
     if sort_by not in _SORT_COLUMNS:
         raise ValueError(
@@ -133,6 +138,8 @@ async def list_users(
         )
 
     base = select(User)
+    if not deleted:
+        base = base.where(User.is_deleted == False)  # noqa: E712
     if query is not None:
         pattern = f"%{query}%"
         base = base.where(
@@ -164,9 +171,15 @@ async def get_user_count(
     query: str | None = None,
     banned: bool | None = None,
     role: str | None = None,
+    deleted: bool = False,
 ) -> int:
-    """Count users with optional filters."""
+    """Count users with optional filters.
+
+    Anonymized / soft-deleted users are excluded unless ``deleted=True``.
+    """
     base = select(User)
+    if not deleted:
+        base = base.where(User.is_deleted == False)  # noqa: E712
     if query is not None:
         pattern = f"%{query}%"
         base = base.where(
@@ -182,8 +195,51 @@ async def get_user_count(
     return (await session.execute(count_stmt)).scalar_one()
 
 
+async def _purge_user_related(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """Delete every record related to a user (application-level cascade).
+
+    Shared by both hard delete and anonymization. MFA, backup codes, and
+    password history are deleted explicitly here rather than relying on a DB
+    ``ON DELETE CASCADE`` — anonymization keeps the user row, so the cascade
+    would never fire.
+    """
+    from authfort.repositories import mfa_backup_code as backup_code_repo
+    from authfort.repositories import password_history as password_history_repo
+    from authfort.repositories import user_mfa as user_mfa_repo
+
+    # Roles
+    await session.execute(
+        sa_delete(UserRole).where(UserRole.user_id == user_id)
+    )
+    # Clear self-referential FK on refresh tokens, then delete them
+    await session.execute(
+        sa_update(RefreshToken)
+        .where(RefreshToken.user_id == user_id)
+        .values(replaced_by=None)
+    )
+    await session.execute(
+        sa_delete(RefreshToken).where(RefreshToken.user_id == user_id)
+    )
+    # OAuth / email accounts
+    await session.execute(
+        sa_delete(Account).where(Account.user_id == user_id)
+    )
+    # Verification tokens (email verify, magic link, OTP, password reset)
+    await session.execute(
+        sa_delete(VerificationToken).where(VerificationToken.user_id == user_id)
+    )
+    # MFA secret, backup codes, password history
+    await user_mfa_repo.delete_user_mfa_for_user(session, user_id)
+    await backup_code_repo.delete_backup_codes_for_user(session, user_id)
+    await password_history_repo.prune_password_history(session, user_id, keep=0)
+    await session.flush()
+
+
 async def delete_user(session: AsyncSession, user_id: uuid.UUID) -> None:
-    """Delete a user and all related records (application-level cascade).
+    """Hard-delete a user and all related records (application-level cascade).
+
+    Removes the ``authfort_users`` row entirely. Use ``anonymize_user`` for the
+    soft-delete / right-to-erasure path that retains the row + id.
 
     Raises ValueError if user not found.
     """
@@ -191,28 +247,43 @@ async def delete_user(session: AsyncSession, user_id: uuid.UUID) -> None:
     if user is None:
         raise ValueError(f"User {user_id} not found")
 
-    # 1. Delete user roles
-    await session.execute(
-        sa_delete(UserRole).where(UserRole.user_id == user_id)
-    )
-    # 2. Clear self-referential FK on refresh tokens
-    await session.execute(
-        sa_update(RefreshToken)
-        .where(RefreshToken.user_id == user_id)
-        .values(replaced_by=None)
-    )
-    # 3. Delete refresh tokens
-    await session.execute(
-        sa_delete(RefreshToken).where(RefreshToken.user_id == user_id)
-    )
-    # 4. Delete accounts
-    await session.execute(
-        sa_delete(Account).where(Account.user_id == user_id)
-    )
-    # 5. Delete verification tokens
-    await session.execute(
-        sa_delete(VerificationToken).where(VerificationToken.user_id == user_id)
-    )
-    # 6. Delete the user
+    await _purge_user_related(session, user_id)
     await session.delete(user)
     await session.flush()
+
+
+async def anonymize_user(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Anonymize + soft-delete a user, keeping the row and its id intact.
+
+    Scrubs PII, kills credentials, revokes all access, deletes related records
+    (sessions, accounts, MFA, etc.), and flags the account deleted — but leaves
+    the ``authfort_users`` row so external foreign keys stay valid. The original
+    email is freed (rewritten to a unique placeholder) for future re-signup.
+
+    Returns True if the user was anonymized, or False if it was already deleted
+    (idempotent no-op). Raises ValueError if the user does not exist.
+    """
+    user = await session.get(User, user_id)
+    if user is None:
+        raise ValueError(f"User {user_id} not found")
+    if user.is_deleted:
+        return False
+
+    await _purge_user_related(session, user_id)
+
+    # Scrub PII. The placeholder email is unique (user_id is a UUID), satisfies
+    # the unique constraint, and frees the original address for re-registration.
+    user.name = "Deleted user"
+    user.avatar_url = None
+    user.phone = None
+    user.email = f"deleted+{user_id}@deleted.invalid"
+    # Kill credentials + revoke live access tokens.
+    user.password_hash = None
+    user.token_version = user.token_version + 1
+    # Flag deleted.
+    user.is_deleted = True
+    user.deleted_at = utc_now()
+
+    session.add(user)
+    await session.flush()
+    return True

@@ -349,7 +349,11 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.28
+### Latest — v0.0.29
+
+- **`delete_user()` now anonymizes + soft-deletes by default** — keeps the `authfort_users` row and its `id` (so external tables that FK `authfort_users.id` stay valid) while scrubbing PII, killing credentials/MFA, revoking all sessions, freeing the email for re-signup, and flagging `is_deleted`. The "erase the person, not the row" pattern. Pass `delete_user(id, hard=True)` for the legacy full row delete. Adds `is_deleted`/`deleted_at` columns (run `alembic upgrade head`) and a `deleted=True` toggle on `list_users()` / `get_user_count()` / `get_user()`. Deleted accounts are rejected across every auth path; the `banned` flag is unchanged.
+
+### v0.0.28
 
 - **`authClient.getUser()` now updates auth state** — previously, a successful `/me` set `_user` but left `_state` stuck at `'unauthenticated'`. Apps using `getUser()` as a route guard (TanStack Router `beforeLoad`, etc.) and subscribing to `onAuthStateChange` for streaming-feature lifecycle silently broke after page refresh: listeners saw a stale `'unauthenticated'` and aborted the stream. A successful `/me` now correctly transitions state to `'authenticated'`.
 
