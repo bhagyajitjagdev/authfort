@@ -9,6 +9,21 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.30
+
+### Added
+- **`RedisRateLimitStore`** — Redis-backed rate limiting shared across workers and replicas. The default `InMemoryStore` is per-process, so N workers multiply every limit by N; multi-process deployments should pass `rate_limit_store=RedisRateLimitStore.from_url("redis://...")` (install `authfort[redis]`). Same sliding-window semantics, fails closed on Redis outage. See [Rate Limiting](/authfort/server/rate-limiting/).
+- **`rate_limit_store` kwarg on `AuthFort(...)`** — inject any custom store implementing the `RateLimitStore` protocol; store methods may be sync or async. `InMemoryStore` and `RateLimitStore` are now exported.
+- **CI now tests against PostgreSQL 16** on every push/PR, alongside the SQLite matrix.
+
+### Fixed
+- **OAuth errors no longer leak provider details** — code-exchange and user-info failures previously echoed the raw upstream exception (which could include provider response bodies or URLs) in the HTTP response. Detail is now logged server-side; the response is generic.
+
+### Upgrade note
+No migration, no breaking changes. If you run more than one server process, switch to the Redis store — your effective rate limits are currently multiplied by your worker count.
+
+---
+
 ## v0.0.29
 
 ### Changed

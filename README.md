@@ -349,7 +349,13 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.29
+### Latest — v0.0.30
+
+- **`RedisRateLimitStore`** — Redis-backed rate limiting shared across workers/replicas. The default in-memory store is per-process, so N workers silently multiply every limit by N; multi-process deployments should pass `rate_limit_store=RedisRateLimitStore.from_url("redis://...")` (install `authfort[redis]`). Fails closed on Redis outage. Custom stores can now be injected via the new `rate_limit_store` kwarg (sync or async).
+- **OAuth errors no longer leak provider details** — code-exchange / user-info failures return a generic message; the underlying exception is logged server-side instead of echoed in the response.
+- **CI hardening** — server tests now also run against PostgreSQL 16 on every push/PR; all GitHub Actions bumped off the deprecated Node 20 runner.
+
+### v0.0.29
 
 - **`delete_user()` now anonymizes + soft-deletes by default** — keeps the `authfort_users` row and its `id` (so external tables that FK `authfort_users.id` stay valid) while scrubbing PII, killing credentials/MFA, revoking all sessions, freeing the email for re-signup, and flagging `is_deleted`. The "erase the person, not the row" pattern. Pass `delete_user(id, hard=True)` for the legacy full row delete. Adds `is_deleted`/`deleted_at` columns (run `alembic upgrade head`) and a `deleted=True` toggle on `list_users()` / `get_user_count()` / `get_user()`. Deleted accounts are rejected across every auth path; the `banned` flag is unchanged.
 

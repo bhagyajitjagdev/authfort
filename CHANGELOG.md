@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.30] - 2026-07-18
+
+### Added
+- **server**: `RedisRateLimitStore` — Redis-backed sliding-window rate limiting shared across processes and replicas. The default `InMemoryStore` is per-process, so running N workers silently multiplied every configured limit by N; since rate limiting is the control protecting login/signup against brute force and enumeration probing, multi-worker deployments should switch: `AuthFort(..., rate_limit=RateLimitConfig(), rate_limit_store=RedisRateLimitStore.from_url("redis://localhost:6379"))`. Same sliding-window semantics as in-memory, fails closed when Redis is unreachable. Install with the new `authfort[redis]` extra. Also exported: `InMemoryStore` and the `RateLimitStore` protocol for custom backends — protocol methods may now be sync **or** async.
+- **server**: `rate_limit_store` kwarg on `AuthFort(...)` — inject any store implementing the `RateLimitStore` protocol (ignored when `rate_limit` is `None`).
+- **ci**: server test suite now also runs against PostgreSQL 16 (service container) on every push/PR — previously CI was SQLite-only and Postgres was verified manually.
+
+### Fixed
+- **server**: OAuth code-exchange and user-info failures no longer echo the raw upstream exception into the HTTP response (which could include provider response bodies, URLs, or client ids). The detail is now logged server-side (`authfort.oauth` logger) and the API returns a generic message. Flagged in the 2026-03-03 security audit.
+
+### Changed
+- **ci**: GitHub Actions bumped off the deprecated Node 20 runner — `checkout@v7`, `setup-python@v6`, `setup-node@v7` (Node 22), `setup-uv@v8`, `upload-pages-artifact@v5`, `deploy-pages@v5`.
+
+### Upgrade notes
+- No migration, no breaking changes. `authfort-service` and `authfort-client` are version-synced releases with no code changes.
+- If you run more than one server process, add `authfort[redis]` and pass a `RedisRateLimitStore` — your effective rate limits are currently multiplied by your worker count.
+
 ## [0.0.29] - 2026-06-20
 
 ### Changed
@@ -413,6 +430,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.30]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.29...v0.0.30
 [0.0.29]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.28...v0.0.29
 [0.0.28]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.27...v0.0.28
 [0.0.27]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.26...v0.0.27

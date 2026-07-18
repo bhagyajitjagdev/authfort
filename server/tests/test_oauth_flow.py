@@ -149,15 +149,20 @@ class TestOAuthAuthenticate:
         assert oauth_result.user.id == existing_user_id
 
     async def test_exchange_code_failure(self, auth: AuthFort, mock_provider):
-        """Failed code exchange raises AuthError."""
-        mock_provider.exchange_code.side_effect = RuntimeError("Connection refused")
+        """Failed code exchange raises AuthError with a generic message —
+        the underlying exception text must never reach the response."""
+        mock_provider.exchange_code.side_effect = RuntimeError(
+            "Connection refused: https://internal-host/token?client_id=secret-id"
+        )
 
         async with auth.get_session() as session:
-            with pytest.raises(AuthError, match="Failed to exchange OAuth code"):
+            with pytest.raises(AuthError, match="Failed to exchange OAuth code") as exc_info:
                 await oauth_authenticate(
                     session, config=auth.config, provider=mock_provider,
                     code="bad-code", redirect_uri="http://localhost/cb",
                 )
+        assert "Connection refused" not in exc_info.value.message
+        assert "secret-id" not in exc_info.value.message
 
     async def test_no_access_token_in_response(self, auth: AuthFort, mock_provider):
         """Provider returns empty access_token."""
@@ -171,15 +176,18 @@ class TestOAuthAuthenticate:
                 )
 
     async def test_get_user_info_failure(self, auth: AuthFort, mock_provider):
-        """Failed user info fetch raises AuthError."""
-        mock_provider.get_user_info.side_effect = RuntimeError("API down")
+        """Failed user info fetch raises AuthError with a generic message —
+        the underlying exception text must never reach the response."""
+        mock_provider.get_user_info.side_effect = RuntimeError("API down: token=abc123")
 
         async with auth.get_session() as session:
-            with pytest.raises(AuthError, match="Failed to fetch user info"):
+            with pytest.raises(AuthError, match="Failed to fetch user info") as exc_info:
                 await oauth_authenticate(
                     session, config=auth.config, provider=mock_provider,
                     code="code", redirect_uri="http://localhost/cb",
                 )
+        assert "API down" not in exc_info.value.message
+        assert "abc123" not in exc_info.value.message
 
     async def test_banned_returning_user(self, auth: AuthFort, mock_provider):
         """Banned returning user cannot OAuth login."""

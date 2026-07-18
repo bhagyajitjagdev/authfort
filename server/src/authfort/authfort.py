@@ -65,6 +65,10 @@ class AuthFort:
             for unknown emails (password_hash=None). Default False.
         rate_limit: RateLimitConfig or None. None = no rate limiting (default).
             Pass RateLimitConfig() to enable with sensible defaults.
+        rate_limit_store: Storage backend for rate limiting (default: per-process
+            InMemoryStore). Pass RedisRateLimitStore for multi-worker/multi-replica
+            deployments — in-memory buckets are per-process, so N workers
+            effectively multiply every limit by N. Ignored when rate_limit is None.
         pool_recycle: How often (seconds) to recycle DB connections (default 300 = 5 min).
             Lower this if running behind PgBouncer or other connection poolers.
         email_deliverability_check: If True, MX records are checked at signup (default False).
@@ -106,6 +110,7 @@ class AuthFort:
         email_otp_ttl: int = 300,
         allow_passwordless_signup: bool = False,
         rate_limit: RateLimitConfig | None = None,
+        rate_limit_store=None,
         min_password_length: int = 8,
         trust_proxy: bool = False,
         trusted_proxies: list[str] | None = None,
@@ -177,12 +182,15 @@ class AuthFort:
         self._providers = providers or []
         self._hooks = HookRegistry()
 
-        # Rate limit store (only created when rate limiting is enabled)
+        # Rate limit store (only used when rate limiting is enabled)
         self._rate_limit_store = None
         if rate_limit is not None:
-            from authfort.ratelimit import InMemoryStore
+            if rate_limit_store is not None:
+                self._rate_limit_store = rate_limit_store
+            else:
+                from authfort.ratelimit import InMemoryStore
 
-            self._rate_limit_store = InMemoryStore()
+                self._rate_limit_store = InMemoryStore()
 
     @property
     def config(self) -> AuthFortConfig:

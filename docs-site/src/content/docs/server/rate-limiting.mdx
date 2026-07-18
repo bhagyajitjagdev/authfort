@@ -119,20 +119,61 @@ AuthFort reads `X-Forwarded-For` (leftmost value) then falls back to `X-Real-IP`
 
 See [Configuration](/authfort/server/configuration/) for details on `trust_proxy` and `trusted_proxies`.
 
-## Custom Storage Backend
+## Multi-Worker Deployments: Redis Store
 
-The default `InMemoryStore` works for single-process deployments. For multi-process or multi-server setups, implement the `RateLimitStore` protocol with a shared backend like Redis.
+The default `InMemoryStore` is **per-process**. If you run multiple workers
+(`uvicorn --workers 4`, gunicorn, multiple replicas behind a load balancer),
+each process keeps its own buckets — so every configured limit is effectively
+multiplied by the worker count. Since rate limiting is the control that
+protects login and signup against brute force and enumeration probing, use the
+shared Redis store in any multi-process deployment:
+
+```bash
+uv add "authfort[redis]"
+```
 
 ```python
-from authfort.ratelimit import RateLimitStore
+from authfort import AuthFort, RateLimitConfig, RedisRateLimitStore
 
-class RedisRateLimitStore:
+auth = AuthFort(
+    database_url="...",
+    rate_limit=RateLimitConfig(),
+    rate_limit_store=RedisRateLimitStore.from_url("redis://localhost:6379"),
+)
+```
+
+You can also pass a pre-configured client (e.g. one you already use elsewhere,
+or with TLS/cluster options):
+
+```python
+import redis.asyncio as redis
+from authfort import RedisRateLimitStore
+
+client = redis.from_url("rediss://:password@redis.internal:6380")
+store = RedisRateLimitStore(client, key_prefix="myapp:rl:")
+```
+
+The store uses one Redis sorted set per key with the same sliding-window
+semantics as `InMemoryStore`. It **fails closed**: if Redis is unreachable,
+rate-limited endpoints error rather than silently allowing unlimited traffic.
+Keep app-server clocks NTP-synced — timestamps come from the app processes.
+
+## Custom Storage Backend
+
+For other backends, implement the `RateLimitStore` protocol. `hit()` and
+`reset()` may be sync or async — async implementations are awaited
+automatically.
+
+```python
+class MyStore:
     def hit(self, key, limit):
         # Returns: (allowed: bool, remaining: int, retry_after: float)
         ...
 
     def reset(self, key=None):
         ...
+
+auth = AuthFort(..., rate_limit=RateLimitConfig(), rate_limit_store=MyStore())
 ```
 
 See [Server Config](/authfort/reference/server-config/) for the full `RateLimitStore` protocol.

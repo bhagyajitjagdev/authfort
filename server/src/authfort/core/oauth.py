@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -27,6 +28,8 @@ from authfort.repositories import signing_key as signing_key_repo
 from authfort.repositories import user as user_repo
 
 from typing import TYPE_CHECKING
+
+logger = logging.getLogger("authfort.oauth")
 
 if TYPE_CHECKING:
     from authfort.events import EventCollector
@@ -194,9 +197,14 @@ async def oauth_authenticate(
         )
     except AuthError:
         raise
-    except Exception as e:
+    except Exception:
+        # Provider errors can embed response bodies, client ids, or internal
+        # URLs — log the detail server-side, return a generic message.
+        logger.warning(
+            "OAuth code exchange failed for provider %s", provider.name, exc_info=True,
+        )
         raise AuthError(
-            f"Failed to exchange OAuth code: {e}",
+            "Failed to exchange OAuth code",
             code="oauth_exchange_failed",
             status_code=400,
         )
@@ -219,9 +227,12 @@ async def oauth_authenticate(
         )
     except AuthError:
         raise
-    except Exception as e:
+    except Exception:
+        logger.warning(
+            "OAuth user-info fetch failed for provider %s", provider.name, exc_info=True,
+        )
         raise AuthError(
-            f"Failed to fetch user info from {provider.name}: {e}",
+            f"Failed to fetch user info from {provider.name}",
             code="oauth_user_info_failed",
             status_code=400,
         )

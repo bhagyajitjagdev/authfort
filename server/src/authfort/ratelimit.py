@@ -1,10 +1,13 @@
 """Rate limiting — sliding window counter with pluggable storage."""
 
+import inspect
+import math
+import secrets
 import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +68,9 @@ class RateLimitStore(Protocol):
     """Protocol for rate limit storage backends.
 
     Implementations must be thread-safe for use with sync workers.
+    Both methods may be either sync or async — async implementations
+    (e.g. RedisRateLimitStore) return awaitables, which the integration
+    layer awaits via store_hit().
     """
 
     def hit(self, key: str, limit: RateLimit) -> tuple[bool, int, float]:
@@ -85,6 +91,14 @@ class RateLimitStore(Protocol):
     def reset(self, key: str | None = None) -> None:
         """Reset rate limit state. If key is None, reset all keys."""
         ...
+
+
+async def store_hit(store, key: str, limit: RateLimit) -> tuple[bool, int, float]:
+    """Call store.hit(), awaiting the result if the store is async."""
+    result = store.hit(key, limit)
+    if inspect.isawaitable(result):
+        result = await result
+    return result
 
 
 class InMemoryStore:
@@ -143,3 +157,108 @@ class InMemoryStore:
                 self._buckets.clear()
             else:
                 self._buckets.pop(key, None)
+
+
+class RedisRateLimitStore:
+    """Redis-backed sliding window counter — shared across processes/replicas.
+
+    Uses one sorted set per key: each hit is a ZSET member scored by its
+    timestamp. On each hit (in a MULTI/EXEC pipeline): expired members are
+    pruned, the new hit is added, and the count is checked against the limit.
+    Semantics match InMemoryStore.
+
+    Use this instead of the default InMemoryStore whenever the app runs with
+    more than one process (gunicorn/uvicorn workers, multiple replicas) —
+    per-process in-memory buckets multiply the effective limits by the
+    worker count.
+
+    Usage::
+
+        import redis.asyncio as redis
+        from authfort import AuthFort, RateLimitConfig, RedisRateLimitStore
+
+        auth = AuthFort(
+            database_url=...,
+            rate_limit=RateLimitConfig(),
+            rate_limit_store=RedisRateLimitStore(redis.from_url("redis://localhost:6379")),
+        )
+
+    Or without constructing a client yourself::
+
+        rate_limit_store=RedisRateLimitStore.from_url("redis://localhost:6379")
+
+    Notes:
+        - The client must be an async Redis client (``redis.asyncio.Redis``).
+        - Timestamps use the app server's wall clock; keep clocks NTP-synced
+          across replicas.
+        - Fails closed: if Redis is unreachable, hit() raises and the request
+          errors — rate limiting is a security control, silently allowing
+          traffic on backend failure would defeat it.
+    """
+
+    def __init__(
+        self,
+        client: Any,
+        *,
+        key_prefix: str = "authfort:rl:",
+        time_func: Callable[[], float] | None = None,
+    ) -> None:
+        """
+        Args:
+            client: An async Redis client (``redis.asyncio.Redis`` or
+                compatible duck-typed object).
+            key_prefix: Namespace prefix for all rate limit keys.
+            time_func: Clock override for testing (defaults to time.time —
+                wall clock, since timestamps are shared across processes).
+        """
+        self._redis = client
+        self._prefix = key_prefix
+        self._time_func = time_func or time.time
+
+    @classmethod
+    def from_url(cls, url: str, *, key_prefix: str = "authfort:rl:") -> "RedisRateLimitStore":
+        """Create a store from a Redis URL. Requires the ``redis`` package
+        (install with ``authfort[redis]``)."""
+        try:
+            import redis.asyncio as _redis
+        except ImportError as e:
+            raise ImportError(
+                "RedisRateLimitStore.from_url requires the 'redis' package. "
+                "Install it with: uv add 'authfort[redis]'  (or: pip install redis)"
+            ) from e
+        return cls(_redis.from_url(url), key_prefix=key_prefix)
+
+    async def hit(self, key: str, limit: RateLimit) -> tuple[bool, int, float]:
+        now = self._time_func()
+        window_start = now - limit.window_seconds
+        rkey = self._prefix + key
+        # Unique member per hit — concurrent hits in the same clock tick must
+        # not collapse into one ZSET entry.
+        member = f"{now:.6f}:{secrets.token_hex(4)}"
+
+        async with self._redis.pipeline(transaction=True) as pipe:
+            pipe.zremrangebyscore(rkey, 0, window_start)
+            pipe.zadd(rkey, {member: now})
+            pipe.zcard(rkey)
+            pipe.expire(rkey, math.ceil(limit.window_seconds) + 1)
+            _, _, count, _ = await pipe.execute()
+
+        if count > limit.max_requests:
+            # Over limit — this hit doesn't consume a slot; remove it and
+            # report when the oldest counted hit leaves the window.
+            await self._redis.zrem(rkey, member)
+            oldest = await self._redis.zrange(rkey, 0, 0, withscores=True)
+            if oldest:
+                retry_after = oldest[0][1] + limit.window_seconds - now
+            else:
+                retry_after = limit.window_seconds
+            return (False, 0, max(retry_after, 0.1))
+
+        return (True, limit.max_requests - count, 0.0)
+
+    async def reset(self, key: str | None = None) -> None:
+        if key is not None:
+            await self._redis.delete(self._prefix + key)
+            return
+        async for rkey in self._redis.scan_iter(match=self._prefix + "*"):
+            await self._redis.delete(rkey)

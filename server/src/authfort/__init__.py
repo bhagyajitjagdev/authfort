@@ -1,6 +1,6 @@
 """AuthFort — Authentication and authorization library for Python."""
 
-__version__ = "0.0.29"
+__version__ = "0.0.30"
 
 from authfort.alembic_helper import alembic_filters, register_foreign_tables
 from authfort.authfort import AuthFort
@@ -48,6 +48,7 @@ from authfort.models.user_role import UserRole as AuthUserRole
 from authfort.providers.generic import GenericOAuthProvider, GenericOIDCProvider
 from authfort.providers.github import GitHubProvider
 from authfort.providers.google import GoogleProvider
+from authfort.ratelimit import InMemoryStore, RateLimitStore, RedisRateLimitStore
 
 __all__ = [
     "AuthFort",
@@ -67,6 +68,7 @@ __all__ = [
     "GenericOIDCProvider",
     "GoogleProvider",
     "GitHubProvider",
+    "InMemoryStore",
     "KeyRotated",
     "ListUsersResponse",
     "Login",
@@ -90,6 +92,8 @@ __all__ = [
     "PasswordSet",
     "RateLimitConfig",
     "RateLimitExceeded",
+    "RateLimitStore",
+    "RedisRateLimitStore",
     "RefreshTokenMismatch",
     "RoleAdded",
     "RoleRemoved",

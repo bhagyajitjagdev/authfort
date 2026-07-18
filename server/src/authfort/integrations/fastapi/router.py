@@ -56,14 +56,14 @@ def _create_rate_limit_dep(
     limit_str: str,
 ):
     """Create a FastAPI dependency that enforces IP-based rate limiting."""
-    from authfort.ratelimit import parse_rate_limit
+    from authfort.ratelimit import parse_rate_limit, store_hit
 
     limit = parse_rate_limit(limit_str)
 
     async def check_rate_limit(request: Request):
         ip = get_client_ip(request, config) or "unknown"
         ip_key = f"ip:{ip}:{endpoint_name}"
-        allowed, remaining, retry_after = store.hit(ip_key, limit)
+        allowed, remaining, retry_after = await store_hit(store, ip_key, limit)
 
         if not allowed:
             await hooks.emit(
@@ -96,11 +96,11 @@ async def _check_email_rate_limit(
     ip: str | None,
 ) -> None:
     """Check email-based rate limit. Called inline after body parsing."""
-    from authfort.ratelimit import parse_rate_limit
+    from authfort.ratelimit import parse_rate_limit, store_hit
 
     limit = parse_rate_limit(limit_str)
     email_key = f"email:{email.strip().lower()}:{endpoint_name}"
-    allowed, remaining, retry_after = store.hit(email_key, limit)
+    allowed, remaining, retry_after = await store_hit(store, email_key, limit)
 
     if not allowed:
         await hooks.emit(
