@@ -88,6 +88,13 @@ class AuthFort:
             (default None = falls back to jwt_issuer).
         mfa_backup_code_count: Number of single-use backup codes generated when
             MFA is enrolled or backup codes are regenerated (default 10).
+        mfa_max_failed_attempts: Consecutive failed MFA login verifications before
+            the account's MFA login is temporarily locked (default 5). DB-backed,
+            so the lockout holds across workers/replicas and is independent of the
+            opt-in rate limiter. Set 0 to disable lockout.
+        mfa_lockout_seconds: How long MFA login stays locked after too many failed
+            attempts (default 900 = 15 min). A successful verification resets the
+            failure counter.
     """
 
     def __init__(
@@ -125,6 +132,8 @@ class AuthFort:
         password_history_count: int = 0,
         mfa_issuer: str | None = None,
         mfa_backup_code_count: int = 10,
+        mfa_max_failed_attempts: int = 5,
+        mfa_lockout_seconds: int = 900,
     ) -> None:
         if rsa_key_size < 2048:
             raise ValueError("rsa_key_size must be >= 2048")
@@ -175,6 +184,8 @@ class AuthFort:
             password_history_count=password_history_count,
             mfa_issuer=mfa_issuer,
             mfa_backup_code_count=mfa_backup_code_count,
+            mfa_max_failed_attempts=mfa_max_failed_attempts,
+            mfa_lockout_seconds=mfa_lockout_seconds,
         )
         self._engine = create_engine(database_url, pool_recycle=pool_recycle)
         self._session_factory = create_session_factory(self._engine)

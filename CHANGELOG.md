@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.31] - 2026-07-18
+
+Security hardening of the TOTP MFA flow (Phase 17 review). No breaking API
+changes; one migration adds two columns.
+
+### Security
+- **TOTP replay window closed** — a used code was only rejected as a replay if the reuse fell in the *same* 30-second window, but with the ±1-window drift tolerance a code stays cryptographically valid for up to 90 seconds. A captured code could be replayed for ~30–60s after first use. Replay protection now rejects a reused code for the full 90-second validity horizon (RFC 6238 §5.2, strict one-time use).
+- **MFA brute-force lockout** — `/auth/mfa/verify` no longer accepts unlimited code guesses. After `mfa_max_failed_attempts` consecutive failures (default 5) MFA login is locked for `mfa_lockout_seconds` (default 900) and returns `429 mfa_locked`; a successful verification resets the counter. The counter is DB-backed (columns on `authfort_user_mfa`), so the lockout holds across workers/replicas and is independent of the opt-in, IP-keyed rate limiter. Set `mfa_max_failed_attempts=0` to disable. New `mfa_locked` event (fires once, when the threshold is crossed).
+
+### Fixed
+- **MFA challenge survives key rotation** — `complete_mfa_login` now resolves the challenge token's signing key by its `kid` header instead of assuming the current key. A `rotate_key()` during the 5-minute challenge window no longer invalidates in-flight logins.
+- **`mfa_enabled` JWT claim no longer goes stale** — enabling or disabling MFA now bumps `token_version`, so existing access tokens (which carry `mfa_enabled` for workspace enforcement checks) are refreshed on their next use instead of reflecting the old posture for up to 15 minutes.
+- **Whitespace-tolerant codes** — TOTP codes are normalized (spaces/surrounding whitespace stripped) before verification on login, enrollment confirm, disable, and backup-code regeneration. Pasting the "123 456" form that authenticator apps display now works instead of falling through to the backup-code path and failing.
+- **OAuth MFA redirect uses a URL fragment** — the OAuth callback now returns the `mfa_token` in the URL fragment (`#mfa_token=...`) instead of the query string, keeping it out of server/proxy access logs, browser history sent to servers, and `Referer` headers. The client SDK reads the fragment and still accepts the legacy query-string form for mixed-version deployments.
+
+### Added
+- **server**: `mfa_max_failed_attempts` and `mfa_lockout_seconds` constructor/config options; `MFALocked` event (exported); `failed_attempts` + `locked_until` columns on `authfort_user_mfa` (migration `006_add_mfa_lockout.py`).
+
+### Upgrade notes
+- **Migration required**: run `alembic upgrade head` (adds `failed_attempts` + `locked_until` to `authfort_user_mfa`).
+- **Behavior change (not a breaking API change)**: enabling/disabling MFA now invalidates the acting session's current access token (by design — the `mfa_enabled` claim must not stay stale). Clients using `authfort-client` refresh transparently on the resulting 401; hand-rolled clients should refresh after `enable`/`disable` calls.
+- `authfort-service` is a version-synced release with no code changes.
+
 ## [0.0.30] - 2026-07-18
 
 ### Added
@@ -430,6 +453,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIT License
 - README for all packages
 
+[0.0.31]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.30...v0.0.31
 [0.0.30]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.29...v0.0.30
 [0.0.29]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.28...v0.0.29
 [0.0.28]: https://github.com/bhagyajitjagdev/authfort/compare/v0.0.27...v0.0.28

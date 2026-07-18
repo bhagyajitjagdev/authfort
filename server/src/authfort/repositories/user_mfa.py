@@ -1,7 +1,7 @@
 """UserMFA repository — database operations for TOTP MFA setup."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -82,4 +82,36 @@ async def update_last_used(
     """Update last used code + timestamp after a successful TOTP verification."""
     user_mfa.last_used_at = used_at
     user_mfa.last_used_code = code
+    await session.flush()
+
+
+async def record_failed_attempt(
+    session: AsyncSession,
+    user_mfa: UserMFA,
+    *,
+    max_attempts: int,
+    lockout_seconds: int,
+    now: datetime,
+) -> bool:
+    """Increment the failed-attempt counter; lock if the threshold is crossed.
+
+    Returns True if this call caused a transition into the locked state (so the
+    caller can emit a single mfa_locked event), False otherwise.
+    """
+    user_mfa.failed_attempts += 1
+    newly_locked = False
+    if max_attempts > 0 and user_mfa.failed_attempts >= max_attempts:
+        user_mfa.locked_until = now + timedelta(seconds=lockout_seconds)
+        newly_locked = True
+    await session.flush()
+    return newly_locked
+
+
+async def reset_failed_attempts(
+    session: AsyncSession,
+    user_mfa: UserMFA,
+) -> None:
+    """Clear the failed-attempt counter and any lock (on successful verify)."""
+    user_mfa.failed_attempts = 0
+    user_mfa.locked_until = None
     await session.flush()

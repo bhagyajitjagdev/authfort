@@ -9,6 +9,25 @@ All notable changes to AuthFort are documented here. The format is based on [Kee
 
 ---
 
+## v0.0.31
+
+TOTP MFA security hardening (Phase 17 review). No breaking API changes; one migration adds two columns to `authfort_user_mfa`.
+
+### Security
+- **TOTP replay window closed** — a used code is now rejected as a replay for its full 90-second validity horizon, not just the same 30-second window. Previously a captured code could be replayed for ~30–60s after first use.
+- **MFA brute-force lockout** — after `mfa_max_failed_attempts` consecutive failed verifications (default 5), MFA login locks for `mfa_lockout_seconds` (default 900) and returns `429 mfa_locked`. DB-backed, so it holds across workers/replicas; independent of the IP-keyed rate limiter. Set `mfa_max_failed_attempts=0` to disable. New `mfa_locked` event.
+
+### Fixed
+- **MFA challenge survives key rotation** — the challenge token's signing key is resolved by `kid`, so `rotate_key()` during the challenge window no longer breaks in-flight logins.
+- **`mfa_enabled` claim no longer goes stale** — enabling/disabling MFA bumps `token_version`, refreshing existing access tokens instead of leaving the posture claim stale for up to 15 min.
+- **Whitespace-tolerant codes** — the "123 456" form authenticator apps display is accepted (spaces stripped) on login, confirm, disable, and regenerate.
+- **OAuth MFA redirect uses a URL fragment** (`#mfa_token=...`) instead of the query string, keeping the token out of logs and `Referer`. The SDK reads the fragment and still accepts the legacy query form.
+
+### Upgrade note
+Run `alembic upgrade head` (adds `failed_attempts` + `locked_until`). Enabling/disabling MFA now invalidates the acting session's access token by design — `authfort-client` refreshes transparently; hand-rolled clients should refresh after those calls.
+
+---
+
 ## v0.0.30
 
 ### Added

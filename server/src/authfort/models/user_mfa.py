@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from authfort.models.base import Base
@@ -21,4 +21,6 @@ class UserMFA(Base):
     enabled_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True, default=None)
     last_used_at: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True, default=None)
     last_used_code: Mapped[str | None] = mapped_column(String(6), nullable=True, default=None)
+    failed_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(TZDateTime(), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(TZDateTime(), nullable=False, default=utc_now)

@@ -1154,10 +1154,24 @@ async def complete_mfa_login(
         AuthError: If the user is banned (code: user_banned).
     """
     from authfort.core.mfa import verify_mfa_challenge_token, verify_totp_code, verify_backup_code
+    from authfort.utils import utc_now
     import jwt as pyjwt
 
-    # Resolve the public key for the token's kid
-    signing_key = await _get_or_create_signing_key(session, config)
+    # Resolve the public key by the token's kid so a key rotation between login
+    # and verify (within the 5-min challenge window) doesn't invalidate the
+    # in-flight challenge. Fall back to the current key when the header has no
+    # kid (older tokens).
+    signing_key = None
+    try:
+        header = pyjwt.get_unverified_header(mfa_token)
+        kid = header.get("kid")
+        if kid:
+            signing_key = await signing_key_repo.get_signing_key_by_kid(session, kid)
+    except pyjwt.InvalidTokenError:
+        raise AuthError("Invalid MFA token", code="invalid_mfa_token", status_code=401)
+    if signing_key is None:
+        signing_key = await _get_or_create_signing_key(session, config)
+
     try:
         user_id = verify_mfa_challenge_token(mfa_token, signing_key.public_key, config)
     except pyjwt.ExpiredSignatureError:
@@ -1173,6 +1187,45 @@ async def complete_mfa_login(
     if user_mfa is None or not user_mfa.enabled:
         raise AuthError("MFA not enabled for this user", code="invalid_mfa_token", status_code=401)
 
+    # Brute-force lockout (F2): reject while locked without consuming an attempt.
+    now = utc_now()
+    if user_mfa.locked_until is not None and user_mfa.locked_until > now:
+        raise AuthError(
+            "Too many failed attempts. Try again later.",
+            code="mfa_locked",
+            status_code=429,
+        )
+
+    async def _fail() -> None:
+        """Record a failed attempt, emit events, and raise the generic error.
+
+        The increment is committed here because the caller signals failure by
+        raising AuthError, and the surrounding request session rolls back on
+        exception — without an explicit commit the lockout counter would never
+        accumulate.
+        """
+        newly_locked = await user_mfa_repo.record_failed_attempt(
+            session, user_mfa,
+            max_attempts=config.mfa_max_failed_attempts,
+            lockout_seconds=config.mfa_lockout_seconds,
+            now=now,
+        )
+        await session.commit()
+        if events is not None:
+            from authfort.events import MFAFailed
+            events.collect("mfa_failed", MFAFailed(
+                user_id=user.id, email=user.email, ip_address=ip_address,
+            ))
+            if newly_locked:
+                from authfort.events import MFALocked
+                events.collect("mfa_locked", MFALocked(
+                    user_id=user.id, email=user.email, ip_address=ip_address,
+                    locked_until=user_mfa.locked_until,
+                ))
+
+    # Normalize the submitted code (F5): authenticator apps display "123 456".
+    code = code.strip().replace(" ", "")
+
     # Try TOTP code first, then backup codes
     used_backup = False
     if len(code) == 6 and code.isdigit():
@@ -1181,29 +1234,22 @@ async def complete_mfa_login(
             last_used_at=user_mfa.last_used_at,
             last_used_code=user_mfa.last_used_code,
         ):
-            if events is not None:
-                from authfort.events import MFAFailed
-                events.collect("mfa_failed", MFAFailed(
-                    user_id=user.id, email=user.email, ip_address=ip_address,
-                ))
+            await _fail()
             raise AuthError("Invalid or expired MFA code", code="invalid_mfa_code", status_code=401)
-        # Update replay protection state
-        from authfort.utils import utc_now
-        await user_mfa_repo.update_last_used(session, user_mfa, code=code, used_at=utc_now())
+        # Update replay protection state + clear failure counter
+        await user_mfa_repo.update_last_used(session, user_mfa, code=code, used_at=now)
+        await user_mfa_repo.reset_failed_attempts(session, user_mfa)
     else:
         # Backup code path
         unused_codes = await backup_code_repo.get_unused_backup_codes(session, user_id)
         code_hashes = [bc.code_hash for bc in unused_codes]
         matched_hash = verify_backup_code(code, code_hashes)
         if matched_hash is None:
-            if events is not None:
-                from authfort.events import MFAFailed
-                events.collect("mfa_failed", MFAFailed(
-                    user_id=user.id, email=user.email, ip_address=ip_address,
-                ))
+            await _fail()
             raise AuthError("Invalid MFA code", code="invalid_mfa_code", status_code=401)
         matched_code = next(bc for bc in unused_codes if bc.code_hash == matched_hash)
         await backup_code_repo.mark_backup_code_used(session, matched_code)
+        await user_mfa_repo.reset_failed_attempts(session, user_mfa)
         used_backup = True
 
     if events is not None:
@@ -1294,6 +1340,7 @@ async def enable_mfa_confirm(
     if user_mfa.enabled:
         raise AuthError("MFA is already enabled", code="mfa_already_enabled", status_code=400)
 
+    code = code.strip().replace(" ", "")  # F5
     if not verify_totp_code(
         user_mfa.totp_secret, code,
         last_used_at=None,
@@ -1302,6 +1349,11 @@ async def enable_mfa_confirm(
         raise AuthError("Invalid TOTP code", code="invalid_mfa_code", status_code=400)
 
     await user_mfa_repo.enable_user_mfa(session, user_mfa, code=code)
+
+    # Enabling MFA changes the account's security posture — bump token_version
+    # so the mfa_enabled JWT claim can't stay stale on existing access tokens
+    # (workspace MFA-enforcement checks read that claim). (F4)
+    await user_repo.bump_token_version(session, user_id)
 
     # Generate and store backup codes
     plaintext_codes = generate_backup_codes(config.mfa_backup_code_count)
@@ -1339,6 +1391,7 @@ async def disable_mfa(
     if user_mfa is None or not user_mfa.enabled:
         raise AuthError("MFA is not enabled", code="mfa_not_enabled", status_code=400)
 
+    code = code.strip().replace(" ", "")  # F5
     verified = False
     if len(code) == 6 and code.isdigit():
         verified = verify_totp_code(
@@ -1355,6 +1408,8 @@ async def disable_mfa(
 
     await backup_code_repo.delete_backup_codes_for_user(session, user_id)
     await user_mfa_repo.disable_user_mfa(session, user_mfa)
+    # Disabling MFA changes security posture — refresh the mfa_enabled claim. (F4)
+    await user_repo.bump_token_version(session, user_id)
 
     if events is not None:
         user = await user_repo.get_user_by_id(session, user_id)
@@ -1383,6 +1438,8 @@ async def admin_disable_mfa(
 
     await backup_code_repo.delete_backup_codes_for_user(session, user_id)
     await user_mfa_repo.disable_user_mfa(session, user_mfa)
+    # Disabling MFA changes security posture — refresh the mfa_enabled claim. (F4)
+    await user_repo.bump_token_version(session, user_id)
 
     if events is not None:
         user = await user_repo.get_user_by_id(session, user_id)
@@ -1413,6 +1470,7 @@ async def regenerate_backup_codes(
     if user_mfa is None or not user_mfa.enabled:
         raise AuthError("MFA is not enabled", code="mfa_not_enabled", status_code=400)
 
+    totp_code = totp_code.strip().replace(" ", "")  # F5
     if not verify_totp_code(
         user_mfa.totp_secret, totp_code,
         last_used_at=user_mfa.last_used_at,

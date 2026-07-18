@@ -349,7 +349,11 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the full g
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
-### Latest — v0.0.30
+### Latest — v0.0.31
+
+- **TOTP MFA security hardening** — closed a TOTP replay window (a used code could be replayed for ~30–60s; now rejected for its full 90s horizon); added **MFA brute-force lockout** (`429 mfa_locked` after N failed verifications, DB-backed so it holds across workers, configurable via `mfa_max_failed_attempts`/`mfa_lockout_seconds`, new `mfa_locked` event); the MFA challenge now survives key rotation (kid lookup); enabling/disabling MFA bumps `token_version` so the `mfa_enabled` claim can't go stale; codes are whitespace-tolerant ("123 456" works); and the OAuth MFA redirect carries `mfa_token` in the URL fragment instead of the query string (out of logs/`Referer`). Run `alembic upgrade head`.
+
+### v0.0.30
 
 - **`RedisRateLimitStore`** — Redis-backed rate limiting shared across workers/replicas. The default in-memory store is per-process, so N workers silently multiply every limit by N; multi-process deployments should pass `rate_limit_store=RedisRateLimitStore.from_url("redis://...")` (install `authfort[redis]`). Fails closed on Redis outage. Custom stores can now be injected via the new `rate_limit_store` kwarg (sync or async).
 - **OAuth errors no longer leak provider details** — code-exchange / user-info failures return a generic message; the underlying exception is logged server-side instead of echoed in the response.

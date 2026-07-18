@@ -110,15 +110,27 @@ class AuthClientImpl implements AuthClient {
   private async _doInitialize(): Promise<void> {
     this._setState('loading', null);
 
-    // Check for mfa_token in URL — set by the OAuth callback when MFA is required
+    // Check for mfa_token in the URL — set by the OAuth callback when MFA is
+    // required. The server delivers it in the URL fragment (kept out of logs
+    // and Referer); older servers used the query string, so accept both.
     if (typeof window !== 'undefined' && window.location) {
-      const params = new URLSearchParams(window.location.search);
-      const mfaToken = params.get('mfa_token');
+      const hash = window.location.hash.startsWith('#')
+        ? window.location.hash.slice(1)
+        : window.location.hash;
+      const hashParams = new URLSearchParams(hash);
+      const queryParams = new URLSearchParams(window.location.search);
+
+      const mfaToken = hashParams.get('mfa_token') ?? queryParams.get('mfa_token');
       if (mfaToken) {
         this._mfaToken = mfaToken;
-        params.delete('mfa_token');
-        const newSearch = params.toString();
-        const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+        hashParams.delete('mfa_token');
+        queryParams.delete('mfa_token');
+        const newSearch = queryParams.toString();
+        const newHash = hashParams.toString();
+        const newUrl =
+          window.location.pathname +
+          (newSearch ? `?${newSearch}` : '') +
+          (newHash ? `#${newHash}` : '');
         window.history.replaceState(null, '', newUrl);
         this._setState('mfa_pending', null);
         return;

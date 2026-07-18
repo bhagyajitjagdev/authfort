@@ -80,6 +80,10 @@ class AuthFortConfig:
     trusted_proxy_networks: tuple[IPv4Network | IPv6Network, ...] = ()
     mfa_issuer: str | None = None
     mfa_backup_code_count: int = 10
+    # MFA brute-force lockout (Phase 17 F2) — DB-backed, works across workers.
+    # 0 disables lockout entirely.
+    mfa_max_failed_attempts: int = 5
+    mfa_lockout_seconds: int = 900  # 15 minutes
     # Email deliverability (Phase 14 item 1b) — opt-in MX check.
     email_deliverability_check: bool = False
     email_deliverability_fail_open: bool = True

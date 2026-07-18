@@ -247,6 +247,19 @@ class MFAFailed(Event):
 
 
 @dataclass(frozen=True, slots=True)
+class MFALocked(Event):
+    """Fired when MFA login is temporarily locked after too many failed attempts.
+
+    Emitted at most once per lock (when the threshold is crossed). Use for
+    alerting — a lock means someone with the correct password is guessing codes.
+    """
+    user_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    email: str = ""
+    ip_address: str | None = None
+    locked_until: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class BackupCodeUsed(Event):
     """Fired when a backup code is consumed during MFA login."""
     user_id: uuid.UUID = field(default_factory=uuid.uuid4)
@@ -323,6 +336,7 @@ EVENT_MAP: dict[str, type[Event]] = {
     "mfa_disabled": MFADisabled,
     "mfa_login": MFALogin,
     "mfa_failed": MFAFailed,
+    "mfa_locked": MFALocked,
     "backup_code_used": BackupCodeUsed,
     "backup_codes_regenerated": BackupCodesRegenerated,
     "password_pwned_rejected": PasswordPwnedRejected,

@@ -115,6 +115,8 @@ export const mfaIssuerConfig = `auth = AuthFort(
     database_url="...",
     mfa_issuer="My App",           # shown in authenticator app (default: jwt_issuer)
     mfa_backup_code_count=10,      # backup codes per user (default: 10)
+    mfa_max_failed_attempts=5,     # lock MFA login after N failed codes (0 disables)
+    mfa_lockout_seconds=900,       # how long the lock lasts (default: 15 min)
 )`;
 
 export const clientMFAExample = `const result = await auth.signIn({
@@ -233,16 +235,22 @@ This pattern works well for multi-tenant apps where some workspaces require MFA.
 |--------|------|---------|-------------|
 | `mfa_issuer` | `str \| None` | `None` (uses `jwt_issuer`) | App name shown in the authenticator app |
 | `mfa_backup_code_count` | `int` | `10` | Number of backup codes generated per user |
+| `mfa_max_failed_attempts` | `int` | `5` | Consecutive failed verifications before MFA login locks. `0` disables lockout. |
+| `mfa_lockout_seconds` | `int` | `900` | How long MFA login stays locked after too many failures |
 
 ## Security
 
 | Property | Detail |
 |----------|--------|
 | Algorithm | TOTP (RFC 6238), 30s windows, ±1 window drift tolerance |
-| Replay protection | Same code blocked within the same 30s window |
+| Replay protection | A used code is rejected for its full 90s validity horizon (strict one-time use) |
+| Brute-force lockout | After `mfa_max_failed_attempts` failures, `/auth/mfa/verify` returns `429 mfa_locked` for `mfa_lockout_seconds`. DB-backed (holds across workers/replicas); a success resets the counter |
+| Code input | Whitespace-tolerant — the `123 456` form authenticator apps display is accepted |
 | Backup codes | SHA-256 hashed, single-use, `xxxxx-xxxxx` format |
-| Challenge token | Short-lived JWT (5 min), purpose-scoped — cannot be used as an access token |
-| Rate limiting | `/auth/mfa/verify` is rate-limited via `RateLimitConfig(mfa_verify="5/min")` |
+| Challenge token | Short-lived JWT (5 min), purpose-scoped — cannot be used as an access token; survives key rotation via `kid` lookup |
+| OAuth redirect | `mfa_token` is delivered in the URL **fragment** (`#mfa_token=...`), keeping it out of logs and `Referer` |
+| Posture claim | Enabling/disabling MFA bumps `token_version`, so the `mfa_enabled` JWT claim can't go stale |
+| Rate limiting | `/auth/mfa/verify` is additionally rate-limited via `RateLimitConfig(mfa_verify="5/min")` |
 
 ## Events
 
@@ -251,7 +259,8 @@ This pattern works well for multi-tenant apps where some workspaces require MFA.
 | `mfa_enabled` | User enables MFA |
 | `mfa_disabled` | User or admin disables MFA |
 | `mfa_login` | MFA step completed successfully |
-| `mfa_failed` | TOTP or backup code rejected (good target for account lockout) |
+| `mfa_failed` | TOTP or backup code rejected |
+| `mfa_locked` | MFA login locked after too many failed attempts (fires once, at the threshold) |
 | `backup_code_used` | A backup code was consumed |
 | `backup_codes_regenerated` | Backup codes were regenerated |
 

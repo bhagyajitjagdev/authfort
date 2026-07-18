@@ -127,15 +127,33 @@ class TestVerifyTOTPCode:
         now = datetime.now(UTC)
         assert not verify_totp_code(secret, code, last_used_at=now, last_used_code=code)
 
-    def test_same_code_different_window_allowed(self):
+    def test_replay_rejected_within_horizon(self):
+        # F1: a reused code must be rejected for the full 90s window in which it
+        # could still cryptographically verify — not just the same 30s window.
+        # 61s ago lands in a *different* 30s window but is still inside the
+        # replay horizon, so it must be rejected (this was the security hole).
         from authfort.core.mfa import verify_totp_code
         from datetime import UTC, datetime, timedelta
         secret = pyotp.random_base32()
         totp = pyotp.TOTP(secret)
         code = totp.now()
-        # last_used_at in a previous window (61s ago) — same code is allowed
-        old_window_time = datetime.now(UTC) - timedelta(seconds=61)
-        assert verify_totp_code(secret, code, last_used_at=old_window_time, last_used_code=code)
+        recent = datetime.now(UTC) - timedelta(seconds=61)
+        assert not verify_totp_code(secret, code, last_used_at=recent, last_used_code=code)
+
+    def test_replay_allowed_after_horizon(self):
+        # Same code, but last used beyond the 90s horizon — no longer treated as
+        # a replay. (In practice the TOTP check would also reject a code this
+        # old; _now isolates the horizon logic deterministically.)
+        from authfort.core.mfa import verify_totp_code
+        from datetime import UTC, datetime, timedelta
+        secret = pyotp.random_base32()
+        totp = pyotp.TOTP(secret)
+        code = totp.now()
+        now = datetime.now(UTC)
+        long_ago = now - timedelta(seconds=91)
+        assert verify_totp_code(
+            secret, code, last_used_at=long_ago, last_used_code=code, _now=now,
+        )
 
     def test_different_code_same_window_allowed(self):
         from authfort.core.mfa import verify_totp_code
@@ -580,14 +598,23 @@ class TestMFAHTTPEndpoints:
         return email, r.cookies
 
     async def _enable_mfa_http(self, client, cookies) -> tuple[str, list[str], object]:
-        """Init + confirm MFA over HTTP. Returns (secret, backup_codes, updated_cookies)."""
+        """Init + confirm MFA over HTTP. Returns (secret, backup_codes, updated_cookies).
+
+        Enabling MFA bumps token_version (so the mfa_enabled JWT claim can't go
+        stale), which invalidates the current session's access token. The client
+        SDK transparently refreshes on the resulting 401; here we refresh
+        explicitly so the returned cookies carry a token with the current
+        version for subsequent authenticated calls.
+        """
         r = await client.post("/auth/mfa/init", cookies=cookies)
         assert r.status_code == 200
         secret = r.json()["secret"]
         totp = pyotp.TOTP(secret)
         r2 = await client.post("/auth/mfa/confirm", json={"code": totp.now()}, cookies=r.cookies or cookies)
         assert r2.status_code == 200
-        return secret, r2.json(), r2.cookies or cookies
+        r3 = await client.post("/auth/refresh", cookies=r2.cookies or cookies)
+        assert r3.status_code == 200
+        return secret, r2.json(), r3.cookies
 
     async def test_mfa_init_requires_auth(self, client):
         r = await client.post("/auth/mfa/init")
@@ -697,7 +724,12 @@ class TestMFAHTTPEndpoints:
         )
         assert r.status_code == 204
 
-        r = await client.get("/auth/mfa/status", cookies=updated_cookies)
+        # Disabling MFA bumps token_version too, so refresh before the next
+        # authenticated call (the client SDK does this via 401-retry).
+        r = await client.post("/auth/refresh", cookies=updated_cookies)
+        assert r.status_code == 200
+
+        r = await client.get("/auth/mfa/status", cookies=r.cookies)
         assert r.json()["enabled"] is False
 
     async def test_mfa_regenerate_backup_codes_endpoint(self, client):

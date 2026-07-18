@@ -1,7 +1,6 @@
 """TOTP MFA core logic — secret generation, code verification, backup codes, challenge tokens."""
 
 import hashlib
-import math
 import secrets
 import string
 import uuid
@@ -41,24 +40,35 @@ def get_totp_uri(secret: str, email: str, issuer: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+# A code generated for time-step T verifies (with valid_window=1) at wall-clock
+# windows T-1..T+1 — up to 90 s between the earliest and latest possible
+# acceptance. Replay protection must therefore reject a reused code for the
+# full 90 s horizon, not just the same 30 s window (RFC 6238 §5.2: accepted
+# codes are one-time use).
+TOTP_REPLAY_HORIZON_SECONDS = 90
+
+
 def verify_totp_code(
     secret: str,
     code: str,
     *,
     last_used_at: datetime | None,
     last_used_code: str | None,
+    _now: datetime | None = None,
 ) -> bool:
     """Verify a 6-digit TOTP code.
 
-    Allows ±1 time window (90 s grace) to handle clock drift.
-    Rejects codes that match the last accepted code within the same 30 s window
-    (replay protection).
+    Allows ±1 time window to handle clock drift. Rejects a code that matches
+    the last accepted code within the 90 s replay horizon — the span in which
+    an already-used code could still cryptographically verify (strict one-time
+    use per RFC 6238 §5.2).
 
     Args:
         secret: Base32 TOTP secret for the user.
         code: 6-digit code submitted by the user.
         last_used_at: Timestamp of the last accepted code, for replay detection.
         last_used_code: The last accepted code value.
+        _now: Clock override for tests.
 
     Returns:
         True if the code is valid and not a replay.
@@ -67,12 +77,9 @@ def verify_totp_code(
     if not totp.verify(code, valid_window=1):
         return False
 
-    # Replay protection: reject if same code was used in the current 30 s window
     if last_used_code == code and last_used_at is not None:
-        now = datetime.now(UTC)
-        current_window = math.floor(now.timestamp() / 30)
-        last_window = math.floor(last_used_at.timestamp() / 30)
-        if current_window == last_window:
+        now = _now or datetime.now(UTC)
+        if (now - last_used_at).total_seconds() < TOTP_REPLAY_HORIZON_SECONDS:
             return False
 
     return True

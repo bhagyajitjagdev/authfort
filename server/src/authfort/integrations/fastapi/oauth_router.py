@@ -173,14 +173,18 @@ def create_oauth_router(
             )
             return HTMLResponse(content=html)
 
-        # MFA required — redirect to frontend with mfa_token in query string
+        # MFA required — redirect to frontend with mfa_token in the URL fragment.
+        # A fragment (not a query string) keeps the token out of server/proxy
+        # access logs, browser history entries sent to the server, and Referer
+        # headers — it never leaves the browser. (F6)
         if isinstance(result, MFAChallenge):
             base = state_data.redirect_to or "/"
             if config.frontend_url and base.startswith("/"):
                 base = config.frontend_url + base
-            sep = "&" if "?" in base else "?"
+            # Strip any existing fragment on the target before appending ours.
+            base = base.split("#", 1)[0]
             return RedirectResponse(
-                url=f"{base}{sep}mfa_token={result.mfa_token}",
+                url=f"{base}#mfa_token={result.mfa_token}",
                 status_code=302,
             )
 
